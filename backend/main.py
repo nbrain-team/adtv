@@ -278,47 +278,47 @@ async def generator_process(
     core_content: str = Form(...),
     tone: str = Form(...),
     style: str = Form(...),
-    is_preview: str = Form(...) # Comes in as a string
+    is_preview: str = Form(...) # Comes in as a string 'true' or 'false'
 ):
     try:
-        # The 'key_fields' field is a JSON string of a list
+        preview_mode = is_preview.lower() == 'true'
         key_fields_list = json.loads(key_fields)
-
-        csv_buffer = io.BytesIO(await file.read())
         
-        # Convert string 'true'/'false' to boolean
-        is_preview_bool = is_preview.lower() == 'true'
+        csv_content = await file.read()
+        # Ensure the file pointer is at the beginning if read again
+        csv_buffer = io.BytesIO(csv_content)
 
-        df = await generator_handler.process_csv_and_generate_content(
+        # This single function handles both preview and full generation
+        result_df = await generator_handler.process_csv_and_generate_content(
             csv_file=csv_buffer,
             key_fields=key_fields_list,
             core_content=core_content,
             tone=tone,
             style=style,
-            is_preview=is_preview_bool
+            is_preview=preview_mode
         )
-        
-        if is_preview_bool:
-            # For a preview, return the first generated content as JSON
-            preview_content = df['ai_generated_content'].iloc[0] if not df.empty else ""
-            return {"preview_content": preview_content}
-        else:
-            # For a full run, return the entire CSV as a downloadable file
-            output_buffer = io.StringIO()
-            df.to_csv(output_buffer, index=False)
-            output_buffer.seek(0)
-            
-            return Response(
-                content=output_buffer.getvalue(),
-                media_type="text/csv",
-                headers={"Content-Disposition": "attachment; filename=ai_generated_content.csv"}
-            )
 
-    except ValueError as ve:
-        raise HTTPException(status_code=400, detail=str(ve))
+        if preview_mode:
+            # For preview, return the first generated content as JSON
+            if not result_df.empty and 'ai_generated_content' in result_df.columns:
+                preview_output = result_df['ai_generated_content'].iloc[0]
+                return {"preview_content": preview_output}
+            else:
+                # Handle case where preview fails or returns no content
+                return {"preview_content": "Could not generate preview."}
+        else:
+            # For full generation, convert the DataFrame back to a CSV string
+            output_csv_stream = io.StringIO()
+            result_df.to_csv(output_csv_stream, index=False)
+            output_csv_str = output_csv_stream.getvalue()
+            
+            # The frontend expects a JSON response with the CSV content
+            return {"csv_content": output_csv_str}
+
     except Exception as e:
         logger.error(f"Error in generator processing: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="An internal error occurred during file processing.")
+        # It's crucial to return a JSON response even in case of error
+        raise HTTPException(status_code=500, detail=str(e))
 
 # This is a standalone function to be called from the stream
 def save_chat_history_sync(
