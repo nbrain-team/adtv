@@ -284,7 +284,7 @@ async def generator_process(
     key_fields_list = json.loads(key_fields)
     csv_buffer = io.BytesIO(await file.read())
 
-    # Create the generator
+    # Create the generator; it will handle preview logic internally
     content_generator = generator_handler.generate_content_rows(
         csv_file=csv_buffer,
         key_fields=key_fields_list,
@@ -294,25 +294,8 @@ async def generator_process(
         is_preview=preview_mode
     )
 
-    # For preview, we just need the first generated row. This is fast and doesn't need streaming.
-    if preview_mode:
-        try:
-            header = await anext(content_generator)
-            first_row = await anext(content_generator)
-            
-            # Find the generated content in the row
-            content_index = header.index('ai_generated_content')
-            preview_output = first_row[content_index]
-            
-            return {"preview_content": preview_output}
-        except StopAsyncIteration:
-            logger.error("Generator finished unexpectedly during preview.")
-            return {"preview_content": "Could not generate preview."}
-        except Exception as e:
-            logger.error(f"Error during preview generation: {e}", exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
-
-    # For full generation, we stream the response to avoid timeouts.
+    # ALWAYS stream the response to avoid timeouts. The frontend will handle
+    # closing the connection early for previews.
     async def stream_csv_content():
         try:
             # The first yield is the header

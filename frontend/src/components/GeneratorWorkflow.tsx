@@ -107,27 +107,16 @@ export const GeneratorWorkflow = () => {
             });
 
             if (!response.ok) {
-                // Try to get a detailed error message from the server
-                const errorData = await response.json().catch(() => ({ detail: 'Unknown server error' }));
-                throw new Error(errorData.detail || `Network response was not ok: ${response.statusText}`);
+                const errorText = await response.text().catch(() => 'Failed to get error details from server.');
+                throw new Error(`Server responded with status ${response.status}: ${errorText}`);
             }
 
-            // Handle the preview case (standard JSON response)
-            if (isPreview) {
-                const data = await response.json();
-                setPreviewContent(data.preview_content);
-                setCurrentStep(4); // Move to preview step
-                return; // End here for preview
-            }
-
-            // Handle the full generation case (streaming response)
             const reader = response.body?.getReader();
             const decoder = new TextDecoder();
-            let csvData: string[][] = [];
+            if (!reader) throw new Error("Failed to get response reader.");
 
-            if (!reader) {
-                throw new Error("Failed to get response reader.");
-            }
+            let header: string[] = [];
+            let csvRows: string[][] = [];
 
             while (true) {
                 const { done, value } = await reader.read();
@@ -138,27 +127,49 @@ export const GeneratorWorkflow = () => {
 
                 for (const line of lines) {
                     try {
-                        const parsedLine = JSON.parse(line);
-                        if (parsedLine.type === 'header') {
-                            csvData.push(parsedLine.data);
-                        } else if (parsedLine.type === 'row') {
-                            csvData.push(parsedLine.data);
-                        } else if (parsedLine.type === 'done') {
-                            // Generation is complete
-                        } else if (parsedLine.type === 'error') {
-                            throw new Error(parsedLine.detail || 'An error occurred on the server during generation.');
+                        const parsed = JSON.parse(line);
+
+                        if (parsed.type === 'error') {
+                            throw new Error(parsed.detail || 'An error occurred on the server during generation.');
+                        }
+
+                        if (parsed.type === 'header') {
+                            header = parsed.data;
+                            continue;
+                        }
+
+                        if (parsed.type === 'row') {
+                            if (isPreview) {
+                                const contentIndex = header.indexOf('ai_generated_content');
+                                if (contentIndex > -1) {
+                                    setPreviewContent(parsed.data[contentIndex]);
+                                } else {
+                                    setPreviewContent("Could not extract generated content from preview.");
+                                }
+                                setCurrentStep(4);
+                                reader.cancel(); // We got what we needed for the preview, so close the stream.
+                                return; // Exit the function.
+                            } else {
+                                // For full generation, collect all rows.
+                                if (csvRows.length === 0) csvRows.push(header); // Add header only once.
+                                csvRows.push(parsed.data);
+                            }
+                        }
+
+                        if (parsed.type === 'done') {
+                            if (!isPreview) {
+                                const csvString = Papa.unparse(csvRows);
+                                setFinalCsv(csvString);
+                                setCurrentStep(5);
+                            }
+                            return; // Stream is finished.
                         }
                     } catch (e) {
                         console.error("Failed to parse streamed line:", line, e);
+                        // Continue to the next line in case of a single malformed line.
                     }
                 }
             }
-            
-            // Convert array of arrays to CSV string
-            const csvString = Papa.unparse(csvData);
-            setFinalCsv(csvString);
-            setCurrentStep(5); // Move to download step
-
         } catch (error) {
             console.error('There was a problem with the fetch operation:', error);
             alert(`An error occurred during generation: ${error instanceof Error ? error.message : String(error)}`);
