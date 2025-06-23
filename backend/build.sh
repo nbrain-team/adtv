@@ -6,4 +6,8 @@ set -o errexit
 apt-get update && apt-get install -y ffmpeg
 
 # --- Install Python Dependencies ---
-pip install -r requirements.txt 
+pip install -r requirements.txt
+
+echo "Running database setup..."
+python db_setup.py
+echo "Database setup complete." 

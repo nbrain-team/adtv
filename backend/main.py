@@ -77,88 +77,12 @@ app = FastAPI(
     version="0.2.2",
 )
 
-# --- Migration Logic ---
-def migrate_data(db: Session):
-    """
-    One-time migration of data from old chat_conversations to chat_sessions.
-    This is designed to handle schemas pre- and post-authentication.
-    It now accepts a db session to run within an existing transaction.
-    """
-    inspector = inspect(db.get_bind())
-    if not inspector.has_table("chat_conversations") or not inspector.has_table("chat_sessions"):
-        logger.info("Skipping migration: One or both tables do not exist.")
-        return
-
-    try:
-        # The transaction is now managed by the caller (on_startup)
-        result = db.execute(text("SELECT COUNT(*) FROM chat_conversations"))
-        count = result.scalar_one_or_none()
-
-        if count == 0:
-            logger.info("'chat_conversations' is empty. Dropping old table.")
-            db.execute(text('DROP TABLE chat_conversations'))
-            return
-        
-        logger.info(f"Found {count} records in 'chat_conversations'. Attempting migration.")
-        cols = [c['name'] for c in inspector.get_columns('chat_conversations')]
-
-        if 'user_id' not in cols:
-            logger.warning("Skipping migration: 'user_id' column not found in old table. Renaming table.")
-            db.execute(text('ALTER TABLE chat_conversations RENAME TO chat_conversations_pre_auth'))
-        else:
-            db.execute(text("""
-                INSERT INTO chat_sessions (id, title, created_at, messages, user_id)
-                SELECT id, title, created_at, messages, user_id FROM chat_conversations
-                ON CONFLICT (id) DO NOTHING
-            """))
-            logger.info("Migration successful. Renaming old table to prevent re-runs.")
-            db.execute(text('ALTER TABLE chat_conversations RENAME TO chat_conversations_migrated'))
-            
-    except Exception as e:
-        logger.error(f"Migration failed: {e}", exc_info=True)
-        raise # Re-raise the exception to ensure the transaction in the caller is rolled back
-
-def update_db_schema(db: Session):
-    """
-    Checks the database schema and applies any necessary updates.
-    This is a lightweight, temporary solution for schema migration.
-    """
-    logger.info("Checking database schema for necessary updates...")
-    inspector = inspect(db.get_bind())
-    
-    # Check for 'is_active' column in 'users' table
-    try:
-        users_columns = [c['name'] for c in inspector.get_columns('users')]
-        if 'is_active' not in users_columns:
-            logger.info("Column 'is_active' not found in 'users' table. Adding it now.")
-            # Use a default value for existing rows to avoid issues.
-            db.execute(text('ALTER TABLE users ADD COLUMN is_active BOOLEAN DEFAULT TRUE'))
-            logger.info("Successfully added 'is_active' column to 'users' table.")
-    except Exception as e:
-        # This can happen if the 'users' table doesn't exist yet, which is fine.
-        logger.info(f"Could not check 'users' table, likely because it does not exist yet. Will be created shortly. Details: {e}")
-
 @app.on_event("startup")
 def on_startup():
-    logger.info("Application startup: Initializing database...")
-    db = SessionLocal()
-    try:
-        # 1. Create tables. This is idempotent and safe to run every time.
-        Base.metadata.create_all(bind=db.get_bind())
-        logger.info("Database tables checked/created.")
-        
-        # 2. Update schema. This is a lightweight migration for missing columns.
-        update_db_schema(db)
-
-        # 3. Migrate data from old tables if they exist.
-        migrate_data(db)
-        
-        db.commit()
-    except Exception as e:
-        logger.error(f"An error occurred during startup: {e}", exc_info=True)
-        db.rollback()
-    finally:
-        db.close()
+    # The database setup is now handled by the build script (build.sh)
+    # to ensure the database is ready before the app starts.
+    logger.info("Application startup: Database setup is handled by the build process.")
+    pass
 
 # --- CORS Middleware ---
 app.add_middleware(
