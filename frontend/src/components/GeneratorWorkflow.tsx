@@ -86,6 +86,11 @@ export const GeneratorWorkflow = () => {
         setIsLoading(true);
         setPreviewContent('');
         setFinalCsv(null);
+        if (isPreview) {
+            setCurrentStep(3); // Stay on step 3 for preview
+        } else {
+            setCurrentStep(4); // Move to a "generating" step
+        }
 
         const formData = new FormData();
         formData.append('file', csvFile);
@@ -93,10 +98,7 @@ export const GeneratorWorkflow = () => {
         formData.append('core_content', coreContent);
         formData.append('tone', tone);
         formData.append('style', style);
-        
-        if (isPreview) {
-            formData.append('preview', 'true');
-        }
+        formData.append('is_preview', String(isPreview));
 
         try {
             const response = await fetch('/api/generator/process', {
@@ -105,21 +107,62 @@ export const GeneratorWorkflow = () => {
             });
 
             if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`Network response was not ok: ${errorText}`);
+                // Try to get a detailed error message from the server
+                const errorData = await response.json().catch(() => ({ detail: 'Unknown server error' }));
+                throw new Error(errorData.detail || `Network response was not ok: ${response.statusText}`);
             }
-            
+
+            // Handle the preview case (standard JSON response)
             if (isPreview) {
                 const data = await response.json();
                 setPreviewContent(data.preview_content);
-            } else {
-                const data = await response.json();
-                setFinalCsv(data.csv_content);
-                setCurrentStep(5);
+                setCurrentStep(4); // Move to preview step
+                return; // End here for preview
             }
+
+            // Handle the full generation case (streaming response)
+            const reader = response.body?.getReader();
+            const decoder = new TextDecoder();
+            let csvData: string[][] = [];
+
+            if (!reader) {
+                throw new Error("Failed to get response reader.");
+            }
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                const chunk = decoder.decode(value, { stream: true });
+                const lines = chunk.split('\\n').filter(line => line.trim() !== '');
+
+                for (const line of lines) {
+                    try {
+                        const parsedLine = JSON.parse(line);
+                        if (parsedLine.type === 'header') {
+                            csvData.push(parsedLine.data);
+                        } else if (parsedLine.type === 'row') {
+                            csvData.push(parsedLine.data);
+                        } else if (parsedLine.type === 'done') {
+                            // Generation is complete
+                        } else if (parsedLine.type === 'error') {
+                            throw new Error(parsedLine.detail || 'An error occurred on the server during generation.');
+                        }
+                    } catch (e) {
+                        console.error("Failed to parse streamed line:", line, e);
+                    }
+                }
+            }
+            
+            // Convert array of arrays to CSV string
+            const csvString = Papa.unparse(csvData);
+            setFinalCsv(csvString);
+            setCurrentStep(5); // Move to download step
+
         } catch (error) {
             console.error('There was a problem with the fetch operation:', error);
             alert(`An error occurred during generation: ${error instanceof Error ? error.message : String(error)}`);
+            setCurrentStep(3); // Revert to a safe step on error
         } finally {
             setIsLoading(false);
         }

@@ -280,45 +280,58 @@ async def generator_process(
     style: str = Form(...),
     is_preview: str = Form(...) # Comes in as a string 'true' or 'false'
 ):
-    try:
-        preview_mode = is_preview.lower() == 'true'
-        key_fields_list = json.loads(key_fields)
-        
-        csv_content = await file.read()
-        # Ensure the file pointer is at the beginning if read again
-        csv_buffer = io.BytesIO(csv_content)
+    preview_mode = is_preview.lower() == 'true'
+    key_fields_list = json.loads(key_fields)
+    csv_buffer = io.BytesIO(await file.read())
 
-        # This single function handles both preview and full generation
-        result_df = await generator_handler.process_csv_and_generate_content(
-            csv_file=csv_buffer,
-            key_fields=key_fields_list,
-            core_content=core_content,
-            tone=tone,
-            style=style,
-            is_preview=preview_mode
-        )
+    # Create the generator
+    content_generator = generator_handler.generate_content_rows(
+        csv_file=csv_buffer,
+        key_fields=key_fields_list,
+        core_content=core_content,
+        tone=tone,
+        style=style,
+        is_preview=preview_mode
+    )
 
-        if preview_mode:
-            # For preview, return the first generated content as JSON
-            if not result_df.empty and 'ai_generated_content' in result_df.columns:
-                preview_output = result_df['ai_generated_content'].iloc[0]
-                return {"preview_content": preview_output}
-            else:
-                # Handle case where preview fails or returns no content
-                return {"preview_content": "Could not generate preview."}
-        else:
-            # For full generation, convert the DataFrame back to a CSV string
-            output_csv_stream = io.StringIO()
-            result_df.to_csv(output_csv_stream, index=False)
-            output_csv_str = output_csv_stream.getvalue()
+    # For preview, we just need the first generated row. This is fast and doesn't need streaming.
+    if preview_mode:
+        try:
+            header = await anext(content_generator)
+            first_row = await anext(content_generator)
             
-            # The frontend expects a JSON response with the CSV content
-            return {"csv_content": output_csv_str}
+            # Find the generated content in the row
+            content_index = header.index('ai_generated_content')
+            preview_output = first_row[content_index]
+            
+            return {"preview_content": preview_output}
+        except StopAsyncIteration:
+            logger.error("Generator finished unexpectedly during preview.")
+            return {"preview_content": "Could not generate preview."}
+        except Exception as e:
+            logger.error(f"Error during preview generation: {e}", exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
 
-    except Exception as e:
-        logger.error(f"Error in generator processing: {e}", exc_info=True)
-        # It's crucial to return a JSON response even in case of error
-        raise HTTPException(status_code=500, detail=str(e))
+    # For full generation, we stream the response to avoid timeouts.
+    async def stream_csv_content():
+        try:
+            # The first yield is the header
+            header = await anext(content_generator)
+            yield json.dumps({"type": "header", "data": header}) + "\\n"
+
+            # Yield each subsequent row
+            async for row in content_generator:
+                yield json.dumps({"type": "row", "data": row}) + "\\n"
+            
+            yield json.dumps({"type": "done"}) + "\\n"
+            logger.info("Successfully streamed all CSV content.")
+
+        except Exception as e:
+            logger.error(f"Error during CSV stream: {e}", exc_info=True)
+            error_payload = json.dumps({"type": "error", "detail": str(e)})
+            yield error_payload + "\\n"
+
+    return StreamingResponse(stream_csv_content(), media_type="application/x-ndjson")
 
 # This is a standalone function to be called from the stream
 def save_chat_history_sync(
