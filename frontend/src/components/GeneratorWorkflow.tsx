@@ -38,6 +38,20 @@ const FileInput = ({ onFileSelect, disabled }: { onFileSelect: (file: File) => v
     );
 };
 
+// Custom function to safely convert an array of arrays to a CSV string
+// This avoids using Papa.unparse which can cause CSP issues.
+const arrayToCsv = (data: string[][]): string => {
+    return data.map(row =>
+        row.map(field => {
+            const str = String(field === null || field === undefined ? '' : field);
+            // Handle fields containing commas, quotes, or newlines
+            if (/[",\\n]/.test(str)) {
+                return `"${str.replace(/"/g, '""')}"`;
+            }
+            return str;
+        }).join(',')
+    ).join('\\r\\n');
+};
 
 export const GeneratorWorkflow = () => {
     const [csvFile, setCsvFile] = useState<File | null>(null);
@@ -137,7 +151,7 @@ export const GeneratorWorkflow = () => {
                             }
                         } else if (parsed.type === 'done') {
                             if (!isPreview) {
-                                const csvString = Papa.unparse(csvRows);
+                                const csvString = arrayToCsv(csvRows);
                                 setFinalCsv(csvString);
                                 setCurrentStep(5);
                             }
@@ -235,6 +249,8 @@ export const GeneratorWorkflow = () => {
                             Write your core message. Use placeholders for the Key Fields you selected above.
                         </Text>
                         <TextArea
+                            id="core-content"
+                            name="core-content"
                             placeholder={placeholderText}
                             value={coreContent}
                             onChange={(e) => setCoreContent(e.target.value)}
@@ -243,9 +259,9 @@ export const GeneratorWorkflow = () => {
                         />
                         <Flex gap="4" align="center">
                             <Box>
-                                <Text as="label" size="2" weight="bold" mb="1" style={{ display: 'block' }}>Tone</Text>
+                                <Text as="label" htmlFor="tone-select" size="2" weight="bold" mb="1" style={{ display: 'block' }}>Tone</Text>
                                 <Select.Root value={tone} onValueChange={setTone}>
-                                    <Select.Trigger />
+                                    <Select.Trigger id="tone-select" name="tone"/>
                                     <Select.Content>
                                         <Select.Item value="Professional">Professional</Select.Item>
                                         <Select.Item value="Casual">Casual</Select.Item>
@@ -254,9 +270,9 @@ export const GeneratorWorkflow = () => {
                                 </Select.Root>
                             </Box>
                             <Box>
-                                <Text as="label" size="2" weight="bold" mb="1" style={{ display: 'block' }}>Style</Text>
+                                <Text as="label" htmlFor="style-select" size="2" weight="bold" mb="1" style={{ display: 'block' }}>Style</Text>
                                 <Select.Root value={style} onValueChange={setStyle}>
-                                    <Select.Trigger />
+                                    <Select.Trigger id="style-select" name="style"/>
                                     <Select.Content>
                                         <Select.Item value="Paragraph">Paragraph</Select.Item>
                                         <Select.Item value="Bullet Points">Bullet Points</Select.Item>
