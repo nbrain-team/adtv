@@ -117,57 +117,52 @@ export const GeneratorWorkflow = () => {
 
             let header: string[] = [];
             let csvRows: string[][] = [];
-
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-
-                const chunk = decoder.decode(value, { stream: true });
-                const lines = chunk.split('\\n').filter(line => line.trim() !== '');
-
+            
+            const processTextChunk = (text: string): boolean => {
+                const lines = text.split('\\n').filter(line => line.trim() !== '');
                 for (const line of lines) {
                     try {
                         const parsed = JSON.parse(line);
-
-                        if (parsed.type === 'error') {
-                            throw new Error(parsed.detail || 'An error occurred on the server during generation.');
-                        }
-
-                        if (parsed.type === 'header') {
-                            header = parsed.data;
-                            continue;
-                        }
-
-                        if (parsed.type === 'row') {
+                        if (parsed.type === 'error') throw new Error(parsed.detail || 'An error occurred during generation.');
+                        if (parsed.type === 'header') header = parsed.data;
+                        else if (parsed.type === 'row') {
                             if (isPreview) {
                                 const contentIndex = header.indexOf('ai_generated_content');
-                                if (contentIndex > -1) {
-                                    setPreviewContent(parsed.data[contentIndex]);
-                                } else {
-                                    setPreviewContent("Could not extract generated content from preview.");
-                                }
+                                setPreviewContent(contentIndex > -1 ? parsed.data[contentIndex] : "Could not extract content.");
                                 setCurrentStep(4);
-                                reader.cancel(); // We got what we needed for the preview, so close the stream.
-                                return; // Exit the function.
+                                return true; // Stop processing
                             } else {
-                                // For full generation, collect all rows.
-                                if (csvRows.length === 0) csvRows.push(header); // Add header only once.
+                                if (csvRows.length === 0) csvRows.push(header);
                                 csvRows.push(parsed.data);
                             }
-                        }
-
-                        if (parsed.type === 'done') {
+                        } else if (parsed.type === 'done') {
                             if (!isPreview) {
                                 const csvString = Papa.unparse(csvRows);
                                 setFinalCsv(csvString);
                                 setCurrentStep(5);
                             }
-                            return; // Stream is finished.
+                            return true; // Stop processing
                         }
                     } catch (e) {
                         console.error("Failed to parse streamed line:", line, e);
-                        // Continue to the next line in case of a single malformed line.
                     }
+                }
+                return false; // Continue processing
+            };
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (value) {
+                    const chunk = decoder.decode(value, { stream: true });
+                    if (processTextChunk(chunk)) {
+                        if (isPreview) reader.cancel();
+                        break;
+                    }
+                }
+                if (done) {
+                    const finalChunk = decoder.decode();
+                    if (finalChunk) processTextChunk(finalChunk);
+                    break;
                 }
             }
         } catch (error) {
