@@ -60,6 +60,7 @@ export const GeneratorWorkflow = () => {
     const [keyFields, setKeyFields] = useState<string[]>([]);
     const [currentStep, setCurrentStep] = useState(1);
     const [coreContent, setCoreContent] = useState('');
+    const [generationGoal, setGenerationGoal] = useState('');
     const [tone, setTone] = useState('Professional');
     const [style, setStyle] = useState('Paragraph');
     const [isLoading, setIsLoading] = useState(false);
@@ -114,6 +115,7 @@ export const GeneratorWorkflow = () => {
         formData.append('tone', tone);
         formData.append('style', style);
         formData.append('is_preview', String(isPreview));
+        formData.append('generation_goal', generationGoal);
 
         try {
             const apiUrl = import.meta.env.VITE_API_BASE_URL || '';
@@ -259,6 +261,23 @@ export const GeneratorWorkflow = () => {
                             rows={10}
                             style={{ marginBottom: '1rem' }}
                         />
+
+                        <Heading as="h3" size="3" mb="1" mt="2">
+                            Optional: Overall Goal
+                        </Heading>
+                        <Text as="p" size="2" color="gray" mb="3">
+                            Provide high-level instructions for the AI. For example, "Focus on their geographical location" or "Emphasize how our product fits their company's industry."
+                        </Text>
+                        <TextArea
+                            id="generation-goal"
+                            name="generation-goal"
+                            placeholder="e.g., Personalize based on their company's recent news."
+                            value={generationGoal}
+                            onChange={(e) => setGenerationGoal(e.target.value)}
+                            rows={3}
+                            style={{ marginBottom: '1rem' }}
+                        />
+
                         <Flex gap="4" align="center">
                             <Box>
                                 <Text as="label" htmlFor="tone-select" size="2" weight="bold" mb="1" style={{ display: 'block' }}>Tone</Text>

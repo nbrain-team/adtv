@@ -202,7 +202,8 @@ async def generator_process(
     core_content: str = Form(...),
     tone: str = Form(...),
     style: str = Form(...),
-    is_preview: str = Form(...) # Comes in as a string 'true' or 'false'
+    is_preview: str = Form(...), # Comes in as a string 'true' or 'false'
+    generation_goal: str = Form("") # Optional field for extra instructions
 ):
     preview_mode = is_preview.lower() == 'true'
     key_fields_list = json.loads(key_fields)
@@ -215,7 +216,8 @@ async def generator_process(
         core_content=core_content,
         tone=tone,
         style=style,
-        is_preview=preview_mode
+        is_preview=preview_mode,
+        generation_goal=generation_goal
     )
 
     # ALWAYS stream the response to avoid timeouts. The frontend will handle

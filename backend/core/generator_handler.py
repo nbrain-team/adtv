@@ -20,7 +20,8 @@ async def generate_content_rows(
     core_content: str,
     tone: str,
     style: str,
-    is_preview: bool = False
+    is_preview: bool = False,
+    generation_goal: str = ""
 ):
     """
     Reads a CSV, generates personalized content row by row, and yields each
@@ -59,9 +60,18 @@ async def generate_content_rows(
                     temp_content = temp_content.replace(placeholder, str(row[field]))
 
             # Prepare contextual data for the AI
-            contextual_data = {k: v for k, v in row.items() if k not in key_fields}
-            context_str = ", ".join([f"{k}: '{v}'" for k, v in contextual_data.items() if pd.notna(v)])
+            context_data = {k: v for k, v in row.items() if k not in key_fields}
+            context_str = ", ".join([f"{k}: '{v}'" for k, v in context_data.items() if pd.notna(v)])
 
+            # Conditionally add the overall goal to the prompt
+            goal_section = ""
+            if generation_goal:
+                goal_section = f"""
+**Overall Goal for This Personalization:**
+---
+{generation_goal}
+---
+"""
             # Construct the prompt
             prompt = f"""
 Your Task:
@@ -69,7 +79,7 @@ You are an expert copywriter. Your goal is to rewrite and personalize the 'Smart
 Use the 'Contextual Data' provided to make the message highly relevant to the recipient.
 Do NOT simply list the data. Instead, weave the information naturally into the template to make it sound personal and compelling.
 Maintain the core message and offer of the original template.
-
+{goal_section}
 **Contextual Data for This Prospect:**
 ---
 {context_str}
