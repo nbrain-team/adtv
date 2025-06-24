@@ -41,11 +41,11 @@ export const Sidebar = ({ onNewChat }: { onNewChat: () => void }) => {
                 <button className="sidebar-icon" title="Knowledge Base" onClick={() => navigate('/knowledge')}>
                     <img src="/new-icons/4.png" alt="Upload" />
                 </button>
-                <button className="sidebar-icon" title="AI Generator" onClick={() => navigate('/generator')}>
-                    <img src="/new-icons/7.png" alt="AI Generator" />
+                <button className="sidebar-icon" title="1-2-1 Email Personalizer" onClick={() => navigate('/agents')}>
+                    <img src="/new-icons/7.png" alt="1-2-1 Email Personalizer" />
                 </button>
-                <button className="sidebar-icon" title="Icon 3">
-                    <img src="/new-icons/3.png" alt="Icon 3" />
+                <button className="sidebar-icon" title="Automation Agents" onClick={() => navigate('/agents')}>
+                    <img src="/new-icons/3.png" alt="Automation Agents" />
                 </button>
             </Flex>
         </Flex>
