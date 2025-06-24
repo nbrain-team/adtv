@@ -224,19 +224,19 @@ async def generator_process(
         try:
             # The first yield is the header
             header = await anext(content_generator)
-            yield json.dumps({"type": "header", "data": header}) + "\\n"
+            yield json.dumps({"type": "header", "data": header}) + "\n"
 
             # Yield each subsequent row
             async for row in content_generator:
-                yield json.dumps({"type": "row", "data": row}) + "\\n"
+                yield json.dumps({"type": "row", "data": row}) + "\n"
             
-            yield json.dumps({"type": "done"}) + "\\n"
+            yield json.dumps({"type": "done"}) + "\n"
             logger.info("Successfully streamed all CSV content.")
 
         except Exception as e:
             logger.error(f"Error during CSV stream: {e}", exc_info=True)
             error_payload = json.dumps({"type": "error", "detail": str(e)})
-            yield error_payload + "\\n"
+            yield error_payload + "\n"
 
     return StreamingResponse(stream_csv_content(), media_type="application/x-ndjson")
 

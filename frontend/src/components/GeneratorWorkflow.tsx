@@ -134,7 +134,7 @@ export const GeneratorWorkflow = () => {
             let csvRows: string[][] = [];
             
             const processTextChunk = (text: string): boolean => {
-                const lines = text.split('\\n').filter(line => line.trim() !== '');
+                const lines = text.split('\n').filter(line => line.trim() !== '');
                 for (const line of lines) {
                     try {
                         const parsed = JSON.parse(line);
