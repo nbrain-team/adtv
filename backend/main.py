@@ -200,8 +200,6 @@ async def generator_process(
     file: UploadFile = File(...),
     key_fields: str = Form(...),
     core_content: str = Form(...),
-    tone: str = Form(...),
-    style: str = Form(...),
     is_preview: str = Form(...), # Comes in as a string 'true' or 'false'
     generation_goal: str = Form("") # Optional field for extra instructions
 ):
@@ -214,8 +212,6 @@ async def generator_process(
         csv_file=csv_buffer,
         key_fields=key_fields_list,
         core_content=core_content,
-        tone=tone,
-        style=style,
         is_preview=preview_mode,
         generation_goal=generation_goal
     )

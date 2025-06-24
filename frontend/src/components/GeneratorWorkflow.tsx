@@ -61,8 +61,6 @@ export const GeneratorWorkflow = () => {
     const [currentStep, setCurrentStep] = useState(1);
     const [coreContent, setCoreContent] = useState('');
     const [generationGoal, setGenerationGoal] = useState('');
-    const [tone, setTone] = useState('Professional');
-    const [style, setStyle] = useState('Paragraph');
     const [isLoading, setIsLoading] = useState(false);
     const [previewContent, setPreviewContent] = useState('');
     const [finalCsv, setFinalCsv] = useState<string | null>(null);
@@ -112,8 +110,6 @@ export const GeneratorWorkflow = () => {
         formData.append('file', csvFile);
         formData.append('key_fields', JSON.stringify(keyFields));
         formData.append('core_content', coreContent);
-        formData.append('tone', tone);
-        formData.append('style', style);
         formData.append('is_preview', String(isPreview));
         formData.append('generation_goal', generationGoal);
 
@@ -135,51 +131,50 @@ export const GeneratorWorkflow = () => {
 
             let header: string[] = [];
             let csvRows: string[][] = [];
-            
-            const processTextChunk = (text: string): boolean => {
-                const lines = text.split('\n').filter(line => line.trim() !== '');
-                for (const line of lines) {
-                    try {
-                        const parsed = JSON.parse(line);
-                        if (parsed.type === 'error') throw new Error(parsed.detail || 'An error occurred during generation.');
-                        if (parsed.type === 'header') header = parsed.data;
-                        else if (parsed.type === 'row') {
-                            if (isPreview) {
-                                const contentIndex = header.indexOf('ai_generated_content');
-                                setPreviewContent(contentIndex > -1 ? parsed.data[contentIndex] : "Could not extract content.");
-                                setCurrentStep(4);
-                                return true; // Stop processing
-                            } else {
-                                if (csvRows.length === 0) csvRows.push(header);
-                                csvRows.push(parsed.data);
-                            }
-                        } else if (parsed.type === 'done') {
-                            if (!isPreview) {
-                                const csvString = arrayToCsv(csvRows);
-                                setFinalCsv(csvString);
-                                setCurrentStep(5);
-                            }
-                            return true; // Stop processing
+            let buffer = '';
+
+            const processLine = (line: string) => {
+                if (line.trim() === '') return;
+                try {
+                    const parsed = JSON.parse(line);
+                    if (parsed.type === 'error') throw new Error(parsed.detail || 'An error occurred during generation.');
+                    if (parsed.type === 'header') header = parsed.data;
+                    else if (parsed.type === 'row') {
+                        if (isPreview) {
+                            const contentIndex = header.indexOf('ai_generated_content');
+                            setPreviewContent(contentIndex > -1 ? parsed.data[contentIndex] : "Could not extract content.");
+                            setCurrentStep(4);
+                        } else {
+                            if (csvRows.length === 0) csvRows.push(header);
+                            csvRows.push(parsed.data);
                         }
-                    } catch (e) {
-                        console.error("Failed to parse streamed line:", line, e);
+                    } else if (parsed.type === 'done' && !isPreview) {
+                        const csvString = arrayToCsv(csvRows);
+                        setFinalCsv(csvString);
+                        setCurrentStep(5);
                     }
+                } catch (e) {
+                    console.error("Failed to parse streamed line:", line, e);
                 }
-                return false; // Continue processing
             };
 
             while (true) {
                 const { done, value } = await reader.read();
-                if (value) {
-                    const chunk = decoder.decode(value, { stream: true });
-                    if (processTextChunk(chunk)) {
-                        if (isPreview) reader.cancel();
-                        break;
-                    }
-                }
                 if (done) {
-                    const finalChunk = decoder.decode();
-                    if (finalChunk) processTextChunk(finalChunk);
+                    if (buffer) processLine(buffer); // Process any remaining text
+                    break;
+                }
+                
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop() || ''; // Keep the last, possibly incomplete, line for the next iteration
+
+                for (const line of lines) {
+                    processLine(line);
+                }
+
+                if (isPreview && previewContent) {
+                    reader.cancel();
                     break;
                 }
             }
@@ -278,29 +273,6 @@ export const GeneratorWorkflow = () => {
                             style={{ marginBottom: '1rem' }}
                         />
 
-                        <Flex gap="4" align="center">
-                            <Box>
-                                <Text as="label" htmlFor="tone-select" size="2" weight="bold" mb="1" style={{ display: 'block' }}>Tone</Text>
-                                <Select.Root value={tone} onValueChange={setTone}>
-                                    <Select.Trigger id="tone-select" name="tone"/>
-                                    <Select.Content>
-                                        <Select.Item value="Professional">Professional</Select.Item>
-                                        <Select.Item value="Casual">Casual</Select.Item>
-                                        <Select.Item value="Enthusiastic">Enthusiastic</Select.Item>
-                                    </Select.Content>
-                                </Select.Root>
-                            </Box>
-                            <Box>
-                                <Text as="label" htmlFor="style-select" size="2" weight="bold" mb="1" style={{ display: 'block' }}>Style</Text>
-                                <Select.Root value={style} onValueChange={setStyle}>
-                                    <Select.Trigger id="style-select" name="style"/>
-                                    <Select.Content>
-                                        <Select.Item value="Paragraph">Paragraph</Select.Item>
-                                        <Select.Item value="Bullet Points">Bullet Points</Select.Item>
-                                    </Select.Content>
-                                </Select.Root>
-                            </Box>
-                        </Flex>
                         <Button onClick={() => handleGenerate(true)} disabled={isLoading || !coreContent} mt="3">
                             {isLoading ? <Spinner /> : 'Preview First Row'}
                         </Button>

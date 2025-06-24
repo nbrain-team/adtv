@@ -18,8 +18,6 @@ async def generate_content_rows(
     csv_file: io.BytesIO,
     key_fields: list[str],
     core_content: str,
-    tone: str,
-    style: str,
     is_preview: bool = False,
     generation_goal: str = ""
 ):
@@ -76,9 +74,9 @@ async def generate_content_rows(
             prompt = f"""
 Your Task:
 You are an expert copywriter. Your goal is to rewrite and personalize the 'Smart Template' below.
-Use the 'Contextual Data' provided to make the message highly relevant to the recipient.
-Do NOT simply list the data. Instead, weave the information naturally into the template to make it sound personal and compelling.
-Maintain the core message and offer of the original template.
+It is crucial that you **maintain the original tone, style, length, and overall structure** of the Smart Template.
+The personalization should be subtle and natural, using the 'Contextual Data' to make the message highly relevant to the recipient.
+Do NOT simply list the data. Instead, weave the information naturally into the template.
 {goal_section}
 **Contextual Data for This Prospect:**
 ---
@@ -90,10 +88,7 @@ Maintain the core message and offer of the original template.
 {temp_content}
 ---
 
-**Instructions:**
-- The final tone of your writing must be: {tone}
-- The final output style must be a: {style}
-- IMPORTANT: The output should ONLY be the final rewritten text. Do not add any of your own commentary, greetings, or sign-offs.
+**IMPORTANT:** The output should ONLY be the final rewritten text. Do not add any of your own commentary, greetings, or sign-offs.
 """
             messages = [
                 SystemMessage(content=GENERATOR_PERSONA),
