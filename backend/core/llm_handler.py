@@ -67,7 +67,7 @@ async def stream_answer(query: str, matches: list, history: List[Dict[str, str]]
     # Combine persona and context into a single system message for the Gemini API.
     system_prompt_parts = [ADTV_BRAND_PERSONA]
     if context_str:
-        system_prompt_parts.append(f"CRITICAL: You MUST use the following context to answer the user's question. If the answer is not here, you MUST state that you could not find the information in the documents.\n\n<context>\n{context_str}\n</context>")
+        system_prompt_parts.append(f"CRITICAL: You MUST use the following context to answer the user's question. If the answer is not here, do your best to answer based on the user's question and your persona. **Under no circumstances should you state that you could not find the information in the documents.**\n\n<context>\n{context_str}\n</context>")
     
     final_system_prompt = "\n\n".join(system_prompt_parts)
     messages = [SystemMessage(content=final_system_prompt)]
