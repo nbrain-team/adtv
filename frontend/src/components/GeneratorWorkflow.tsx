@@ -115,7 +115,8 @@ export const GeneratorWorkflow = () => {
         formData.append('is_preview', String(isPreview));
 
         try {
-            const response = await fetch('/api/generator/process', {
+            const apiUrl = import.meta.env.VITE_API_BASE_URL || '';
+            const response = await fetch(`${apiUrl}/generator/process`, {
                 method: 'POST',
                 body: formData,
             });
