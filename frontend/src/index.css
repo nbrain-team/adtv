@@ -63,4 +63,22 @@ code {
 .sidebar-icon:hover {
     background-color: var(--primary-light);
     color: var(--primary);
+}
+
+.markdown-preview p {
+  margin-bottom: 1rem;
+}
+
+.markdown-preview ul, .markdown-preview ol {
+  margin-left: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.markdown-preview li {
+  margin-bottom: 0.25rem;
+}
+
+.markdown-preview h1, .markdown-preview h2, .markdown-preview h3 {
+  margin-bottom: 1rem;
+  font-weight: bold;
 } 

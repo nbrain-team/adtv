@@ -2,6 +2,7 @@ import { Box, Card, Text, Button, Flex, TextArea, Select, Spinner, Checkbox, Hea
 import { UploadIcon, DownloadIcon } from '@radix-ui/react-icons';
 import { useState, useRef, ChangeEvent } from 'react';
 import Papa from 'papaparse';
+import ReactMarkdown from 'react-markdown';
 
 // A modern, reusable file input component
 const FileInput = ({ onFileSelect, disabled }: { onFileSelect: (file: File) => void, disabled: boolean }) => {
@@ -292,7 +293,9 @@ export const GeneratorWorkflow = () => {
                     <Box>
                         <Heading as="h2" size="4" mb="1" mt="4">Step 4: Preview</Heading>
                         <Card>
-                            <Text size="2">{previewContent}</Text>
+                            <Box className="markdown-preview" p="3">
+                                <ReactMarkdown>{previewContent}</ReactMarkdown>
+                            </Box>
                         </Card>
                         <Button onClick={() => handleGenerate(false)} disabled={isLoading} mt="3">
                             {isLoading ? <Spinner /> : 'Looks Good! Generate Full CSV'}
