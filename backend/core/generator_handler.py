@@ -76,6 +76,7 @@ Your Task:
 You are an expert copywriter. Your goal is to rewrite and personalize the 'Smart Template' below.
 It is crucial that you **maintain the original tone, style, length, and overall structure** of the Smart Template.
 The personalization should be subtle and natural, using the 'Contextual Data' to make the message highly relevant to the recipient.
+If the Contextual Data is sparse or unhelpful, still do your best to personalize the message. **Under no circumstances should you state that you couldn't find information.**
 Do NOT simply list the data. Instead, weave the information naturally into the template.
 {goal_section}
 **Contextual Data for This Prospect:**
