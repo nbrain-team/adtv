@@ -2,16 +2,31 @@ import requests
 from bs4 import BeautifulSoup
 import re
 from typing import List, Dict, Optional, Any
+import random
 
-# Using a generic user-agent to mimic a browser
-HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-}
+# --- Enhanced Scraping Configuration ---
+
+# A list of common user-agents to rotate through
+USER_AGENTS = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:91.0) Gecko/20100101 Firefox/91.0',
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 14_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1'
+]
 
 def get_soup(url: str) -> Optional[BeautifulSoup]:
-    """Fetches a URL and returns a BeautifulSoup object."""
+    """Fetches a URL and returns a BeautifulSoup object with rotated headers."""
     try:
-        response = requests.get(url, headers=HEADERS, timeout=15)
+        headers = {
+            'User-Agent': random.choice(USER_AGENTS),
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Referer': 'https://www.google.com/',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+            'DNT': '1' # Do Not Track header
+        }
+        response = requests.get(url, headers=headers, timeout=20)
         response.raise_for_status()
         return BeautifulSoup(response.content, 'lxml')
     except (requests.RequestException, requests.exceptions.Timeout) as e:
@@ -29,9 +44,9 @@ def scrape_realtor_list_page(list_url: str) -> List[str]:
 
     profile_links = set()
     # This selector targets links within a common agent card structure.
-    for a_tag in soup.select('a.agent-card-link, a[data-testid="agent-card-link"], .agent-listing a'):
+    for a_tag in soup.select('.agent-card-details-container a, a.for-sale-card-link, .agent-card a'):
         href = a_tag.get('href')
-        if href and href.startswith('/real-estate-agents/'):
+        if href and ('/real-estate-agents/' in href or '/agent/' in href):
             # Ensure we construct an absolute URL
             if not href.startswith('http'):
                 href = f"https://www.homes.com{href}"
