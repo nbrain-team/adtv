@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Box, Flex, Text, Heading, Card, Grid } from '@radix-ui/themes';
 import { ArrowLeftIcon } from '@radix-ui/react-icons';
 import { GeneratorWorkflow } from '../components/GeneratorWorkflow';
+import { RealtorImporterWorkflow } from '../components/RealtorImporter/RealtorImporterWorkflow';
 
 // Define the structure for an agent
 interface Agent {
@@ -20,6 +21,12 @@ const agents: Agent[] = [
     component: <GeneratorWorkflow />,
   },
   {
+    id: 'realtor-importer',
+    name: 'Realtor Contact Importer',
+    description: 'Scrape realtor contact data from a homes.com search result page.',
+    component: <RealtorImporterWorkflow />,
+  },
+  {
     id: 'pr-outreach',
     name: 'PR Outreach Agent',
     description: 'Create and distribute personalized press releases. (Coming Soon)',
@@ -32,7 +39,7 @@ const AgentsPage = () => {
 
   const handleSelectAgent = (agentId: string) => {
     const agent = agents.find(a => a.id === agentId);
-    if (agent && agent.id !== 'pr-outreach') { // Disable PR agent for now
+    if (agent && agent.id !== 'pr-outreach') {
       setSelectedAgent(agent);
     } else {
       // Optionally, show an alert or do nothing for disabled agents

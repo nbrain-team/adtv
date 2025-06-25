@@ -19,6 +19,7 @@ from fastapi.concurrency import run_in_threadpool
 
 from core import pinecone_manager, llm_handler, processor, auth, generator_handler
 from core.database import Base, get_db, engine, User, ChatSession, SessionLocal
+from realtor_importer.api import router as realtor_importer_router
 
 load_dotenv()
 
@@ -91,6 +92,14 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+# --- Routers ---
+app.include_router(
+    realtor_importer_router,
+    prefix="/realtor-importer",
+    tags=["Realtor Importer"],
+    dependencies=[Depends(auth.get_current_active_user)]
 )
 
 @app.get("/")
