@@ -1,8 +1,10 @@
-import requests
 from bs4 import BeautifulSoup
 import re
 from typing import List, Dict, Optional, Any
-import random
+import time
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
 
 # --- Enhanced Scraping Configuration ---
 
@@ -14,36 +16,50 @@ USER_AGENTS = [
     'Mozilla/5.0 (iPhone; CPU iPhone OS 14_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1'
 ]
 
-def get_soup(url: str) -> Optional[BeautifulSoup]:
-    """Fetches a URL and returns a BeautifulSoup object with rotated headers."""
+def get_soup_with_selenium(url: str) -> Optional[BeautifulSoup]:
+    """
+    Fetches a URL using a headless Selenium-controlled Chrome browser
+    and returns a BeautifulSoup object.
+    """
+    chrome_options = Options()
+    chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--no-sandbox") # Required for running as root in a Docker container
+    chrome_options.add_argument("--disable-dev-shm-usage") # Overcomes limited resource problems
+    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+
+    # The webdriver manager is not used here to avoid issues in Render's environment.
+    # The build script ensures Chrome is installed system-wide.
+    driver = None
     try:
-        headers = {
-            'User-Agent': random.choice(USER_AGENTS),
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Referer': 'https://www.google.com/',
-            'Connection': 'keep-alive',
-            'Upgrade-Insecure-Requests': '1',
-            'DNT': '1' # Do Not Track header
-        }
-        response = requests.get(url, headers=headers, timeout=20)
-        response.raise_for_status()
-        return BeautifulSoup(response.content, 'lxml')
-    except (requests.RequestException, requests.exceptions.Timeout) as e:
-        print(f"Error fetching {url}: {e}")
+        driver = webdriver.Chrome(options=chrome_options)
+        driver.get(url)
+        # Wait for dynamic content to load. Adjust time as needed.
+        time.sleep(5) 
+        page_source = driver.page_source
+        return BeautifulSoup(page_source, 'lxml')
+    except Exception as e:
+        print(f"Error fetching {url} with Selenium: {e}")
         return None
+    finally:
+        if driver:
+            driver.quit()
+
 
 def scrape_realtor_list_page(list_url: str) -> List[str]:
     """
     Scrapes a homes.com list page to find all individual realtor profile links.
     NOTE: These selectors are based on anticipated page structure and may need adjustment.
     """
-    soup = get_soup(list_url)
+    print(f"Attempting to scrape list page with Selenium: {list_url}")
+    soup = get_soup_with_selenium(list_url)
     if not soup:
+        print("Failed to get page soup with Selenium.")
         return []
 
     profile_links = set()
     # This selector targets links within a common agent card structure.
+    # Updated selector to be more specific to what has been observed on homes.com-style sites.
     for a_tag in soup.select('.agent-card-details-container a, a.for-sale-card-link, .agent-card a'):
         href = a_tag.get('href')
         if href and ('/real-estate-agents/' in href or '/agent/' in href):
@@ -52,6 +68,7 @@ def scrape_realtor_list_page(list_url: str) -> List[str]:
                 href = f"https://www.homes.com{href}"
             profile_links.add(href)
     
+    print(f"Found {len(profile_links)} profile links.")
     return list(profile_links)
 
 
@@ -71,7 +88,7 @@ def scrape_realtor_profile_page(profile_url: str) -> Optional[Dict[str, Any]]:
     Scrapes a single realtor profile page for their details.
     NOTE: These selectors are based on anticipated page structure and may need adjustment.
     """
-    soup = get_soup(profile_url)
+    soup = get_soup_with_selenium(profile_url)
     if not soup:
         return None
 
