@@ -15,7 +15,7 @@ services:
 
   - type: web
     name: adtv-backend
-    env: python
+    env: nix
     region: oregon
     plan: standard
     rootDir: backend
