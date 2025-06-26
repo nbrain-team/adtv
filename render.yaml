@@ -18,6 +18,7 @@ services:
     env: nix
     region: oregon
     plan: standard
+    clearCache: true
     rootDir: backend
     buildCommand: chmod +x build.sh && ./build.sh
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
