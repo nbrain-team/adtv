@@ -2,6 +2,7 @@ from bs4 import BeautifulSoup
 import re
 from typing import List, Dict, Optional, Any
 import time
+import os
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
@@ -20,6 +21,7 @@ def get_soup_with_selenium(url: str) -> Optional[BeautifulSoup]:
     """
     Fetches a URL using a headless Selenium-controlled Chrome browser
     and returns a BeautifulSoup object.
+    Now configured to use Chrome/Chromedriver from Nix environment variables.
     """
     chrome_options = Options()
     chrome_options.add_argument("--headless")
@@ -28,11 +30,23 @@ def get_soup_with_selenium(url: str) -> Optional[BeautifulSoup]:
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
 
+    chromedriver_path = os.getenv("CHROMEDRIVER_PATH")
+    chrome_bin_path = os.getenv("CHROME_BIN")
+
+    if not chromedriver_path:
+        # This will now fail loudly during development if Nix env isn't set up.
+        raise ValueError("CHROMEDRIVER_PATH environment variable not set. Is the Nix environment active?")
+    
+    if chrome_bin_path:
+        chrome_options.binary_location = chrome_bin_path
+
+    service = Service(executable_path=chromedriver_path)
+
     # The webdriver manager is not used here to avoid issues in Render's environment.
     # The build script ensures Chrome is installed system-wide.
     driver = None
     try:
-        driver = webdriver.Chrome(options=chrome_options)
+        driver = webdriver.Chrome(service=service, options=chrome_options)
         driver.get(url)
         # Wait for dynamic content to load. Adjust time as needed.
         time.sleep(5) 
