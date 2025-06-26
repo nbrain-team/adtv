@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Box, Flex, Button, TextField, Text, Heading, Card, Table, Callout, Badge } from '@radix-ui/themes';
 import { InfoCircledIcon } from '@radix-ui/react-icons';
 import api from '../../api';
+import SalesFilter from './SalesFilter';
 
 // Define types based on backend schemas
 interface RealtorContact {
@@ -89,78 +90,83 @@ export const RealtorImporterWorkflow = () => {
   const activeJob = useMemo(() => jobs.find(j => j.status === 'IN_PROGRESS'), [jobs]);
 
   return (
-    <Flex gap="5">
-      <Box width="35%">
-        <Heading size="5" mb="3">Scraping Jobs</Heading>
-        <Card>
-            <form onSubmit={handleCreateJob}>
-            <Flex direction="column" gap="3">
-                <TextField.Root 
-                    placeholder="Enter homes.com search URL..." 
-                    value={newUrl}
-                    onChange={(e) => setNewUrl(e.target.value)}
-                    disabled={!!activeJob}
-                />
-                <Button disabled={isLoading || !!activeJob}>
-                    {isLoading ? 'Starting...' : 'Start New Scrape'}
-                </Button>
-            </Flex>
-            </form>
-            {activeJob && (
-                <Callout.Root color="blue" mt="3">
-                    <Callout.Icon><InfoCircledIcon /></Callout.Icon>
-                    <Callout.Text>A job is currently in progress. Please wait for it to complete before starting a new one.</Callout.Text>
-                </Callout.Root>
-            )}
-        </Card>
-        
-        <Flex direction="column" gap="3" mt="4">
-            {jobs.map(job => (
-                <Card key={job.id} onClick={() => fetchJobDetails(job.id)} style={{cursor: 'pointer'}}>
-                    <Flex justify="between">
-                        <Text size="2" weight="bold" truncate>{job.start_url}</Text>
-                        <Badge color={statusColors[job.status]}>{job.status}</Badge>
-                    </Flex>
-                    <Flex justify="between" mt="2">
-                        <Text size="1" color="gray">Contacts: {job.contact_count}</Text>
-                        <Text size="1" color="gray">{new Date(job.created_at).toLocaleString()}</Text>
-                    </Flex>
-                </Card>
-            ))}
-        </Flex>
+    <div>
+      <Box mb="4">
+        <SalesFilter />
       </Box>
+      <Flex gap="5">
+        <Box width="35%">
+          <Heading size="5" mb="3">Scraping Jobs</Heading>
+          <Card>
+              <form onSubmit={handleCreateJob}>
+              <Flex direction="column" gap="3">
+                  <TextField.Root 
+                      placeholder="Enter homes.com search URL..." 
+                      value={newUrl}
+                      onChange={(e) => setNewUrl(e.target.value)}
+                      disabled={!!activeJob}
+                  />
+                  <Button disabled={isLoading || !!activeJob}>
+                      {isLoading ? 'Starting...' : 'Start New Scrape'}
+                  </Button>
+              </Flex>
+              </form>
+              {activeJob && (
+                  <Callout.Root color="blue" mt="3">
+                      <Callout.Icon><InfoCircledIcon /></Callout.Icon>
+                      <Callout.Text>A job is currently in progress. Please wait for it to complete before starting a new one.</Callout.Text>
+                  </Callout.Root>
+              )}
+          </Card>
+          
+          <Flex direction="column" gap="3" mt="4">
+              {jobs.map(job => (
+                  <Card key={job.id} onClick={() => fetchJobDetails(job.id)} style={{cursor: 'pointer'}}>
+                      <Flex justify="between">
+                          <Text size="2" weight="bold" truncate>{job.start_url}</Text>
+                          <Badge color={statusColors[job.status]}>{job.status}</Badge>
+                      </Flex>
+                      <Flex justify="between" mt="2">
+                          <Text size="1" color="gray">Contacts: {job.contact_count}</Text>
+                          <Text size="1" color="gray">{new Date(job.created_at).toLocaleString()}</Text>
+                      </Flex>
+                  </Card>
+              ))}
+          </Flex>
+        </Box>
 
-      <Box width="65%">
-        <Heading size="5" mb="3">Job Details</Heading>
-        {selectedJob ? (
-            <Card>
-                <Table.Root variant="surface">
-                    <Table.Header>
-                        <Table.Row>
-                            <Table.ColumnHeaderCell>Name</Table.ColumnHeaderCell>
-                            <Table.ColumnHeaderCell>Company</Table.ColumnHeaderCell>
-                            <Table.ColumnHeaderCell>Location</Table.ColumnHeaderCell>
-                            <Table.ColumnHeaderCell>Contact</Table.ColumnHeaderCell>
-                        </Table.Row>
-                    </Table.Header>
-                    <Table.Body>
-                        {selectedJob.realtor_contacts?.map(contact => (
-                            <Table.Row key={contact.id}>
-                                <Table.Cell>{contact.first_name} {contact.last_name}</Table.Cell>
-                                <Table.Cell>{contact.company}</Table.Cell>
-                                <Table.Cell>{contact.city}, {contact.state}</Table.Cell>
-                                <Table.Cell>{contact.cell_phone || contact.email || 'N/A'}</Table.Cell>
-                            </Table.Row>
-                        ))}
-                    </Table.Body>
-                </Table.Root>
-            </Card>
-        ) : (
-            <Card>
-                <Text>Select a job on the left to see its details.</Text>
-            </Card>
-        )}
-      </Box>
-    </Flex>
+        <Box width="65%">
+          <Heading size="5" mb="3">Job Details</Heading>
+          {selectedJob ? (
+              <Card>
+                  <Table.Root variant="surface">
+                      <Table.Header>
+                          <Table.Row>
+                              <Table.ColumnHeaderCell>Name</Table.ColumnHeaderCell>
+                              <Table.ColumnHeaderCell>Company</Table.ColumnHeaderCell>
+                              <Table.ColumnHeaderCell>Location</Table.ColumnHeaderCell>
+                              <Table.ColumnHeaderCell>Contact</Table.ColumnHeaderCell>
+                          </Table.Row>
+                      </Table.Header>
+                      <Table.Body>
+                          {selectedJob.realtor_contacts?.map(contact => (
+                              <Table.Row key={contact.id}>
+                                  <Table.Cell>{contact.first_name} {contact.last_name}</Table.Cell>
+                                  <Table.Cell>{contact.company}</Table.Cell>
+                                  <Table.Cell>{contact.city}, {contact.state}</Table.Cell>
+                                  <Table.Cell>{contact.cell_phone || contact.email || 'N/A'}</Table.Cell>
+                              </Table.Row>
+                          ))}
+                      </Table.Body>
+                  </Table.Root>
+              </Card>
+          ) : (
+              <Card>
+                  <Text>Select a job on the left to see its details.</Text>
+              </Card>
+          )}
+        </Box>
+      </Flex>
+    </div>
   );
 }; 

@@ -1,0 +1,149 @@
+.sales-filter-container {
+  position: relative;
+  display: inline-block;
+  font-family: sans-serif;
+}
+
+.filter-button {
+  background-color: #fff;
+  border: 1px solid #ccc;
+  border-radius: 20px;
+  padding: 8px 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  font-size: 14px;
+}
+
+.filter-button .arrow-down {
+  margin-left: 8px;
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 5px solid #333;
+}
+
+.filter-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background-color: #fff;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  padding: 16px;
+  width: 300px;
+  z-index: 1000;
+  margin-top: 8px;
+}
+
+.sales-range-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 12px;
+}
+
+.histogram {
+  display: flex;
+  align-items: flex-end;
+  height: 60px;
+  margin-bottom: 8px;
+  border-bottom: 2px solid #007bff;
+}
+
+.histogram .bar {
+  flex-grow: 1;
+  background-color: #007bff;
+  margin: 0 1px;
+  width: 2%; /* Simplified width */
+}
+
+.range-slider-container {
+  padding: 10px 0;
+}
+
+.range-slider {
+  position: relative;
+  height: 4px;
+}
+
+.slider-track {
+  position: absolute;
+  height: 100%;
+  width: 100%;
+  background-color: #ddd;
+  border-radius: 2px;
+  top: -12px;
+}
+
+.slider-thumb {
+  position: absolute;
+  top: -18px;
+  width: 20px;
+  height: 20px;
+  background-color: #fff;
+  border: 2px solid #007bff;
+  border-radius: 50%;
+  cursor: pointer;
+  transform: translateX(-50%);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.input-range-container {
+  display: flex;
+  align-items: center;
+  margin-top: 16px;
+  margin-bottom: 16px;
+}
+
+.range-input {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  text-align: center;
+}
+
+.range-input:first-child {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.range-input:last-child {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.separator {
+  padding: 0 8px;
+  color: #999;
+}
+
+.dropdown-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 16px;
+}
+
+.clear-button {
+  background: none;
+  border: none;
+  color: #007bff;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.done-button {
+  background-color: #ff6f00;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 10px 20px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: bold;
+} 
