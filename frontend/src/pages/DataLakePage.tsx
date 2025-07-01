@@ -1,31 +1,23 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Upload, Download, Filter, Search, Eye, EyeOff, Edit, Trash2, Save } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Checkbox, IconButton, Button, Flex, Heading, Text, Box } from '@radix-ui/themes';
+import { TrashIcon, ChevronLeftIcon, ChevronRightIcon, UploadIcon, DownloadIcon, EyeOpenIcon, EyeNoneIcon, MagnifyingGlassIcon } from '@radix-ui/react-icons';
 import { useAuth } from '../context/AuthContext';
-import DataLakeTable from '../components/DataLake/DataLakeTable';
-import DataLakeFilters from '../components/DataLake/DataLakeFilters';
-import CSVImportModal from '../components/DataLake/CSVImportModal';
-import BulkEditModal from '../components/DataLake/BulkEditModal';
+import api from '../api';
 
 interface DataLakeRecord {
   id: number;
   [key: string]: any;
 }
 
-const DataLakePage: React.FC = () => {
+const DataLakePage = () => {
+  const queryClient = useQueryClient();
   const { token } = useAuth();
-  const [records, setRecords] = useState<DataLakeRecord[]>([]);
-  const [totalRecords, setTotalRecords] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [showAllColumns, setShowAllColumns] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filters, setFilters] = useState<Record<string, any>>({});
   const [selectedRecords, setSelectedRecords] = useState<number[]>([]);
-  const [showImportModal, setShowImportModal] = useState(false);
-  const [showBulkEditModal, setShowBulkEditModal] = useState(false);
-  const [sortConfig, setSortConfig] = useState<{ field: string; order: 'asc' | 'desc' } | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize] = useState(50);
-  const [fieldDefinitions, setFieldDefinitions] = useState<Record<string, string[]>>({});
+  const [showAllColumns, setShowAllColumns] = useState(false);
+  const recordsPerPage = 50;
 
   // Define the first 10 columns to show initially
   const initialColumns = [
@@ -38,259 +30,329 @@ const DataLakePage: React.FC = () => {
     'phone', 'email', 'dma', 'one_yr_total_sales_usd', 'state_initials', 'state_spelled_out',
     'website', 'business_facebook_url', 'instagram_url', 'years_experience',
     'one_yr_seller_deals_count', 'one_yr_seller_deals_usd', 'one_yr_buyer_deals_count',
-    'one_yr_buyer_deals_usd', 'one_yr_total_transactions_count', 'average_home_sale_price_usd',
-    'invitation_response', 'invitation_response_notes', 'appointment_set_date', 'rep',
-    'b2b_call_center_vsa', 'interest_level', 'attendance', 'tims_notes', 'craigs_notes',
-    'rejected_by_presenter', 'profession', 'event_date', 'event_time', 'time_zone',
-    'hotel_name', 'hotel_street_address', 'hotel_city', 'hotel_state', 'hotel_zip_code',
-    'hotel_meeting_room_name', 'lion_flag', 'sale_date', 'contract_status', 'event_type',
-    'client_type', 'partner_show_market', 'sale_type', 'sale_closed_by_market_manager',
-    'sale_closed_by_bdr', 'friday_deadline', 'start_date', 'initiation_fee',
-    'monthly_recurring_revenue', 'paid_membership_in_advance', 'account_manager_notes',
-    'referred_by', 'speaker_source', 'data_source', 'lender_one_yr_volume_usd',
-    'lender_one_yr_closed_loans_count', 'lender_banker_or_broker'
+    'one_yr_buyer_deals_usd', 'one_yr_total_transactions_count', 'average_home_sale_price_usd'
   ];
 
   const visibleColumns = showAllColumns ? allColumns : initialColumns;
 
-  useEffect(() => {
-    fetchFieldDefinitions();
-    fetchRecords();
-  }, [currentPage, sortConfig, searchQuery, filters]);
-
-  const fetchFieldDefinitions = async () => {
-    try {
-      const response = await fetch('/api/data-lake/field-definitions', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setFieldDefinitions(data);
-      }
-    } catch (error) {
-      console.error('Error fetching field definitions:', error);
-    }
-  };
-
-  const fetchRecords = async () => {
-    setLoading(true);
-    try {
+  // Fetch records from API
+  const { data: recordsData = { records: [], total: 0 }, isLoading } = useQuery({
+    queryKey: ['dataLakeRecords', currentPage, searchTerm, showAllColumns],
+    queryFn: async () => {
       const params = new URLSearchParams({
-        skip: ((currentPage - 1) * pageSize).toString(),
-        limit: pageSize.toString(),
-        ...(searchQuery && { search: searchQuery }),
-        ...(Object.keys(filters).length > 0 && { filters: JSON.stringify(filters) }),
-        ...(sortConfig && { sort_by: sortConfig.field, sort_order: sortConfig.order }),
+        skip: ((currentPage - 1) * recordsPerPage).toString(),
+        limit: recordsPerPage.toString(),
+        ...(searchTerm && { search: searchTerm }),
         columns: visibleColumns.join(',')
       });
-
-      const response = await fetch(`/api/data-lake/records?${params}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setRecords(data.records);
-        setTotalRecords(data.total);
-      }
-    } catch (error) {
-      console.error('Error fetching records:', error);
-    } finally {
-      setLoading(false);
+      
+      const response = await api.get(`/data-lake/records?${params}`);
+      return response.data;
     }
-  };
+  });
 
+  // Delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => api.delete(`/data-lake/records/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dataLakeRecords'] });
+    }
+  });
+
+  // Export CSV
   const handleExport = async () => {
     try {
       const params = new URLSearchParams({
-        ...(Object.keys(filters).length > 0 && { filters: JSON.stringify(filters) }),
         columns: visibleColumns.join(',')
       });
-
-      const response = await fetch(`/api/data-lake/export-csv?${params}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+      const response = await api.get(`/data-lake/export-csv?${params}`, {
+        responseType: 'blob'
       });
-
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `data_lake_export_${new Date().toISOString().split('T')[0]}.csv`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-      }
+      
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `data_lake_export_${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Error exporting data:', error);
     }
   };
 
-  const handleDeleteRecord = async (id: number) => {
-    if (!confirm('Are you sure you want to delete this record?')) return;
+  const totalPages = Math.ceil(recordsData.total / recordsPerPage);
 
-    try {
-      const response = await fetch(`/api/data-lake/records/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
-      if (response.ok) {
-        fetchRecords();
-      }
-    } catch (error) {
-      console.error('Error deleting record:', error);
+  const handleRecordSelection = (id: number, isSelected: boolean) => {
+    if (isSelected) {
+      setSelectedRecords(prev => [...prev, id]);
+    } else {
+      setSelectedRecords(prev => prev.filter(recordId => recordId !== id));
     }
   };
 
-  const handleBulkEdit = async (updates: Record<string, any>) => {
-    try {
-      const response = await fetch('/api/data-lake/bulk-edit', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          record_ids: selectedRecords,
-          updates
-        })
-      });
+  const formatColumnName = (column: string) => {
+    return column
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ')
+      .replace(/Usd/g, 'USD')
+      .replace(/One Yr/g, '1YR');
+  };
 
-      if (response.ok) {
-        setSelectedRecords([]);
-        setShowBulkEditModal(false);
-        fetchRecords();
-      }
-    } catch (error) {
-      console.error('Error bulk editing records:', error);
+  const formatCellValue = (value: any, column: string) => {
+    if (value === null || value === undefined) return '-';
+    
+    if (column.includes('_date')) {
+      return new Date(value).toLocaleDateString();
     }
+    
+    if (column.includes('_usd') || column === 'initiation_fee' || column === 'monthly_recurring_revenue') {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+      }).format(value);
+    }
+    
+    if (typeof value === 'boolean') {
+      return value ? '✓' : '✗';
+    }
+    
+    return value;
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-6">
-      <div className="max-w-full mx-auto">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold">Data Lake</h1>
-          <div className="flex gap-4">
-            <button
-              onClick={() => setShowImportModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
-            >
-              <Upload className="w-4 h-4" />
-              Import CSV
-            </button>
-            <button
-              onClick={handleExport}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
-            >
-              <Download className="w-4 h-4" />
-              Export CSV
-            </button>
-          </div>
-        </div>
+    <Flex direction="column" style={{ height: '100vh' }}>
+      <style>{STYLES}</style>
+      
+      <Box style={{ padding: '1.5rem 2rem', borderBottom: '1px solid var(--gray-4)', backgroundColor: 'white', position: 'sticky', top: 0, zIndex: 1 }}>
+        <Heading size="7" style={{ color: 'var(--gray-12)' }}>Data Lake</Heading>
+        <Text as="p" size="3" style={{ color: 'var(--gray-10)', marginTop: '0.25rem' }}>
+          View, filter, and manage your data records.
+        </Text>
+      </Box>
 
-        {/* Search and Filter Bar */}
-        <div className="bg-gray-800 rounded-lg p-4 mb-6">
-          <div className="flex gap-4 items-center">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-              <input
-                type="text"
-                placeholder="Search across all fields..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <button
-              onClick={() => setShowAllColumns(!showAllColumns)}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
-            >
-              {showAllColumns ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              {showAllColumns ? 'Show Less' : 'Show All Columns'}
-            </button>
-            {selectedRecords.length > 0 && (
-              <button
-                onClick={() => setShowBulkEditModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
-              >
-                <Edit className="w-4 h-4" />
-                Bulk Edit ({selectedRecords.length})
-              </button>
-            )}
+      <div className="data-lake-container" style={{ flex: 1, overflowY: 'auto' }}>
+        <section className="controls-section">
+          <div className="search-bar">
+            <MagnifyingGlassIcon />
+            <input 
+              type="text" 
+              placeholder="Search across all fields..." 
+              value={searchTerm}
+              onChange={e => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
+            />
           </div>
           
-          <DataLakeFilters
-            filters={filters}
-            onFiltersChange={setFilters}
-            fieldDefinitions={fieldDefinitions}
-          />
-        </div>
-
-        {/* Data Table */}
-        <DataLakeTable
-          records={records}
-          visibleColumns={visibleColumns}
-          loading={loading}
-          selectedRecords={selectedRecords}
-          onSelectRecords={setSelectedRecords}
-          sortConfig={sortConfig}
-          onSort={setSortConfig}
-          onEdit={(record) => console.log('Edit record:', record)}
-          onDelete={handleDeleteRecord}
-          fieldDefinitions={fieldDefinitions}
-        />
-
-        {/* Pagination */}
-        <div className="mt-6 flex justify-between items-center">
-          <div className="text-gray-400">
-            Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, totalRecords)} of {totalRecords} records
+          <div className="action-buttons">
+            <Button variant="soft" onClick={() => setShowAllColumns(!showAllColumns)}>
+              {showAllColumns ? <EyeNoneIcon /> : <EyeOpenIcon />}
+              {showAllColumns ? 'Show Less' : 'Show All Columns'}
+            </Button>
+            
+            <Button variant="soft" color="blue">
+              <UploadIcon />
+              Import CSV
+            </Button>
+            
+            <Button variant="soft" color="green" onClick={handleExport}>
+              <DownloadIcon />
+              Export CSV
+            </Button>
           </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Previous
-            </button>
-            <span className="px-4 py-2 bg-gray-800 rounded-lg">
-              Page {currentPage} of {Math.ceil(totalRecords / pageSize)}
-            </span>
-            <button
-              onClick={() => setCurrentPage(p => p + 1)}
-              disabled={currentPage >= Math.ceil(totalRecords / pageSize)}
-              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Next
-            </button>
+        </section>
+
+        <section className="table-section">
+          <table id="data-lake-table">
+            <thead>
+              <tr>
+                <th><Checkbox disabled /></th>
+                {visibleColumns.map(column => (
+                  <th key={column}>{formatColumnName(column)}</th>
+                ))}
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading ? (
+                <tr><td colSpan={visibleColumns.length + 2}>Loading records...</td></tr>
+              ) : recordsData.records.length > 0 ? (
+                recordsData.records.map((record: DataLakeRecord) => (
+                  <tr 
+                    key={record.id}
+                    onClick={() => handleRecordSelection(record.id, !selectedRecords.includes(record.id))}
+                    style={{ 
+                      cursor: 'pointer',
+                      backgroundColor: selectedRecords.includes(record.id) ? 'var(--blue-2)' : 'transparent'
+                    }}
+                  >
+                    <td>
+                      <Checkbox 
+                        checked={selectedRecords.includes(record.id)}
+                        onCheckedChange={(checked) => handleRecordSelection(record.id, !!checked)} 
+                      />
+                    </td>
+                    {visibleColumns.map(column => (
+                      <td key={column}>{formatCellValue(record[column], column)}</td>
+                    ))}
+                    <td>
+                      <IconButton 
+                        variant="ghost" 
+                        color="red" 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteMutation.mutate(record.id);
+                        }} 
+                        disabled={deleteMutation.isPending}
+                      >
+                        <TrashIcon />
+                      </IconButton>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr><td colSpan={visibleColumns.length + 2}>No records found.</td></tr>
+              )}
+            </tbody>
+          </table>
+          
+          {totalPages > 1 && (
+            <div className="pagination-controls">
+              <Button 
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                variant="soft"
+              >
+                <ChevronLeftIcon /> Previous
+              </Button>
+              <span>
+                Page {currentPage} of {totalPages}
+              </span>
+              <Button 
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                variant="soft"
+              >
+                Next <ChevronRightIcon />
+              </Button>
+            </div>
+          )}
+          
+          <div style={{ marginTop: '1rem', color: 'var(--gray-10)' }}>
+            Showing {recordsData.records.length > 0 ? ((currentPage - 1) * recordsPerPage) + 1 : 0} to {Math.min(currentPage * recordsPerPage, recordsData.total)} of {recordsData.total} records
           </div>
-        </div>
-
-        {/* Modals */}
-        {showImportModal && (
-          <CSVImportModal
-            onClose={() => setShowImportModal(false)}
-            onImportComplete={() => {
-              setShowImportModal(false);
-              fetchRecords();
-            }}
-          />
-        )}
-
-        {showBulkEditModal && (
-          <BulkEditModal
-            selectedCount={selectedRecords.length}
-            fieldDefinitions={fieldDefinitions}
-            onClose={() => setShowBulkEditModal(false)}
-            onSave={handleBulkEdit}
-          />
-        )}
+        </section>
       </div>
-    </div>
+    </Flex>
   );
 };
+
+const STYLES = `
+  .data-lake-container {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    padding: 1.5rem;
+    max-width: 1400px;
+    margin: 0 auto;
+    width: 100%;
+  }
+  
+  .controls-section {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+    padding: 1.5rem;
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  
+  .search-bar {
+    flex: 1;
+    min-width: 300px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0 1rem;
+  }
+  
+  .search-bar svg {
+    color: var(--gray-8);
+    width: 20px;
+    height: 20px;
+  }
+  
+  .search-bar input {
+    flex: 1;
+    border: none;
+    outline: none;
+    padding: 0.75rem;
+    font-size: 1rem;
+    background: transparent;
+  }
+  
+  .action-buttons {
+    display: flex;
+    gap: 0.75rem;
+  }
+  
+  .table-section {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+    padding: 1.5rem;
+    overflow-x: auto;
+  }
+  
+  #data-lake-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  
+  #data-lake-table th, #data-lake-table td {
+    text-align: left;
+    padding: 0.75rem;
+    border-bottom: 1px solid var(--gray-3);
+  }
+  
+  #data-lake-table th {
+    font-weight: 600;
+    color: var(--gray-11);
+    background-color: var(--gray-1);
+  }
+  
+  #data-lake-table tbody tr:hover {
+    background-color: var(--gray-2);
+  }
+  
+  #data-lake-table tbody tr.selected {
+    background-color: var(--blue-2);
+  }
+  
+  .pagination-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    margin-top: 1.5rem;
+  }
+  
+  .pagination-controls span {
+    color: var(--gray-10);
+  }
+`;
 
 export default DataLakePage; 

@@ -45,7 +45,7 @@ export const Sidebar = ({ onNewChat }: { onNewChat: () => void }) => {
                     <img src="/new-icons/3.png" alt="Automation Agents" />
                 </button>
                 <button className="sidebar-icon" title="Data Lake" onClick={() => navigate('/data-lake')}>
-                    <img src="/new-icons/5.png" alt="Data Lake" />
+                    <img src="/new-icons/14.png" alt="Data Lake" />
                 </button>
             </Flex>
         </Flex>
