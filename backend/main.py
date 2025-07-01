@@ -21,6 +21,7 @@ from core import pinecone_manager, llm_handler, processor, auth, generator_handl
 from core.database import Base, get_db, engine, User, ChatSession, SessionLocal
 from realtor_importer.api import router as realtor_importer_router
 from core.data_lake_routes import router as data_lake_router
+from core.data_lake_models import DataLakeRecord
 
 load_dotenv()
 
