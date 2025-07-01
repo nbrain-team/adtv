@@ -82,10 +82,9 @@ app = FastAPI(
 
 @app.on_event("startup")
 def on_startup():
-    # The database setup is now handled by the build script (build.sh)
-    # to ensure the database is ready before the app starts.
-    logger.info("Application startup: Database setup is handled by the build process.")
-    pass
+    # Create all tables
+    Base.metadata.create_all(bind=engine)
+    logger.info("Application startup: Database tables checked/created.")
 
 # --- CORS Middleware ---
 app.add_middleware(
