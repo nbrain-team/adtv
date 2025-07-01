@@ -7,7 +7,7 @@ import csv
 import io
 import json
 from datetime import datetime
-from ..database import get_db
+from core.database import get_db
 from .data_lake_models import DataLakeRecord
 from .data_lake_schemas import (
     DataLakeRecordCreate, 
