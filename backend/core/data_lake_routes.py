@@ -18,7 +18,7 @@ from .data_lake_schemas import (
     BulkEditRequest
 )
 
-router = APIRouter(prefix="/api/data-lake", tags=["data_lake"])
+router = APIRouter(tags=["data_lake"])
 
 # Field definitions for validation and dropdown values
 FIELD_DEFINITIONS = {
