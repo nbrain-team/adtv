@@ -105,4 +105,7 @@ def get_db():
 
 def create_tables():
     """Create database tables if they don't exist."""
-    Base.metadata.create_all(bind=engine) 
+    Base.metadata.create_all(bind=engine)
+
+# Import Data Lake models to ensure they're registered with SQLAlchemy
+from .data_lake_models import DataLakeRecord 

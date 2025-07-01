@@ -20,6 +20,7 @@ from fastapi.concurrency import run_in_threadpool
 from core import pinecone_manager, llm_handler, processor, auth, generator_handler
 from core.database import Base, get_db, engine, User, ChatSession, SessionLocal
 from realtor_importer.api import router as realtor_importer_router
+from core.data_lake_routes import router as data_lake_router
 
 load_dotenv()
 
@@ -99,6 +100,12 @@ app.include_router(
     realtor_importer_router,
     prefix="/realtor-importer",
     tags=["Realtor Importer"],
+    dependencies=[Depends(auth.get_current_active_user)]
+)
+
+app.include_router(
+    data_lake_router,
+    tags=["Data Lake"],
     dependencies=[Depends(auth.get_current_active_user)]
 )
 
