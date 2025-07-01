@@ -38,7 +38,17 @@ const DataLakePage = () => {
     'phone', 'email', 'dma', 'one_yr_total_sales_usd', 'state_initials', 'state_spelled_out',
     'website', 'business_facebook_url', 'instagram_url', 'years_experience',
     'one_yr_seller_deals_count', 'one_yr_seller_deals_usd', 'one_yr_buyer_deals_count',
-    'one_yr_buyer_deals_usd', 'one_yr_total_transactions_count', 'average_home_sale_price_usd'
+    'one_yr_buyer_deals_usd', 'one_yr_total_transactions_count', 'average_home_sale_price_usd',
+    'invitation_response', 'invitation_response_notes', 'appointment_set_date', 'rep',
+    'b2b_call_center_vsa', 'interest_level', 'attendance', 'tims_notes', 'craigs_notes',
+    'rejected_by_presenter', 'profession', 'event_date', 'event_time', 'time_zone',
+    'hotel_name', 'hotel_street_address', 'hotel_city', 'hotel_state', 'hotel_zip_code',
+    'hotel_meeting_room_name', 'lion_flag', 'sale_date', 'contract_status', 'event_type',
+    'client_type', 'partner_show_market', 'sale_type', 'sale_closed_by_market_manager',
+    'sale_closed_by_bdr', 'friday_deadline', 'start_date', 'initiation_fee',
+    'monthly_recurring_revenue', 'paid_membership_in_advance', 'account_manager_notes',
+    'referred_by', 'speaker_source', 'data_source', 'lender_one_yr_volume_usd',
+    'lender_one_yr_closed_loans_count', 'lender_banker_or_broker'
   ];
 
   const visibleColumns = showAllColumns ? allColumns : initialColumns;
@@ -165,6 +175,30 @@ const DataLakePage = () => {
   };
 
   const formatColumnName = (column: string) => {
+    // Special cases for specific columns
+    const specialCases: Record<string, string> = {
+      'b2b_call_center_vsa': 'B2B Call Center (VSA)',
+      'tims_notes': "Tim's Notes",
+      'craigs_notes': "Craig's Notes",
+      'dma': 'DMA',
+      'one_yr_total_sales_usd': '1YR Total Sales $',
+      'one_yr_seller_deals_count': '1YR Seller Deals #',
+      'one_yr_seller_deals_usd': '1YR Seller Deals $',
+      'one_yr_buyer_deals_count': '1YR Buyer Deals #',
+      'one_yr_buyer_deals_usd': '1YR Buyer Deals $',
+      'one_yr_total_transactions_count': '1YR Total Transactions #',
+      'average_home_sale_price_usd': 'Average Home Sale Price $',
+      'lender_one_yr_volume_usd': 'Lender 1YR Volume $',
+      'lender_one_yr_closed_loans_count': 'Lender 1YR Closed Loans #',
+      'lender_banker_or_broker': 'Lender - Banker or Broker',
+      'sale_closed_by_market_manager': 'Sale Closed by (Market Manager)',
+      'sale_closed_by_bdr': 'Sale Closed by (BDR)'
+    };
+    
+    if (specialCases[column]) {
+      return specialCases[column];
+    }
+    
     return column
       .split('_')
       .map(word => word.charAt(0).toUpperCase() + word.slice(1))

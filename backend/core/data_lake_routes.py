@@ -94,7 +94,19 @@ async def get_records(
                 DataLakeRecord.last_name.ilike(search_term),
                 DataLakeRecord.company.ilike(search_term),
                 DataLakeRecord.email.ilike(search_term),
-                DataLakeRecord.phone.ilike(search_term)
+                DataLakeRecord.phone.ilike(search_term),
+                DataLakeRecord.state_initials.ilike(search_term),
+                DataLakeRecord.state_spelled_out.ilike(search_term),
+                DataLakeRecord.rep.ilike(search_term),
+                DataLakeRecord.invitation_response_notes.ilike(search_term),
+                DataLakeRecord.tims_notes.ilike(search_term),
+                DataLakeRecord.craigs_notes.ilike(search_term),
+                DataLakeRecord.hotel_name.ilike(search_term),
+                DataLakeRecord.hotel_city.ilike(search_term),
+                DataLakeRecord.hotel_state.ilike(search_term),
+                DataLakeRecord.account_manager_notes.ilike(search_term),
+                DataLakeRecord.referred_by.ilike(search_term),
+                DataLakeRecord.data_source.ilike(search_term)
             )
         )
     
