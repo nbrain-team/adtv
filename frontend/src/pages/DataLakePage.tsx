@@ -175,36 +175,75 @@ const DataLakePage = () => {
   };
 
   const formatColumnName = (column: string) => {
-    // Special cases for specific columns
-    const specialCases: Record<string, string> = {
-      'b2b_call_center_vsa': 'B2B Call Center (VSA)',
+    // Visual names mapping for cleaner display
+    const visualNames: Record<string, string> = {
+      'unique_id': 'Unique Id',
+      'lead_source': 'Lead Source',
+      'tier': 'Tier',
+      'city': 'City',
+      'first_name': 'First Name',
+      'last_name': 'Last Name',
+      'company': 'Company',
+      'phone': 'Phone',
+      'email': 'Email',
+      'dma': 'DMA',
+      'one_yr_total_sales_usd': '1YR Total $',
+      'state_initials': 'State Int',
+      'state_spelled_out': 'State',
+      'website': 'Website',
+      'business_facebook_url': 'Url',
+      'instagram_url': 'Instagram Url',
+      'years_experience': 'Yrs. Experience',
+      'one_yr_seller_deals_count': '1YR Seller #',
+      'one_yr_seller_deals_usd': '1YR Seller $',
+      'one_yr_buyer_deals_count': '1YR Buyer #',
+      'one_yr_buyer_deals_usd': '1YR Buyer $',
+      'one_yr_total_transactions_count': '1YR Total #',
+      'average_home_sale_price_usd': 'Avg Sales Price',
+      'invitation_response': 'Inv. Response',
+      'invitation_response_notes': 'Response Notes',
+      'appointment_set_date': 'Appt Set Date',
+      'rep': 'Rep',
+      'b2b_call_center_vsa': 'B2B Call Center',
+      'interest_level': 'Interest Level',
+      'attendance': 'Attendance',
       'tims_notes': "Tim's Notes",
       'craigs_notes': "Craig's Notes",
-      'dma': 'DMA',
-      'one_yr_total_sales_usd': '1YR Total Sales $',
-      'one_yr_seller_deals_count': '1YR Seller Deals #',
-      'one_yr_seller_deals_usd': '1YR Seller Deals $',
-      'one_yr_buyer_deals_count': '1YR Buyer Deals #',
-      'one_yr_buyer_deals_usd': '1YR Buyer Deals $',
-      'one_yr_total_transactions_count': '1YR Total Transactions #',
-      'average_home_sale_price_usd': 'Average Home Sale Price $',
+      'rejected_by_presenter': 'Rej. By Presenter',
+      'profession': 'Profession',
+      'event_date': 'Event Date',
+      'event_time': 'Event Time',
+      'time_zone': 'Time Zone',
+      'hotel_name': 'Hotel Name',
+      'hotel_street_address': 'Hotel Street',
+      'hotel_city': 'Hotel City',
+      'hotel_state': 'Hotel State',
+      'hotel_zip_code': 'Hotel Zip',
+      'hotel_meeting_room_name': 'Hotel Meet Room',
+      'lion_flag': 'Lion Flag',
+      'sale_date': 'Sale Date',
+      'contract_status': 'Contract Status',
+      'event_type': 'Event Type',
+      'client_type': 'Client Type',
+      'partner_show_market': 'Partner Show Market',
+      'sale_type': 'Sale Type',
+      'sale_closed_by_market_manager': 'Sale Closed by (MM)',
+      'sale_closed_by_bdr': 'Sale Closed by (BDR)',
+      'friday_deadline': 'Friday Deadline',
+      'start_date': 'Start Date',
+      'initiation_fee': 'Initiation Fee',
+      'monthly_recurring_revenue': 'MMR',
+      'paid_membership_in_advance': 'Paid Mmbr. Advance',
+      'account_manager_notes': 'Account Mngr Notes',
+      'referred_by': 'Referred By',
+      'speaker_source': 'Speaker Source',
+      'data_source': 'Data Source',
       'lender_one_yr_volume_usd': 'Lender 1YR Volume $',
-      'lender_one_yr_closed_loans_count': 'Lender 1YR Closed Loans #',
-      'lender_banker_or_broker': 'Lender - Banker or Broker',
-      'sale_closed_by_market_manager': 'Sale Closed by (Market Manager)',
-      'sale_closed_by_bdr': 'Sale Closed by (BDR)'
+      'lender_one_yr_closed_loans_count': 'Lender 1YR Loans #',
+      'lender_banker_or_broker': 'Banker or Broker'
     };
     
-    if (specialCases[column]) {
-      return specialCases[column];
-    }
-    
-    return column
-      .split('_')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ')
-      .replace(/Usd/g, 'USD')
-      .replace(/One Yr/g, '1YR');
+    return visualNames[column] || column;
   };
 
   const formatCellValue = (value: any, column: string) => {
@@ -498,12 +537,15 @@ const STYLES = `
     text-align: left;
     padding: 0.75rem;
     border-bottom: 1px solid var(--gray-3);
+    font-size: 0.8rem;
   }
   
   #data-lake-table th {
     font-weight: 600;
     color: var(--gray-11);
     background-color: var(--gray-1);
+    font-size: 0.8rem;
+    white-space: nowrap;
   }
   
   #data-lake-table tbody tr:hover {
