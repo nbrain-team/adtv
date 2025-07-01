@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, Text, CheckConstraint
 from datetime import datetime
-from ..database import Base
+from core.database import Base
 
 class DataLakeRecord(Base):
     __tablename__ = 'data_lake_records'
