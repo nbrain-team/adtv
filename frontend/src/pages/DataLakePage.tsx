@@ -310,6 +310,26 @@ const DataLakePage = () => {
               <DownloadIcon />
               Export CSV
             </Button>
+            
+            <Button 
+              variant="soft" 
+              color="red" 
+              onClick={async () => {
+                if (window.confirm('Are you sure you want to delete ALL records? This cannot be undone.')) {
+                  try {
+                    const response = await api.delete('/data-lake/records/all?confirm=true');
+                    alert(response.data.message);
+                    queryClient.invalidateQueries({ queryKey: ['dataLakeRecords'] });
+                  } catch (error) {
+                    console.error('Error deleting all records:', error);
+                    alert('Error deleting records. Please try again.');
+                  }
+                }
+              }}
+            >
+              <TrashIcon />
+              Clear All Data
+            </Button>
           </div>
         </section>
 

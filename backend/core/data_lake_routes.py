@@ -189,6 +189,27 @@ async def delete_record(
     db.commit()
     return {"message": "Record deleted successfully"}
 
+@router.delete("/records/all")
+async def delete_all_records(
+    confirm: bool = Query(False, description="Set to true to confirm deletion of all records"),
+    db: Session = Depends(get_db)
+):
+    """Delete all data lake records - requires confirmation"""
+    if not confirm:
+        raise HTTPException(
+            status_code=400, 
+            detail="Please set confirm=true to delete all records"
+        )
+    
+    # Get count before deletion
+    count = db.query(DataLakeRecord).count()
+    
+    # Delete all records
+    db.query(DataLakeRecord).delete()
+    db.commit()
+    
+    return {"message": f"Successfully deleted {count} records"}
+
 @router.post("/bulk-edit")
 async def bulk_edit_records(
     request: BulkEditRequest,
