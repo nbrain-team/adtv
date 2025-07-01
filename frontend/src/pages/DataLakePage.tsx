@@ -62,7 +62,7 @@ const DataLakePage = () => {
         skip: ((currentPage - 1) * recordsPerPage).toString(),
         limit: recordsPerPage.toString(),
         ...(searchTerm && { search: searchTerm }),
-        columns: visibleColumns.join(',')
+        columns: ['id', ...visibleColumns].join(',')
       });
       
       const response = await api.get(`/data-lake/records?${params}`);
