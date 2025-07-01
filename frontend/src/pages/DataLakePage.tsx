@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Checkbox, IconButton, Button, Flex, Heading, Text, Box } from '@radix-ui/themes';
 import { TrashIcon, ChevronLeftIcon, ChevronRightIcon, UploadIcon, DownloadIcon, EyeOpenIcon, EyeNoneIcon, MagnifyingGlassIcon } from '@radix-ui/react-icons';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import api from '../api';
 
 interface DataLakeRecord {
@@ -13,6 +14,7 @@ interface DataLakeRecord {
 const DataLakePage = () => {
   const queryClient = useQueryClient();
   const { token } = useAuth();
+  const navigate = useNavigate();
   const [selectedRecords, setSelectedRecords] = useState<number[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -36,7 +38,7 @@ const DataLakePage = () => {
   const visibleColumns = showAllColumns ? allColumns : initialColumns;
 
   // Fetch records from API
-  const { data: recordsData = { records: [], total: 0 }, isLoading } = useQuery({
+  const { data: recordsData = { records: [], total: 0 }, isLoading, error } = useQuery({
     queryKey: ['dataLakeRecords', currentPage, searchTerm, showAllColumns],
     queryFn: async () => {
       const params = new URLSearchParams({
@@ -48,8 +50,21 @@ const DataLakePage = () => {
       
       const response = await api.get(`/data-lake/records?${params}`);
       return response.data;
+    },
+    retry: (failureCount, error: any) => {
+      // Don't retry on 401 errors
+      if (error?.response?.status === 401) {
+        return false;
+      }
+      return failureCount < 3;
     }
   });
+
+  // Handle authentication errors
+  if (error && (error as any)?.response?.status === 401) {
+    navigate('/login');
+    return null;
+  }
 
   // Delete mutation
   const deleteMutation = useMutation({
@@ -221,6 +236,21 @@ const DataLakePage = () => {
               )}
             </tbody>
           </table>
+          
+          {error ? (
+            <div style={{ 
+              padding: '2rem', 
+              textAlign: 'center', 
+              color: 'var(--red-11)',
+              backgroundColor: 'var(--red-2)',
+              borderRadius: '8px',
+              margin: '1rem 0'
+            }}>
+              {(error as any)?.response?.status === 401 
+                ? 'Please log in to access the Data Lake.' 
+                : 'Error loading records. Please try again.'}
+            </div>
+          ) : null}
           
           {totalPages > 1 && (
             <div className="pagination-controls">
