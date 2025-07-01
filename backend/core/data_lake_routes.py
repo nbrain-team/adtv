@@ -233,7 +233,7 @@ async def import_csv(
     mapping: str = Query(...),
     db: Session = Depends(get_db)
 ):
-    """Import CSV file with column mapping"""
+    """Import CSV file with column mapping and smart record matching"""
     if not file.filename.endswith('.csv'):
         raise HTTPException(status_code=400, detail="Only CSV files are allowed")
     
@@ -246,7 +246,12 @@ async def import_csv(
     reader = csv.DictReader(csv_file)
     
     imported_count = 0
+    updated_count = 0
     errors = []
+    
+    # Get the highest existing unique_id
+    max_unique_id = db.query(func.max(DataLakeRecord.unique_id)).scalar() or 0
+    next_unique_id = max_unique_id + 1
     
     for row_num, row in enumerate(reader, start=2):
         try:
@@ -273,11 +278,49 @@ async def import_csv(
                     else:
                         record_data[db_field] = value if value else None
             
-            # Create new record
-            db_record = DataLakeRecord(**record_data)
-            db.add(db_record)
-            imported_count += 1
+            # Extract key fields for matching
+            first_name = record_data.get('first_name', '').strip().lower() if record_data.get('first_name') else ''
+            last_name = record_data.get('last_name', '').strip().lower() if record_data.get('last_name') else ''
+            phone = record_data.get('phone', '').strip() if record_data.get('phone') else ''
             
+            # Try to find existing record by first_name + last_name + phone
+            existing_record = None
+            if first_name and last_name and phone:
+                existing_record = db.query(DataLakeRecord).filter(
+                    func.lower(DataLakeRecord.first_name) == first_name,
+                    func.lower(DataLakeRecord.last_name) == last_name,
+                    DataLakeRecord.phone == phone
+                ).first()
+            
+            if existing_record:
+                # Update existing record
+                for field, new_value in record_data.items():
+                    if field == 'unique_id':
+                        continue  # Don't update unique_id
+                    
+                    current_value = getattr(existing_record, field)
+                    
+                    # Update logic: overwrite if current has value, append if current is empty
+                    if new_value is not None:
+                        if current_value:
+                            # Overwrite existing data
+                            setattr(existing_record, field, new_value)
+                        else:
+                            # Append to empty field
+                            setattr(existing_record, field, new_value)
+                
+                existing_record.updated_at = datetime.utcnow()
+                updated_count += 1
+            else:
+                # Create new record with auto-generated unique_id if not provided
+                if 'unique_id' not in record_data or not record_data['unique_id']:
+                    record_data['unique_id'] = next_unique_id
+                    next_unique_id += 1
+                
+                db_record = DataLakeRecord(**record_data)
+                db.add(db_record)
+                imported_count += 1
+                
         except Exception as e:
             errors.append(f"Row {row_num}: {str(e)}")
     
@@ -285,6 +328,7 @@ async def import_csv(
     
     return {
         "imported": imported_count,
+        "updated": updated_count,
         "errors": errors[:10],  # Return first 10 errors
         "total_errors": len(errors)
     }

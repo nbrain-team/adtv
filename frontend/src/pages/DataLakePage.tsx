@@ -150,7 +150,18 @@ const DataLakePage = () => {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       
-      alert(`Successfully imported ${response.data.imported} records!`);
+      let message = `Import complete! `;
+      if (response.data.imported > 0) {
+        message += `${response.data.imported} new records added. `;
+      }
+      if (response.data.updated > 0) {
+        message += `${response.data.updated} existing records updated. `;
+      }
+      if (response.data.total_errors > 0) {
+        message += `${response.data.total_errors} errors occurred.`;
+      }
+      
+      alert(message);
       setShowImportDialog(false);
       setCsvFile(null);
       setColumnMapping({});
