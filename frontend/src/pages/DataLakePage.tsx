@@ -8,6 +8,7 @@ import api from '../api';
 
 interface DataLakeRecord {
   id: number;
+  unique_id: number;
   [key: string]: any;
 }
 
