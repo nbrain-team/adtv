@@ -106,6 +106,7 @@ app.include_router(
 
 app.include_router(
     data_lake_router,
+    prefix="/data-lake",
     tags=["Data Lake"],
     dependencies=[Depends(auth.get_current_active_user)]
 )
