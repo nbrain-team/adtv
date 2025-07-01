@@ -326,20 +326,29 @@ const DataLakePage = () => {
               variant="soft" 
               color="red" 
               onClick={async () => {
-                if (window.confirm('Are you sure you want to delete ALL records? This cannot be undone.')) {
+                if (selectedRecords.length === 0) {
+                  alert('Please select records to delete.');
+                  return;
+                }
+                if (window.confirm(`Are you sure you want to delete ${selectedRecords.length} selected records? This cannot be undone.`)) {
                   try {
-                    const response = await api.delete('/data-lake/records/all?confirm=true');
-                    alert(response.data.message);
+                    // Delete each selected record
+                    await Promise.all(
+                      selectedRecords.map(id => api.delete(`/data-lake/records/${id}`))
+                    );
+                    alert(`Successfully deleted ${selectedRecords.length} records.`);
+                    setSelectedRecords([]);
                     queryClient.invalidateQueries({ queryKey: ['dataLakeRecords'] });
                   } catch (error) {
-                    console.error('Error deleting all records:', error);
+                    console.error('Error deleting records:', error);
                     alert('Error deleting records. Please try again.');
                   }
                 }
               }}
+              disabled={selectedRecords.length === 0}
             >
               <TrashIcon />
-              Clear All Data
+              Delete Selected
             </Button>
           </div>
         </section>
@@ -356,7 +365,18 @@ const DataLakePage = () => {
           <table id="data-lake-table">
             <thead>
               <tr>
-                <th><Checkbox disabled /></th>
+                <th>
+                  <Checkbox 
+                    checked={recordsData.records.length > 0 && selectedRecords.length === recordsData.records.length}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        setSelectedRecords(recordsData.records.map((r: DataLakeRecord) => r.id));
+                      } else {
+                        setSelectedRecords([]);
+                      }
+                    }}
+                  />
+                </th>
                 {visibleColumns.map(column => (
                   <th key={column}>{formatColumnName(column)}</th>
                 ))}
@@ -370,13 +390,20 @@ const DataLakePage = () => {
                 recordsData.records.map((record: DataLakeRecord) => (
                   <tr 
                     key={record.id}
-                    onClick={() => handleRecordSelection(record.id, !selectedRecords.includes(record.id))}
+                    onClick={(e) => {
+                      // Don't toggle if clicking on checkbox or action button
+                      const target = e.target as HTMLElement;
+                      if (target.closest('button') || target.closest('input[type="checkbox"]')) {
+                        return;
+                      }
+                      handleRecordSelection(record.id, !selectedRecords.includes(record.id));
+                    }}
                     style={{ 
                       cursor: 'pointer',
                       backgroundColor: selectedRecords.includes(record.id) ? 'var(--blue-2)' : 'transparent'
                     }}
                   >
-                    <td>
+                    <td onClick={(e) => e.stopPropagation()}>
                       <Checkbox 
                         checked={selectedRecords.includes(record.id)}
                         onCheckedChange={(checked) => handleRecordSelection(record.id, !!checked)} 
@@ -562,12 +589,13 @@ const STYLES = `
   #data-lake-table {
     width: 100%;
     border-collapse: collapse;
+    border: 1px solid var(--gray-3);
   }
   
   #data-lake-table th, #data-lake-table td {
     text-align: left;
     padding: 0.75rem;
-    border-bottom: 1px solid var(--gray-3);
+    border: 1px solid var(--gray-3);
     font-size: 0.8rem;
   }
   
@@ -577,6 +605,7 @@ const STYLES = `
     background-color: var(--gray-1);
     font-size: 0.8rem;
     white-space: nowrap;
+    border: 1px solid var(--gray-4);
   }
   
   #data-lake-table tbody tr:hover {
