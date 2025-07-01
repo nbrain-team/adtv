@@ -1,7 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Checkbox, IconButton, Button, Flex, Heading, Text, Box } from '@radix-ui/themes';
-import { TrashIcon, ChevronLeftIcon, ChevronRightIcon, UploadIcon, DownloadIcon, EyeOpenIcon, EyeNoneIcon, MagnifyingGlassIcon } from '@radix-ui/react-icons';
+import { Checkbox, IconButton, Button, Flex, Heading, Text, Box, Dialog } from '@radix-ui/themes';
+import { TrashIcon, ChevronLeftIcon, ChevronRightIcon, UploadIcon, DownloadIcon, EyeOpenIcon, EyeNoneIcon, MagnifyingGlassIcon, Cross2Icon } from '@radix-ui/react-icons';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
@@ -19,6 +19,12 @@ const DataLakePage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [showAllColumns, setShowAllColumns] = useState(false);
+  const [showImportDialog, setShowImportDialog] = useState(false);
+  const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [columnMapping, setColumnMapping] = useState<Record<string, string>>({});
+  const [csvColumns, setCsvColumns] = useState<string[]>([]);
+  const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const recordsPerPage = 50;
 
   // Define the first 10 columns to show initially
@@ -97,6 +103,57 @@ const DataLakePage = () => {
     }
   };
 
+  // CSV Import handlers
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    
+    setCsvFile(file);
+    
+    // Analyze CSV to get column suggestions
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const response = await api.post('/data-lake/analyze-csv', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      
+      setCsvColumns(response.data.csv_columns);
+      setColumnMapping(response.data.suggestions);
+      setShowImportDialog(true);
+    } catch (error) {
+      console.error('Error analyzing CSV:', error);
+      alert('Error analyzing CSV file. Please check the file format.');
+    }
+  };
+
+  const handleImport = async () => {
+    if (!csvFile) return;
+    
+    setIsImporting(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', csvFile);
+      
+      const response = await api.post(`/data-lake/import-csv?mapping=${encodeURIComponent(JSON.stringify(columnMapping))}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      
+      alert(`Successfully imported ${response.data.imported} records!`);
+      setShowImportDialog(false);
+      setCsvFile(null);
+      setColumnMapping({});
+      setCsvColumns([]);
+      queryClient.invalidateQueries({ queryKey: ['dataLakeRecords'] });
+    } catch (error) {
+      console.error('Error importing CSV:', error);
+      alert('Error importing CSV. Please check the file and try again.');
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
   const totalPages = Math.ceil(recordsData.total / recordsPerPage);
 
   const handleRecordSelection = (id: number, isSelected: boolean) => {
@@ -171,7 +228,7 @@ const DataLakePage = () => {
               {showAllColumns ? 'Show Less' : 'Show All Columns'}
             </Button>
             
-            <Button variant="soft" color="blue">
+            <Button variant="soft" color="blue" onClick={() => fileInputRef.current?.click()}>
               <UploadIcon />
               Import CSV
             </Button>
@@ -182,6 +239,14 @@ const DataLakePage = () => {
             </Button>
           </div>
         </section>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".csv"
+          style={{ display: 'none' }}
+          onChange={handleFileSelect}
+        />
 
         <section className="table-section">
           <table id="data-lake-table">
@@ -279,6 +344,49 @@ const DataLakePage = () => {
           </div>
         </section>
       </div>
+
+      <Dialog.Root open={showImportDialog} onOpenChange={setShowImportDialog}>
+        <Dialog.Content maxWidth="600px">
+          <Dialog.Title>Import CSV - Map Columns</Dialog.Title>
+          <Dialog.Description>
+            Map your CSV columns to the database fields. We've suggested some mappings based on column names.
+          </Dialog.Description>
+          
+          <div style={{ marginTop: '1rem', maxHeight: '400px', overflowY: 'auto' }}>
+            {csvColumns.map((csvCol) => (
+              <div key={csvCol} style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <Text style={{ flex: 1, fontWeight: '500' }}>{csvCol}</Text>
+                <select
+                  value={columnMapping[csvCol] || ''}
+                  onChange={(e) => setColumnMapping(prev => ({ ...prev, [csvCol]: e.target.value }))}
+                  style={{
+                    flex: 1,
+                    padding: '0.5rem',
+                    borderRadius: '4px',
+                    border: '1px solid var(--gray-6)'
+                  }}
+                >
+                  <option value="">-- Skip this column --</option>
+                  {allColumns.map(dbCol => (
+                    <option key={dbCol} value={dbCol}>{formatColumnName(dbCol)}</option>
+                  ))}
+                </select>
+              </div>
+            ))}
+          </div>
+          
+          <Flex gap="3" mt="4" justify="end">
+            <Dialog.Close>
+              <Button variant="soft" color="gray">
+                Cancel
+              </Button>
+            </Dialog.Close>
+            <Button onClick={handleImport} disabled={isImporting}>
+              {isImporting ? 'Importing...' : 'Import'}
+            </Button>
+          </Flex>
+        </Dialog.Content>
+      </Dialog.Root>
     </Flex>
   );
 };
