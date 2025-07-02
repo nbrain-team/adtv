@@ -50,13 +50,28 @@ class BrightDataScraper:
             browser, page = await self.connect_to_brightdata()
             
             print(f"Navigating to: {list_url}")
-            await page.goto(list_url, wait_until='networkidle', timeout=60000)
+            # Use domcontentloaded instead of networkidle for better reliability
+            await page.goto(list_url, wait_until='domcontentloaded', timeout=30000)
+            
+            # Wait for agent cards to appear
+            print("Waiting for page to load...")
+            try:
+                await page.wait_for_selector('.agent-card, .realtor-card, a[href*="/real-estate-agents/"]', timeout=10000)
+            except:
+                print("Warning: Could not find expected agent selectors, continuing anyway...")
+            
             await self.human_delay(2000, 4000)
             
             # Scroll to load more results
+            print("Scrolling to load more results...")
             for i in range(3):
                 await page.evaluate(f"window.scrollTo(0, document.body.scrollHeight * {(i+1)/4})")
                 await self.human_delay(1000, 2000)
+            
+            # Debug: Print page title and URL
+            title = await page.title()
+            current_url = page.url
+            print(f"Page loaded - Title: {title}, URL: {current_url}")
             
             # Extract agent profile links
             profile_links = set()
@@ -65,24 +80,41 @@ class BrightDataScraper:
                 '.agent-card a[href*="/profile/"]',
                 '.agent-list-item a[href*="/real-estate-agents/"]',
                 'a.agent-name',
-                '.realtor-card a'
+                '.realtor-card a',
+                '[class*="agent"] a[href*="/"]',  # More generic selector
+                'div[class*="card"] a[href*="/real-estate-agents/"]'
             ]
             
             for selector in selectors:
-                elements = await page.locator(selector).all()
-                for element in elements:
-                    try:
-                        href = await element.get_attribute('href')
-                        if href and ('/real-estate-agents/' in href or '/profile/' in href):
-                            if not href.startswith('http'):
-                                href = f"https://www.homes.com{href}"
-                            # Filter out non-profile URLs
-                            if not any(skip in href for skip in ['/search/', '/office/', '/company/']):
-                                profile_links.add(href)
-                    except:
-                        continue
+                try:
+                    elements = await page.locator(selector).all()
+                    print(f"Checking selector '{selector}': found {len(elements)} elements")
+                    for element in elements:
+                        try:
+                            href = await element.get_attribute('href')
+                            if href and ('/real-estate-agents/' in href or '/profile/' in href):
+                                if not href.startswith('http'):
+                                    href = f"https://www.homes.com{href}"
+                                # Filter out non-profile URLs
+                                if not any(skip in href for skip in ['/search/', '/office/', '/company/', '/listings/']):
+                                    profile_links.add(href)
+                        except:
+                            continue
+                except Exception as e:
+                    print(f"Error with selector {selector}: {e}")
+                    continue
             
             print(f"Found {len(profile_links)} agent profiles")
+            if len(profile_links) == 0:
+                # Debug: Try to print page content
+                page_text = await page.content()
+                print(f"Page content length: {len(page_text)} characters")
+                # Check if we got a captcha or different page
+                if "captcha" in page_text.lower():
+                    print("WARNING: Captcha detected!")
+                elif "access denied" in page_text.lower():
+                    print("WARNING: Access denied!")
+            
             return list(profile_links)
             
         except Exception as e:
@@ -99,7 +131,7 @@ class BrightDataScraper:
             browser, page = await self.connect_to_brightdata()
             
             print(f"Scraping profile: {profile_url}")
-            await page.goto(profile_url, wait_until='networkidle', timeout=60000)
+            await page.goto(profile_url, wait_until='domcontentloaded', timeout=30000)
             await self.human_delay(1000, 2000)
             
             data = {"profile_url": profile_url, "source": "homes.com"}
