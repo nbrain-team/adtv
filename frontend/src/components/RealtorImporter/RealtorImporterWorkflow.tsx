@@ -130,7 +130,7 @@ export const RealtorImporterWorkflow = () => {
               <form onSubmit={handleCreateJob}>
               <Flex direction="column" gap="3">
                   <TextField.Root 
-                      placeholder="Enter realtor.com search URL..." 
+                      placeholder="Enter homes.com search URL..." 
                       value={newUrl}
                       onChange={(e) => setNewUrl(e.target.value)}
                       disabled={!!activeJob}

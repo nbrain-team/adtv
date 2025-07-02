@@ -57,7 +57,7 @@ class RealtorPlaywrightScraper:
         await element.type(text, delay=random.randint(50, 150))
     
     async def scrape_realtor_list_page(self, page: Page, list_url: str) -> List[str]:
-        """Scrape a realtor list page for profile links"""
+        """Scrape a homes.com list page for profile links"""
         print(f"Navigating to list page: {list_url}")
         
         # Navigate with timeout and wait strategies
@@ -75,13 +75,15 @@ class RealtorPlaywrightScraper:
         
         profile_links = set()
         
-        # Try multiple selectors for agent cards
+        # Try multiple selectors for agent cards on homes.com
         selectors = [
             'a[href*="/real-estate-agents/"]',
             'a[href*="/agent/"]',
             '.agent-card a',
             '.agent-list-card a',
-            'div[data-testid*="agent"] a'
+            'div[data-testid*="agent"] a',
+            'a.agent-name',
+            '.agent-card-details-container a'
         ]
         
         for selector in selectors:
@@ -92,7 +94,7 @@ class RealtorPlaywrightScraper:
                     if href and ('/real-estate-agents/' in href or '/agent/' in href):
                         # Ensure absolute URL
                         if not href.startswith('http'):
-                            href = f"https://www.realtor.com{href}"
+                            href = f"https://www.homes.com{href}"
                         profile_links.add(href)
                 except:
                     continue
@@ -130,12 +132,13 @@ class RealtorPlaywrightScraper:
                 print(f"Failed to load profile page: {profile_url}")
                 return None
             
-            # Extract name
+            # Extract name - homes.com specific selectors
             name_selectors = [
                 'h1[data-testid="agent-name"]',
                 'h1.agent-name',
                 'h1[class*="agent-name"]',
-                '.agent-detail-name h1'
+                '.agent-detail-name h1',
+                'h1'
             ]
             
             for selector in name_selectors:
@@ -155,7 +158,8 @@ class RealtorPlaywrightScraper:
                 '[data-testid="agent-brokerage"]',
                 '.brokerage-name',
                 '.agent-broker-info',
-                'div[class*="brokerage"]'
+                'div[class*="brokerage"]',
+                '.agent-company'
             ]
             
             for selector in company_selectors:
@@ -172,7 +176,8 @@ class RealtorPlaywrightScraper:
                 '[data-testid="agent-location"]',
                 '.agent-location',
                 '.agent-address',
-                'div[class*="location"]'
+                'div[class*="location"]',
+                '.agent-city-state'
             ]
             
             for selector in location_selectors:
@@ -191,7 +196,8 @@ class RealtorPlaywrightScraper:
             phone_selectors = [
                 'a[href^="tel:"]',
                 'button:has-text("Call")',
-                '[data-testid*="phone"]'
+                '[data-testid*="phone"]',
+                '.agent-phone'
             ]
             
             for selector in phone_selectors:
@@ -227,7 +233,8 @@ class RealtorPlaywrightScraper:
                 '.agent-stats',
                 '[data-testid*="stats"]',
                 '.performance-data',
-                'div[class*="statistics"]'
+                'div[class*="statistics"]',
+                '.agent-metrics'
             ]
             
             for selector in stats_selectors:
@@ -257,7 +264,7 @@ class RealtorPlaywrightScraper:
             
             # Set default values for missing fields
             data.setdefault('dma', None)
-            data.setdefault('source', 'realtor.com')
+            data.setdefault('source', 'homes.com')
             data.setdefault('years_exp', None)
             data.setdefault('fb_or_website', profile_url)
             

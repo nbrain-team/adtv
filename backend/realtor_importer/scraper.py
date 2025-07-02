@@ -81,8 +81,8 @@ def scrape_realtor_list_page(list_url: str) -> List[str]:
 
     profile_links = set()
     # This selector targets links within a common agent card structure.
-    # Updated selector to be more specific to what has been observed on homes.com-style sites.
-    for a_tag in soup.select('.agent-card-details-container a, a.for-sale-card-link, .agent-card a'):
+    # Updated selector to be more specific to what has been observed on homes.com sites.
+    for a_tag in soup.select('.agent-card-details-container a, a.for-sale-card-link, .agent-card a, a.agent-name'):
         href = a_tag.get('href')
         if href and ('/real-estate-agents/' in href or '/agent/' in href):
             # Ensure we construct an absolute URL
