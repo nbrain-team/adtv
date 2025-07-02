@@ -18,7 +18,7 @@ from datetime import datetime
 from fastapi.concurrency import run_in_threadpool
 
 from core import pinecone_manager, llm_handler, processor, auth, generator_handler
-from core.database import Base, get_db, engine, User, ChatSession, SessionLocal
+from core.database import Base, get_db, engine, User, ChatSession, SessionLocal, TemplateAgent
 from realtor_importer.api import router as realtor_importer_router
 from core.data_lake_routes import router as data_lake_router
 from core.data_lake_models import DataLakeRecord
@@ -73,6 +73,22 @@ class GeneratorRequest(BaseModel):
     core_content: str
     tone: str
     style: str
+
+class TemplateAgentCreate(BaseModel):
+    name: str
+    example_input: str
+    example_output: str
+
+class TemplateAgentResponse(BaseModel):
+    id: str
+    name: str
+    example_input: str
+    example_output: str
+    prompt_template: str
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
 
 # --- App Initialization ---
 app = FastAPI(
@@ -349,3 +365,110 @@ async def chat_stream(req: ChatRequest, current_user: User = Depends(auth.get_cu
             logger.info("Chat stream finished.")
 
     return StreamingResponse(stream_generator(), media_type="text/event-stream")
+
+@app.post("/template-agents", response_model=TemplateAgentResponse)
+async def create_template_agent(
+    template_data: TemplateAgentCreate,
+    current_user: User = Depends(auth.get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Create a new template agent based on example input/output"""
+    
+    # Generate the prompt template using AI
+    prompt_generation_query = f"""Based on the following example input and output, create a prompt template that will help generate similar outputs for new inputs.
+
+Example Input:
+{template_data.example_input}
+
+Example Output:
+{template_data.example_output}
+
+Please create a prompt template that:
+1. Identifies what questions or fields need to be filled in
+2. Understands the tone, style, and structure of the output
+3. Can be used to generate similar outputs for new inputs
+
+Format the template so that the user only needs to provide answers to specific questions, similar to:
+Question 1?
+> 
+
+Question 2?
+> 
+
+The prompt should guide the AI to produce outputs matching the example's style and structure."""
+
+    # Get the AI to generate the prompt template
+    matches = pinecone_manager.query_index("", top_k=0)  # No context needed
+    generator = llm_handler.stream_answer(prompt_generation_query, matches, [])
+    
+    prompt_template = ""
+    async for chunk in generator:
+        prompt_template += chunk
+    
+    # Create the template agent
+    template_agent = TemplateAgent(
+        name=template_data.name,
+        example_input=template_data.example_input,
+        example_output=template_data.example_output,
+        prompt_template=prompt_template,
+        created_by=current_user.id
+    )
+    
+    db.add(template_agent)
+    db.commit()
+    db.refresh(template_agent)
+    
+    return template_agent
+
+
+@app.get("/template-agents", response_model=List[TemplateAgentResponse])
+async def get_template_agents(
+    current_user: User = Depends(auth.get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get all active template agents for the current user"""
+    templates = db.query(TemplateAgent).filter(
+        TemplateAgent.created_by == current_user.id,
+        TemplateAgent.is_active == True
+    ).order_by(TemplateAgent.created_at.desc()).all()
+    
+    return templates
+
+
+@app.get("/template-agents/{template_id}", response_model=TemplateAgentResponse)
+async def get_template_agent(
+    template_id: str,
+    current_user: User = Depends(auth.get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get a specific template agent"""
+    template = db.query(TemplateAgent).filter(
+        TemplateAgent.id == template_id,
+        TemplateAgent.created_by == current_user.id
+    ).first()
+    
+    if not template:
+        raise HTTPException(status_code=404, detail="Template agent not found")
+    
+    return template
+
+
+@app.delete("/template-agents/{template_id}")
+async def delete_template_agent(
+    template_id: str,
+    current_user: User = Depends(auth.get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Delete a template agent (soft delete)"""
+    template = db.query(TemplateAgent).filter(
+        TemplateAgent.id == template_id,
+        TemplateAgent.created_by == current_user.id
+    ).first()
+    
+    if not template:
+        raise HTTPException(status_code=404, detail="Template agent not found")
+    
+    template.is_active = False
+    db.commit()
+    
+    return {"message": "Template agent deleted successfully"}

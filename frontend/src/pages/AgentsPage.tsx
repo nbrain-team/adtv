@@ -3,6 +3,7 @@ import { Box, Flex, Text, Heading, Card, Grid } from '@radix-ui/themes';
 import { ArrowLeftIcon } from '@radix-ui/react-icons';
 import { GeneratorWorkflow } from '../components/GeneratorWorkflow';
 import { RealtorImporterWorkflow } from '../components/RealtorImporter/RealtorImporterWorkflow';
+import { TemplateAgentCreator } from '../components/TemplateAgentCreator';
 
 // Define the structure for an agent
 interface Agent {
@@ -27,6 +28,12 @@ const agents: Agent[] = [
     component: <RealtorImporterWorkflow />,
   },
   {
+    id: 'template-creator',
+    name: 'Template Agent Creator',
+    description: 'Create custom template agents from example inputs and outputs.',
+    component: <TemplateAgentCreator onBack={() => {}} onCreated={() => {}} />, // Will be properly connected below
+  },
+  {
     id: 'pr-outreach',
     name: 'PR Outreach Agent',
     description: 'Create and distribute personalized press releases. (Coming Soon)',
@@ -41,7 +48,7 @@ const AgentsPage = () => {
     const agent = agents.find(a => a.id === agentId);
     if (agent && agent.id !== 'pr-outreach') {
       setSelectedAgent(agent);
-    } else {
+    } else if (agent?.id === 'pr-outreach') {
       // Optionally, show an alert or do nothing for disabled agents
       alert('This agent is coming soon!');
     }
@@ -49,6 +56,20 @@ const AgentsPage = () => {
 
   const handleGoBack = () => {
     setSelectedAgent(null);
+  };
+
+  const handleTemplateCreated = () => {
+    // Show success message or redirect
+    alert('Template agent created successfully! It will now appear in your chat interface.');
+    setSelectedAgent(null);
+  };
+
+  // Clone the component with proper props for template creator
+  const getAgentComponent = (agent: Agent) => {
+    if (agent.id === 'template-creator') {
+      return <TemplateAgentCreator onBack={handleGoBack} onCreated={handleTemplateCreated} />;
+    }
+    return agent.component;
   };
 
   return (
@@ -78,14 +99,18 @@ const AgentsPage = () => {
 
       <Box style={{ padding: '2rem', flex: 1, overflowY: 'auto' }}>
         {selectedAgent ? (
-          selectedAgent.component
+          getAgentComponent(selectedAgent)
         ) : (
           <Grid columns={{ initial: '1', sm: '2', md: '3' }} gap="4">
             {agents.map(agent => (
               <Card 
                 key={agent.id} 
                 onClick={() => handleSelectAgent(agent.id)}
-                style={{ cursor: 'pointer', transition: 'all 0.2s' }}
+                style={{ 
+                  cursor: agent.id === 'pr-outreach' ? 'not-allowed' : 'pointer', 
+                  transition: 'all 0.2s',
+                  opacity: agent.id === 'pr-outreach' ? 0.6 : 1
+                }}
                 className="agent-card"
               >
                 <Flex direction="column" gap="2">

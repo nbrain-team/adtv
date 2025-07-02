@@ -26,6 +26,7 @@ class User(Base):
     is_active = Column(Boolean, default=True)
 
     conversations = relationship("ChatSession", back_populates="user")
+    template_agents = relationship("TemplateAgent", back_populates="creator", cascade="all, delete-orphan")
 
 
 class ChatSession(Base):
@@ -93,6 +94,23 @@ class RealtorContact(Base):
     buyer_deals_avg_price = Column(BigInteger, nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class TemplateAgent(Base):
+    __tablename__ = "template_agents"
+    
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    name = Column(String, nullable=False)
+    example_input = Column(String, nullable=False)  # Using String instead of Text
+    example_output = Column(String, nullable=False)
+    prompt_template = Column(String, nullable=False)  # Generated prompt
+    created_by = Column(String, ForeignKey("users.id"))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now())
+    is_active = Column(Boolean, default=True)
+    
+    # Relationship
+    creator = relationship("User", back_populates="template_agents")
 
 
 def get_db():
