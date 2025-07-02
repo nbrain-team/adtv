@@ -7,7 +7,15 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 
-# Import Bright Data scraper as highest priority
+# Import Web Unlocker scraper as highest priority
+try:
+    from .web_unlocker_scraper import scrape_with_web_unlocker
+    WEB_UNLOCKER_AVAILABLE = True
+except ImportError:
+    WEB_UNLOCKER_AVAILABLE = False
+    print("Web Unlocker scraper not available")
+
+# Import Bright Data scraper as second priority
 try:
     from .brightdata_scraper import scrape_homes_brightdata
     BRIGHTDATA_AVAILABLE = True
@@ -15,7 +23,7 @@ except ImportError:
     BRIGHTDATA_AVAILABLE = False
     print("Bright Data scraper not available")
 
-# Import the proxy scraper as second priority
+# Import the proxy scraper as third priority
 try:
     from .proxy_scraper import scrape_with_proxy
     PROXY_SCRAPER_AVAILABLE = True
@@ -23,7 +31,7 @@ except ImportError:
     PROXY_SCRAPER_AVAILABLE = False
     print("Proxy scraper not available")
 
-# Import the indirect navigation scraper as third priority
+# Import the indirect navigation scraper as fourth priority
 try:
     from .indirect_scraper import scrape_indirect
     INDIRECT_SCRAPER_AVAILABLE = True
@@ -243,9 +251,18 @@ def scrape_realtor_profile_page(profile_url: str) -> Optional[Dict[str, Any]]:
 def scrape_realtor_list_with_playwright(list_url: str, max_profiles: int = 10) -> List[Dict[str, Any]]:
     """
     Alternative scraping method using Playwright for better bot detection evasion.
-    Tries Bright Data first, then proxy, then indirect navigation, then falls back to other methods.
+    Tries Web Unlocker first, then Bright Data, then proxy, then other methods.
     """
-    # Try Bright Data scraper first (most reliable)
+    # Try Web Unlocker first (most reliable for anti-bot bypassing)
+    if WEB_UNLOCKER_AVAILABLE and os.getenv('BRIGHTDATA_API_TOKEN'):
+        print("Using Bright Data Web Unlocker API...")
+        try:
+            return scrape_with_web_unlocker(list_url, max_profiles)
+        except Exception as e:
+            print(f"Web Unlocker failed: {e}")
+            print("Falling back to Browser API...")
+    
+    # Try Bright Data Browser API
     if BRIGHTDATA_AVAILABLE and os.getenv('BRIGHTDATA_BROWSER_URL'):
         print("Using Bright Data Browser API...")
         try:

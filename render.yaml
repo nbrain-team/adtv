@@ -39,3 +39,5 @@ services:
         sync: false
       - key: BRIGHTDATA_BROWSER_URL
         sync: false
+      - key: BRIGHTDATA_API_TOKEN
+        sync: false
