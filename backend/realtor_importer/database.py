@@ -1,25 +1,12 @@
 """
 Database models and configuration for the Realtor Importer module
 """
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text, ForeignKey
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey
 from sqlalchemy.orm import relationship
 from datetime import datetime
-import os
-from dotenv import load_dotenv
 
-load_dotenv()
-
-# Create a separate Base for realtor importer tables
-Base = declarative_base()
-
-# Get database URL from environment or use default
-DATABASE_URL = os.getenv("DATABASE_URL")
-if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
-
-# Create engine
-engine = create_engine(DATABASE_URL)
+# Import Base and engine from the main database module
+from core.database import Base, engine
 
 class ScrapeJob(Base):
     """Model for tracking scraping jobs"""

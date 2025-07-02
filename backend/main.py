@@ -23,6 +23,10 @@ from realtor_importer.api import router as realtor_importer_router
 from core.data_lake_routes import router as data_lake_router
 from core.data_lake_models import DataLakeRecord
 
+# Import realtor importer models to ensure they're registered with SQLAlchemy
+from realtor_importer.database import ScrapeJob
+from realtor_importer.models import RealtorLead
+
 load_dotenv()
 
 # --- Logging ---

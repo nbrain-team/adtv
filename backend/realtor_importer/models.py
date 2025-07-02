@@ -4,7 +4,7 @@ Models for Realtor Importer leads
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from datetime import datetime
-from .database import Base
+from core.database import Base
 
 class RealtorLead(Base):
     """Model for storing scraped realtor information"""
