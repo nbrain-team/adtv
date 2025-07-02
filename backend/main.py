@@ -23,7 +23,6 @@ from realtor_importer.api import router as realtor_importer_router
 from core.data_lake_routes import router as data_lake_router
 from core.data_lake_models import DataLakeRecord
 
-from realtor_importer.models import RealtorLead
 
 load_dotenv()
 
