@@ -38,34 +38,27 @@ const PopupItem = ({ children, onClick }: PopupItemProps) => (
 );
 
 interface TemplateAgentsPopupProps {
-  onSelectTemplate: (template: string) => void;
+  onSelectTemplate: (template: string, templateType?: string) => void;
 }
 
 export const TemplateAgentsPopup = ({ onSelectTemplate }: TemplateAgentsPopupProps) => {
-  const roadshowTemplate = `Please help me write a personalized response email based on the following information from a potential host for American Dream TV:
-
-What is your primary geographic market?
-> [Their answer here]
+  // This is what the user sees and fills in
+  const roadshowQuestions = `What is your primary geographic market?
+> 
 
 Why would you like to host?
-> [Their answer here]
+> 
 
 Tell us anything you feel is important in our selection process:
-> [Their answer here]
+> 
 
 Do you have any segment ideas?
-> [Their answer here]
+> `;
 
-Please write a warm, enthusiastic response that:
-1. Thanks them for their response and acknowledges their passion for their market
-2. Shows genuine interest in their unique story/initiatives (especially any community involvement)
-3. Mentions their segment ideas positively
-4. Reminds them to complete the DocuSign agreement if they haven't already
-5. Clarifies that signing doesn't guarantee selection but helps with due diligence
-6. Ends with excitement about possibilities ahead
-
-Keep the tone professional but warm, similar to this example length and style:
-"Thank you for your enthusiastic response and for sharing such a heartfelt vision for representing [location]. Your passion for [specific thing they mentioned] really shines through, and it's inspiring to see [specific initiative/commitment]. [Comment on their segment ideas]. If you haven't already, please be sure to complete the DocuSign agreement sent your way to solidify your interest. Remember, signing doesn't guarantee selection as host, but it really helps put you in the best position as we move forward with our due diligence. Thanks again for taking the time to share what makes you and your market special — we're excited about the possibilities ahead and look forward to connecting further."`;
+  const handleRoadshowClick = () => {
+    // Pass both the questions and the template type
+    onSelectTemplate(roadshowQuestions, 'roadshow');
+  };
 
   return (
     <Box style={popupBoxStyle}>
@@ -73,7 +66,7 @@ Keep the tone professional but warm, similar to this example length and style:
         <Box px="2" mb="1">
             <Text as="div" size="2" weight="bold" color="gray">Template Agents</Text>
         </Box>
-        <PopupItem onClick={() => onSelectTemplate(roadshowTemplate)}>
+        <PopupItem onClick={handleRoadshowClick}>
           Roadshow Communication
         </PopupItem>
       </Flex>
