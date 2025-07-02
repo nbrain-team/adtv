@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Flex, IconButton, TextField } from '@radix-ui/themes';
+import { Flex, IconButton, TextField, TextArea } from '@radix-ui/themes';
 import { ArrowRightIcon, Share2Icon, CalendarIcon, LayersIcon } from '@radix-ui/react-icons';
 import { DataSourcesPopup } from './DataSourcesPopup';
 import { DateSelectionPopup } from './DateSelectionPopup';
@@ -21,7 +21,7 @@ export const CommandCenter = ({ onSend, isLoading }: CommandCenterProps) => {
         }
     };
 
-    const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
         if (event.key === 'Enter' && !event.shiftKey) {
           event.preventDefault();
           if (!isLoading && input.trim() !== '') {
@@ -34,17 +34,28 @@ export const CommandCenter = ({ onSend, isLoading }: CommandCenterProps) => {
         setActivePopup(prev => (prev === popupName ? null : popupName));
     };
 
+    const handleTemplateSelect = (template: string) => {
+        setInput(template);
+        setActivePopup(null); // Close the popup
+    };
+
+    // Dynamically calculate rows based on content
+    const calculateRows = () => {
+        const lines = input.split('\n').length;
+        return Math.min(Math.max(lines, 1), 10); // Min 1 row, max 10 rows
+    };
 
     return (
         <Flex gap="3" align="center" style={{ position: 'relative' }}>
             {/* --- Text Input --- */}
-            <TextField.Root
+            <TextArea
                 placeholder="Ask a question or type a command..."
-                style={{ flexGrow: 1 }}
+                style={{ flexGrow: 1, minHeight: '40px', resize: 'vertical' }}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 disabled={isLoading}
+                rows={calculateRows()}
             />
 
             {/* --- Right-side Icons & Popups --- */}
@@ -67,7 +78,7 @@ export const CommandCenter = ({ onSend, isLoading }: CommandCenterProps) => {
                     <IconButton variant="ghost" onClick={() => togglePopup('agents')} style={{ cursor: 'pointer', color: 'var(--gray-11)' }}>
                         <LayersIcon width={22} height={22} />
                     </IconButton>
-                    {activePopup === 'agents' && <TemplateAgentsPopup />}
+                    {activePopup === 'agents' && <TemplateAgentsPopup onSelectTemplate={handleTemplateSelect} />}
                 </div>
             </Flex>
 
