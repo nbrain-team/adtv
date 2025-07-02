@@ -7,6 +7,14 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 
+# Import the proxy scraper as highest priority
+try:
+    from .proxy_scraper import scrape_with_proxy
+    PROXY_SCRAPER_AVAILABLE = True
+except ImportError:
+    PROXY_SCRAPER_AVAILABLE = False
+    print("Proxy scraper not available")
+
 # Import the indirect navigation scraper as primary method
 try:
     from .indirect_scraper import scrape_indirect
@@ -227,9 +235,18 @@ def scrape_realtor_profile_page(profile_url: str) -> Optional[Dict[str, Any]]:
 def scrape_realtor_list_with_playwright(list_url: str, max_profiles: int = 10) -> List[Dict[str, Any]]:
     """
     Alternative scraping method using Playwright for better bot detection evasion.
-    Tries indirect navigation first, then falls back to other methods.
+    Tries proxy first, then indirect navigation, then falls back to other methods.
     """
-    # Try indirect navigation first (most likely to succeed)
+    # Try proxy scraper first if available and configured
+    if PROXY_SCRAPER_AVAILABLE and os.getenv('RESIDENTIAL_PROXY_URL'):
+        print("Using proxy scraper (residential proxy configured)...")
+        try:
+            return scrape_with_proxy(list_url, max_profiles)
+        except Exception as e:
+            print(f"Proxy scraper failed: {e}")
+            print("Falling back to indirect navigation...")
+    
+    # Try indirect navigation (most likely to succeed without proxy)
     if INDIRECT_SCRAPER_AVAILABLE:
         print("Using indirect navigation scraper (navigating from homepage)...")
         try:
