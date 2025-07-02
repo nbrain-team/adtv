@@ -7,6 +7,14 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 
+# Import the new Playwright scraper
+try:
+    from .playwright_scraper import scrape_with_playwright
+    PLAYWRIGHT_AVAILABLE = True
+except ImportError:
+    PLAYWRIGHT_AVAILABLE = False
+    print("Playwright not available. Install with: pip install playwright && python -m playwright install chromium")
+
 # --- Enhanced Scraping Configuration ---
 
 # A list of common user-agents to rotate through
@@ -169,4 +177,34 @@ def scrape_realtor_profile_page(profile_url: str) -> Optional[Dict[str, Any]]:
     data.setdefault('dma', None)
     data.setdefault('source', "homes.com")
 
-    return data 
+    return data
+
+
+def scrape_realtor_list_with_playwright(list_url: str, max_profiles: int = 10) -> List[Dict[str, Any]]:
+    """
+    Alternative scraping method using Playwright for better bot detection evasion.
+    Falls back to Selenium if Playwright is not available.
+    """
+    if PLAYWRIGHT_AVAILABLE:
+        print("Using Playwright scraper for better bot detection evasion...")
+        try:
+            return scrape_with_playwright(list_url, max_profiles)
+        except Exception as e:
+            print(f"Playwright scraper failed: {e}")
+            print("Falling back to Selenium...")
+    
+    # Fallback to original Selenium method
+    print("Using Selenium scraper...")
+    profile_links = scrape_realtor_list_page(list_url)
+    scraped_data = []
+    
+    for i, profile_url in enumerate(profile_links[:max_profiles]):
+        print(f"Scraping profile {i+1}/{min(len(profile_links), max_profiles)}: {profile_url}")
+        profile_data = scrape_realtor_profile_page(profile_url)
+        if profile_data:
+            scraped_data.append(profile_data)
+        # Add delay between requests to avoid rate limiting
+        if i < len(profile_links) - 1:
+            time.sleep(2)
+    
+    return scraped_data 

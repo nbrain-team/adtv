@@ -46,6 +46,32 @@ class RealtorContact(RealtorContactBase):
 class ScrapeRequest(BaseModel):
     url: str
 
+class RealtorContactResponse(BaseModel):
+    id: str
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    company: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    cell_phone: Optional[str] = None
+    email: Optional[str] = None
+    profile_url: Optional[str] = None
+
+class ScrapingJobResponse(BaseModel):
+    id: int
+    start_url: str
+    status: str
+    created_at: datetime
+    contact_count: int = 0
+
+class ScrapingJobDetail(BaseModel):
+    id: int
+    start_url: str
+    status: str
+    created_at: datetime
+    error_message: Optional[str] = None
+    realtor_contacts: List[RealtorContactResponse] = []
+
 class ScrapingJobBase(BaseModel):
     id: str
     status: ScrapingJobStatus
