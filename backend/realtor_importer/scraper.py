@@ -7,7 +7,15 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 
-# Import the proxy scraper as highest priority
+# Import Bright Data scraper as highest priority
+try:
+    from .brightdata_scraper import scrape_homes_brightdata
+    BRIGHTDATA_AVAILABLE = True
+except ImportError:
+    BRIGHTDATA_AVAILABLE = False
+    print("Bright Data scraper not available")
+
+# Import the proxy scraper as second priority
 try:
     from .proxy_scraper import scrape_with_proxy
     PROXY_SCRAPER_AVAILABLE = True
@@ -15,7 +23,7 @@ except ImportError:
     PROXY_SCRAPER_AVAILABLE = False
     print("Proxy scraper not available")
 
-# Import the indirect navigation scraper as primary method
+# Import the indirect navigation scraper as third priority
 try:
     from .indirect_scraper import scrape_indirect
     INDIRECT_SCRAPER_AVAILABLE = True
@@ -235,9 +243,18 @@ def scrape_realtor_profile_page(profile_url: str) -> Optional[Dict[str, Any]]:
 def scrape_realtor_list_with_playwright(list_url: str, max_profiles: int = 10) -> List[Dict[str, Any]]:
     """
     Alternative scraping method using Playwright for better bot detection evasion.
-    Tries proxy first, then indirect navigation, then falls back to other methods.
+    Tries Bright Data first, then proxy, then indirect navigation, then falls back to other methods.
     """
-    # Try proxy scraper first if available and configured
+    # Try Bright Data scraper first (most reliable)
+    if BRIGHTDATA_AVAILABLE and os.getenv('BRIGHTDATA_BROWSER_URL'):
+        print("Using Bright Data Browser API...")
+        try:
+            return scrape_homes_brightdata(list_url, max_profiles)
+        except Exception as e:
+            print(f"Bright Data scraper failed: {e}")
+            print("Falling back to proxy scraper...")
+    
+    # Try proxy scraper if available and configured
     if PROXY_SCRAPER_AVAILABLE and os.getenv('RESIDENTIAL_PROXY_URL'):
         print("Using proxy scraper (residential proxy configured)...")
         try:
