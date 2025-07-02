@@ -138,6 +138,10 @@ export const RealtorImporterWorkflow = () => {
                   <Button disabled={isLoading || !!activeJob}>
                       {isLoading ? 'Starting...' : 'Start New Scrape'}
                   </Button>
+                  <Callout.Root color="blue">
+                      <Callout.Icon><InfoCircledIcon /></Callout.Icon>
+                      <Callout.Text size="1">Each scraping job is limited to 25 profiles maximum to ensure reliable performance.</Callout.Text>
+                  </Callout.Root>
               </Flex>
               </form>
               {activeJob && (
@@ -175,7 +179,7 @@ export const RealtorImporterWorkflow = () => {
                       </Flex>
                       {job.status === 'processing' && (
                           <Text size="1" color="blue" mt="1">
-                              Using enhanced Playwright scraper...
+                              Scraping up to 25 profiles...
                           </Text>
                       )}
                       <Button 
@@ -201,6 +205,14 @@ export const RealtorImporterWorkflow = () => {
                           <Callout.Icon><ExclamationTriangleIcon /></Callout.Icon>
                           <Callout.Text>Error: {selectedJob.error_message}</Callout.Text>
                       </Callout.Root>
+                  )}
+                  {selectedJob.status === 'completed' && selectedJob.realtor_contacts && selectedJob.realtor_contacts.length > 0 && (
+                      <Flex justify="between" align="center" mb="3">
+                          <Text size="2" weight="bold">
+                              Found {selectedJob.realtor_contacts.length} contacts
+                              {selectedJob.realtor_contacts.length === 25 && ' (limit reached)'}
+                          </Text>
+                      </Flex>
                   )}
                   <Table.Root variant="surface">
                       <Table.Header>

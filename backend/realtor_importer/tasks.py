@@ -7,6 +7,9 @@ from sqlalchemy.orm import Session
 from . import scraper
 from core.database import engine, ScrapingJob, RealtorContact, SessionLocal, ScrapingJobStatus
 
+# Maximum profiles to scrape per job (to control costs and prevent abuse)
+MAX_PROFILES_PER_JOB = 25
+
 
 def process_scrape_job(job_id: str):
     """
@@ -26,8 +29,10 @@ def process_scrape_job(job_id: str):
             # This will automatically fall back to Selenium if Playwright is not available
             scraped_data = scraper.scrape_realtor_list_with_playwright(
                 job.start_url, 
-                max_profiles=10  # Limit for testing
+                max_profiles=MAX_PROFILES_PER_JOB
             )
+            
+            print(f"Scraped {len(scraped_data)} profiles (max: {MAX_PROFILES_PER_JOB})")
             
             # Save scraped data
             for data in scraped_data:
