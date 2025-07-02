@@ -44,7 +44,9 @@ apt-get update && apt-get install -y \
     xdg-utils \
     libgbm-dev \
     libxkbcommon-x11-0 \
-    libxshmfence1
+    libxshmfence1 \
+    curl \
+    unzip
 
 # Download and install Chrome (for Selenium)
 echo "Installing Chrome..."
@@ -58,17 +60,36 @@ echo "Installing ChromeDriver..."
 CHROME_VERSION=$(google-chrome --version | awk '{print $3}' | cut -d '.' -f 1)
 echo "Chrome version: $CHROME_VERSION"
 
-# Download matching ChromeDriver
-CHROMEDRIVER_VERSION=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_$CHROME_VERSION")
+# Get ChromeDriver version URL for new Chrome versions
+CHROMEDRIVER_VERSION_URL="https://googlechromelabs.github.io/chrome-for-testing/LATEST_RELEASE_${CHROME_VERSION}"
+CHROMEDRIVER_VERSION=$(curl -s "$CHROMEDRIVER_VERSION_URL")
+
+# If that fails, try the old API
+if [ -z "$CHROMEDRIVER_VERSION" ]; then
+    CHROMEDRIVER_VERSION=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_VERSION}")
+fi
+
 echo "ChromeDriver version: $CHROMEDRIVER_VERSION"
 
-wget -N "https://chromedriver.storage.googleapis.com/$CHROMEDRIVER_VERSION/chromedriver_linux64.zip" -P ~/
-unzip ~/chromedriver_linux64.zip -d ~/
-rm ~/chromedriver_linux64.zip
-chmod +x ~/chromedriver
+# Download matching ChromeDriver - try new URL format first
+CHROMEDRIVER_URL="https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/${CHROMEDRIVER_VERSION}/linux64/chromedriver-linux64.zip"
+if ! wget -q --spider "$CHROMEDRIVER_URL"; then
+    # Fall back to old URL format
+    CHROMEDRIVER_URL="https://chromedriver.storage.googleapis.com/${CHROMEDRIVER_VERSION}/chromedriver_linux64.zip"
+fi
 
-# Move chromedriver to a location in PATH
-mv ~/chromedriver /usr/local/bin/
+wget -N "$CHROMEDRIVER_URL" -P ~/
+if [ -f ~/chromedriver-linux64.zip ]; then
+    unzip ~/chromedriver-linux64.zip -d ~/
+    mv ~/chromedriver-linux64/chromedriver /usr/local/bin/
+    rm -rf ~/chromedriver-linux64.zip ~/chromedriver-linux64
+else
+    unzip ~/chromedriver_linux64.zip -d ~/
+    mv ~/chromedriver /usr/local/bin/
+    rm ~/chromedriver_linux64.zip
+fi
+
+chmod +x /usr/local/bin/chromedriver
 
 # Set environment variables
 export CHROME_BIN=/usr/bin/google-chrome
@@ -83,8 +104,8 @@ pip install -r requirements.txt
 
 # Install Playwright browsers (for the new enhanced scraper)
 echo "Installing Playwright..."
-python -m playwright install chromium
-python -m playwright install-deps
+# Install with all dependencies
+python -m playwright install chromium --with-deps
 
 echo "Running database setup..."
 python db_setup.py

@@ -21,7 +21,7 @@ services:
     clearCache: true
     rootDir: backend
     buildCommand: chmod +x build.sh && ./build.sh
-    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    startCommand: chmod +x start.sh && ./start.sh
     envVars:
       - key: PINECONE_API_KEY
         sync: false

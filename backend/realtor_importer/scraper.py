@@ -38,12 +38,40 @@ def get_soup_with_selenium(url: str) -> Optional[BeautifulSoup]:
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
 
+    # Check for chromedriver path - try multiple locations
     chromedriver_path = os.getenv("CHROMEDRIVER_PATH")
-    chrome_bin_path = os.getenv("CHROME_BIN")
-
+    
     if not chromedriver_path:
-        # This will now fail loudly during development if Nix env isn't set up.
-        raise ValueError("CHROMEDRIVER_PATH environment variable not set. Is the Nix environment active?")
+        # Try common locations on Render
+        possible_paths = [
+            "/usr/local/bin/chromedriver",
+            "/usr/bin/chromedriver",
+            "/opt/render/project/src/chromedriver",
+            os.path.expanduser("~/chromedriver")
+        ]
+        
+        for path in possible_paths:
+            if os.path.exists(path):
+                chromedriver_path = path
+                break
+    
+    if not chromedriver_path:
+        raise ValueError("Could not find chromedriver. Please ensure Chrome and chromedriver are installed.")
+    
+    chrome_bin_path = os.getenv("CHROME_BIN")
+    if not chrome_bin_path:
+        # Try common Chrome locations
+        possible_chrome_paths = [
+            "/usr/bin/google-chrome",
+            "/usr/bin/google-chrome-stable",
+            "/usr/bin/chromium-browser",
+            "/usr/bin/chromium"
+        ]
+        
+        for path in possible_chrome_paths:
+            if os.path.exists(path):
+                chrome_bin_path = path
+                break
     
     if chrome_bin_path:
         chrome_options.binary_location = chrome_bin_path
