@@ -37,3 +37,5 @@ services:
         sync: false
       - key: PINECONE_ENVIRONMENT
         sync: false
+      - key: BRIGHTDATA_BROWSER_URL
+        sync: false
