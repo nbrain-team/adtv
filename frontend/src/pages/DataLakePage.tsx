@@ -26,6 +26,8 @@ const DataLakePage = () => {
   const [csvColumns, setCsvColumns] = useState<string[]>([]);
   const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [editingCell, setEditingCell] = useState<{ recordId: number; column: string } | null>(null);
+  const [editValue, setEditValue] = useState<string>('');
   const recordsPerPage = 50;
 
   // Define the first 10 columns to show initially
@@ -281,6 +283,37 @@ const DataLakePage = () => {
     return value;
   };
 
+  // Update mutation
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: Record<string, any> }) => 
+      api.put(`/data-lake/records/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dataLakeRecords'] });
+      setEditingCell(null);
+      setEditValue('');
+    }
+  });
+
+  const handleCellEdit = (recordId: number, column: string, value: any) => {
+    // Don't allow editing certain fields
+    if (column === 'id' || column === 'unique_id') return;
+    
+    setEditingCell({ recordId, column });
+    setEditValue(value?.toString() || '');
+  };
+
+  const handleCellSave = (recordId: number, column: string) => {
+    updateMutation.mutate({
+      id: recordId,
+      data: { [column]: editValue }
+    });
+  };
+
+  const handleCellCancel = () => {
+    setEditingCell(null);
+    setEditValue('');
+  };
+
   return (
     <Flex direction="column" style={{ height: '100vh' }}>
       <style>{STYLES}</style>
@@ -411,7 +444,38 @@ const DataLakePage = () => {
                       />
                     </td>
                     {visibleColumns.map(column => (
-                      <td key={column}>{formatCellValue(record[column], column)}</td>
+                      <td 
+                        key={column} 
+                        className={column === 'phone' || column === 'company' ? 'no-wrap' : ''}
+                        onDoubleClick={() => handleCellEdit(record.id, column, record[column])}
+                      >
+                        {editingCell?.recordId === record.id && editingCell?.column === column ? (
+                          <input
+                            type="text"
+                            value={editValue}
+                            onChange={(e) => setEditValue(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                handleCellSave(record.id, column);
+                              } else if (e.key === 'Escape') {
+                                handleCellCancel();
+                              }
+                            }}
+                            onBlur={() => handleCellSave(record.id, column)}
+                            autoFocus
+                            style={{
+                              width: '100%',
+                              padding: '0.25rem',
+                              border: '1px solid var(--blue-7)',
+                              borderRadius: '4px',
+                              fontSize: 'inherit'
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        ) : (
+                          formatCellValue(record[column], column)
+                        )}
+                      </td>
                     ))}
                     <td>
                       <IconButton 
@@ -600,6 +664,11 @@ const STYLES = `
     font-size: 0.8rem;
   }
   
+  #data-lake-table td.no-wrap {
+    white-space: nowrap;
+    min-width: 150px;
+  }
+  
   #data-lake-table th {
     font-weight: 600;
     color: var(--gray-11);
@@ -615,6 +684,14 @@ const STYLES = `
   
   #data-lake-table tbody tr.selected {
     background-color: var(--blue-2);
+  }
+  
+  #data-lake-table tbody td {
+    cursor: text;
+  }
+  
+  #data-lake-table tbody td:hover {
+    background-color: var(--gray-3);
   }
   
   .pagination-controls {
