@@ -7,6 +7,14 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 
+# Import the indirect navigation scraper as primary method
+try:
+    from .indirect_scraper import scrape_indirect
+    INDIRECT_SCRAPER_AVAILABLE = True
+except ImportError:
+    INDIRECT_SCRAPER_AVAILABLE = False
+    print("Indirect scraper not available")
+
 # Import the new Playwright scraper
 try:
     from .playwright_scraper import scrape_with_playwright
@@ -219,8 +227,18 @@ def scrape_realtor_profile_page(profile_url: str) -> Optional[Dict[str, Any]]:
 def scrape_realtor_list_with_playwright(list_url: str, max_profiles: int = 10) -> List[Dict[str, Any]]:
     """
     Alternative scraping method using Playwright for better bot detection evasion.
-    Falls back to Selenium if Playwright is not available.
+    Tries indirect navigation first, then falls back to other methods.
     """
+    # Try indirect navigation first (most likely to succeed)
+    if INDIRECT_SCRAPER_AVAILABLE:
+        print("Using indirect navigation scraper (navigating from homepage)...")
+        try:
+            return scrape_indirect(list_url, max_profiles)
+        except Exception as e:
+            print(f"Indirect navigation scraper failed: {e}")
+            print("Falling back to direct Playwright scraper...")
+    
+    # Try direct Playwright scraper
     if PLAYWRIGHT_AVAILABLE:
         print("Using Playwright scraper for better bot detection evasion...")
         try:

@@ -102,10 +102,21 @@ echo "ChromeDriver at: $CHROMEDRIVER_PATH"
 echo "Installing Python dependencies..."
 pip install -r requirements.txt
 
-# Install Playwright browsers (for the new enhanced scraper)
-echo "Installing Playwright..."
-# Install with all dependencies
+# Install Playwright and browsers properly
+echo "Installing Playwright with browsers..."
+# First ensure playwright is installed
+pip install playwright
+
+# Set Playwright browsers path to a writable location
+export PLAYWRIGHT_BROWSERS_PATH=/opt/render/project/.playwright
+
+# Install Playwright browsers with all dependencies
 python -m playwright install chromium --with-deps
+python -m playwright install-deps chromium
+
+# Verify installation
+echo "Verifying Playwright installation..."
+python -c "from playwright.sync_api import sync_playwright; print('Playwright imported successfully')"
 
 echo "Running database setup..."
 python db_setup.py

@@ -4,10 +4,14 @@
 export CHROME_BIN=/usr/bin/google-chrome
 export CHROMEDRIVER_PATH=/usr/local/bin/chromedriver
 
+# Set Playwright browsers path
+export PLAYWRIGHT_BROWSERS_PATH=/opt/render/project/.playwright
+
 # Log the paths for debugging
 echo "=== Chrome/ChromeDriver Debug Info ==="
 echo "Chrome binary at: $CHROME_BIN"
 echo "ChromeDriver at: $CHROMEDRIVER_PATH"
+echo "Playwright browsers at: $PLAYWRIGHT_BROWSERS_PATH"
 
 # Check if they exist
 if [ -f "$CHROME_BIN" ]; then
@@ -41,7 +45,11 @@ fi
 echo "=== Playwright Debug Info ==="
 python -c "import playwright; print(f'Playwright version: {playwright.__version__}')" || echo "Playwright not installed"
 echo "Playwright browsers location:"
-ls -la ~/.cache/ms-playwright/ 2>/dev/null || echo "No Playwright cache found"
+ls -la $PLAYWRIGHT_BROWSERS_PATH 2>/dev/null || echo "No Playwright cache found at $PLAYWRIGHT_BROWSERS_PATH"
+
+# Check if Playwright browsers are installed in default location too
+echo "Checking default Playwright location:"
+ls -la ~/.cache/ms-playwright/ 2>/dev/null || echo "No Playwright cache in default location"
 
 echo "=== Starting Application ==="
 
