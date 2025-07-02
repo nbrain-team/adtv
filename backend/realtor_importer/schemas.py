@@ -58,14 +58,14 @@ class RealtorContactResponse(BaseModel):
     profile_url: Optional[str] = None
 
 class ScrapingJobResponse(BaseModel):
-    id: int
+    id: str
     start_url: str
     status: str
     created_at: datetime
     contact_count: int = 0
 
 class ScrapingJobDetail(BaseModel):
-    id: int
+    id: str
     start_url: str
     status: str
     created_at: datetime

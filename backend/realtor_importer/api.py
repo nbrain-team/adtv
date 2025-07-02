@@ -5,9 +5,7 @@ from datetime import datetime
 import threading
 
 from core import auth
-from core.database import get_db, User
-from .database import ScrapeJob, engine
-from .models import RealtorLead
+from core.database import get_db, User, engine, ScrapingJob, RealtorContact
 from . import schemas
 from . import tasks
 
@@ -36,35 +34,33 @@ def create_scraping_job(
     ensure_task_processor_running()
     
     # Check if there's already an active job
-    with Session(engine) as session:
-        active_job = session.query(ScrapeJob).filter(
-            ScrapeJob.status.in_(["pending", "processing"])
-        ).first()
-        
-        if active_job:
-            raise HTTPException(
-                status_code=400, 
-                detail="Another job is already in progress. Please wait for it to complete."
-            )
+    active_job = db.query(ScrapingJob).filter(
+        ScrapingJob.status.in_(["PENDING", "IN_PROGRESS"])
+    ).first()
+    
+    if active_job:
+        raise HTTPException(
+            status_code=400, 
+            detail="Another job is already in progress. Please wait for it to complete."
+        )
     
     # Create the job in the database
-    with Session(engine) as session:
-        new_job = ScrapeJob(
-            start_url=request.url,
-            user_id=current_user.id,
-            status="pending"
-        )
-        session.add(new_job)
-        session.commit()
-        session.refresh(new_job)
-        
-        return schemas.ScrapingJobResponse(
-            id=new_job.id,
-            start_url=new_job.start_url,
-            status=new_job.status,
-            created_at=new_job.created_at,
-            contact_count=0
-        )
+    new_job = ScrapingJob(
+        start_url=request.url,
+        user_id=current_user.id,
+        status="PENDING"
+    )
+    db.add(new_job)
+    db.commit()
+    db.refresh(new_job)
+    
+    return schemas.ScrapingJobResponse(
+        id=new_job.id,
+        start_url=new_job.start_url,
+        status=new_job.status.value,
+        created_at=new_job.created_at,
+        contact_count=0
+    )
 
 @router.get("/", response_model=List[schemas.ScrapingJobResponse])
 def get_all_jobs(
@@ -76,101 +72,98 @@ def get_all_jobs(
     """
     Returns a list of all scraping jobs initiated by the current user.
     """
-    with Session(engine) as session:
-        jobs = session.query(ScrapeJob).filter(
-            ScrapeJob.user_id == current_user.id
-        ).order_by(ScrapeJob.created_at.desc()).offset(skip).limit(limit).all()
+    jobs = db.query(ScrapingJob).filter(
+        ScrapingJob.user_id == current_user.id
+    ).order_by(ScrapingJob.created_at.desc()).offset(skip).limit(limit).all()
+    
+    results = []
+    for job in jobs:
+        # Count associated contacts
+        contact_count = db.query(RealtorContact).filter(
+            RealtorContact.job_id == job.id
+        ).count()
         
-        results = []
-        for job in jobs:
-            # Count associated leads
-            contact_count = session.query(RealtorLead).filter(
-                RealtorLead.job_id == job.id
-            ).count()
-            
-            results.append(schemas.ScrapingJobResponse(
-                id=job.id,
-                start_url=job.start_url,
-                status=job.status,
-                created_at=job.created_at,
-                contact_count=contact_count
-            ))
-        
-        return results
+        results.append(schemas.ScrapingJobResponse(
+            id=job.id,
+            start_url=job.start_url,
+            status=job.status.value,
+            created_at=job.created_at,
+            contact_count=contact_count
+        ))
+    
+    return results
 
 @router.get("/{job_id}", response_model=schemas.ScrapingJobDetail)
 def get_job_details(
-    job_id: int,
+    job_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(auth.get_current_active_user),
 ):
     """
     Retrieves the details and all scraped contacts for a specific job.
     """
-    with Session(engine) as session:
-        job = session.query(ScrapeJob).filter(
-            ScrapeJob.id == job_id,
-            ScrapeJob.user_id == current_user.id
-        ).first()
+    job = db.query(ScrapingJob).filter(
+        ScrapingJob.id == job_id,
+        ScrapingJob.user_id == current_user.id
+    ).first()
 
-        if not job:
-            raise HTTPException(status_code=404, detail="Job not found")
-        
-        # Get all leads for this job
-        leads = session.query(RealtorLead).filter(
-            RealtorLead.job_id == job.id
-        ).all()
-        
-        # Convert leads to response format
-        realtor_contacts = []
-        for lead in leads:
-            contact = schemas.RealtorContactResponse(
-                id=str(lead.id),
-                first_name=lead.first_name,
-                last_name=lead.last_name,
-                company=lead.company,
-                city=lead.city,
-                state=lead.state,
-                cell_phone=lead.cell_phone,
-                email=lead.email,
-                profile_url=lead.profile_url
-            )
-            realtor_contacts.append(contact)
-        
-        return schemas.ScrapingJobDetail(
-            id=job.id,
-            start_url=job.start_url,
-            status=job.status,
-            created_at=job.created_at,
-            error_message=job.error_message,
-            realtor_contacts=realtor_contacts
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    # Get all contacts for this job
+    contacts = db.query(RealtorContact).filter(
+        RealtorContact.job_id == job.id
+    ).all()
+    
+    # Convert contacts to response format
+    realtor_contacts = []
+    for contact in contacts:
+        contact_resp = schemas.RealtorContactResponse(
+            id=contact.id,
+            first_name=contact.first_name,
+            last_name=contact.last_name,
+            company=contact.company,
+            city=contact.city,
+            state=contact.state,
+            cell_phone=contact.cell_phone,
+            email=contact.email,
+            profile_url=contact.profile_url
         )
+        realtor_contacts.append(contact_resp)
+    
+    return schemas.ScrapingJobDetail(
+        id=job.id,
+        start_url=job.start_url,
+        status=job.status.value,
+        created_at=job.created_at,
+        error_message=None,  # The existing model doesn't have error_message
+        realtor_contacts=realtor_contacts
+    )
 
 @router.delete("/{job_id}")
 def delete_job(
-    job_id: int,
+    job_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(auth.get_current_active_user),
 ):
     """
-    Delete a scraping job and its associated leads.
+    Delete a scraping job and its associated contacts.
     """
-    with Session(engine) as session:
-        job = session.query(ScrapeJob).filter(
-            ScrapeJob.id == job_id,
-            ScrapeJob.user_id == current_user.id
-        ).first()
+    job = db.query(ScrapingJob).filter(
+        ScrapingJob.id == job_id,
+        ScrapingJob.user_id == current_user.id
+    ).first()
 
-        if not job:
-            raise HTTPException(status_code=404, detail="Job not found")
-        
-        # Delete associated leads first
-        session.query(RealtorLead).filter(
-            RealtorLead.job_id == job.id
-        ).delete()
-        
-        # Delete the job
-        session.delete(job)
-        session.commit()
-        
-        return {"message": "Job deleted successfully"} 
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    # Delete associated contacts first (should cascade but being explicit)
+    db.query(RealtorContact).filter(
+        RealtorContact.job_id == job.id
+    ).delete()
+    
+    # Delete the job
+    db.delete(job)
+    db.commit()
+    
+    return {"message": "Job deleted successfully"} 

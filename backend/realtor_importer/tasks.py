@@ -5,21 +5,20 @@ import time
 from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
 from . import scraper
-from .database import engine, ScrapeJob
-from .models import RealtorLead
+from core.database import engine, ScrapingJob, RealtorContact, SessionLocal, ScrapingJobStatus
 
 
-def process_scrape_job(job_id: int):
+def process_scrape_job(job_id: str):
     """
     Process a single scrape job
     """
-    with Session(engine) as session:
-        job = session.query(ScrapeJob).filter_by(id=job_id).first()
+    with SessionLocal() as session:
+        job = session.query(ScrapingJob).filter_by(id=job_id).first()
         if not job:
             print(f"Job {job_id} not found")
             return
         
-        job.status = "processing"
+        job.status = ScrapingJobStatus.IN_PROGRESS
         session.commit()
         
         try:
@@ -32,19 +31,18 @@ def process_scrape_job(job_id: int):
             
             # Save scraped data
             for data in scraped_data:
-                lead = RealtorLead(
+                contact = RealtorContact(
                     job_id=job_id,
                     **data
                 )
-                session.add(lead)
+                session.add(contact)
             
-            job.status = "completed"
-            job.leads_found = len(scraped_data)
+            job.status = ScrapingJobStatus.COMPLETED
             
         except Exception as e:
             print(f"Error processing job {job_id}: {str(e)}")
-            job.status = "failed"
-            job.error_message = str(e)
+            job.status = ScrapingJobStatus.FAILED
+            # Note: The existing model doesn't have error_message field
         
         session.commit()
 
@@ -56,9 +54,11 @@ def run_task_processor():
     print("Starting Realtor importer task processor...")
     
     while True:
-        with Session(engine) as session:
+        with SessionLocal() as session:
             # Find pending jobs
-            pending_job = session.query(ScrapeJob).filter_by(status="pending").first()
+            pending_job = session.query(ScrapingJob).filter_by(
+                status=ScrapingJobStatus.PENDING
+            ).first()
             
             if pending_job:
                 print(f"Processing job {pending_job.id}")

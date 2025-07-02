@@ -18,7 +18,7 @@ interface RealtorContact {
 }
 
 interface ScrapingJob {
-  id: number;
+  id: string;
   start_url: string;
   status: 'pending' | 'processing' | 'completed' | 'failed';
   created_at: string;
@@ -57,7 +57,7 @@ export const RealtorImporterWorkflow = () => {
     }
   };
 
-  const fetchJobDetails = async (jobId: number) => {
+  const fetchJobDetails = async (jobId: string) => {
     try {
       const response = await api.get(`/realtor-importer/${jobId}`);
       setSelectedJob(response.data);
@@ -101,7 +101,7 @@ export const RealtorImporterWorkflow = () => {
     }
   };
 
-  const handleDeleteJob = async (jobId: number, e: React.MouseEvent) => {
+  const handleDeleteJob = async (jobId: string, e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent selecting the job
     if (window.confirm('Are you sure you want to delete this job?')) {
       try {
