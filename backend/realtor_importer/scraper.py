@@ -15,6 +15,14 @@ except ImportError:
     PLAYWRIGHT_AVAILABLE = False
     print("Playwright not available. Install with: pip install playwright && python -m playwright install chromium")
 
+# Import the simple scraper as fallback
+try:
+    from .simple_scraper import scrape_with_simple
+    SIMPLE_SCRAPER_AVAILABLE = True
+except ImportError:
+    SIMPLE_SCRAPER_AVAILABLE = False
+    print("Simple scraper not available")
+
 # --- Enhanced Scraping Configuration ---
 
 # A list of common user-agents to rotate through
@@ -221,18 +229,29 @@ def scrape_realtor_list_with_playwright(list_url: str, max_profiles: int = 10) -
             print(f"Playwright scraper failed: {e}")
             print("Falling back to Selenium...")
     
-    # Fallback to original Selenium method
-    print("Using Selenium scraper...")
-    profile_links = scrape_realtor_list_page(list_url)
-    scraped_data = []
-    
-    for i, profile_url in enumerate(profile_links[:max_profiles]):
-        print(f"Scraping profile {i+1}/{min(len(profile_links), max_profiles)}: {profile_url}")
-        profile_data = scrape_realtor_profile_page(profile_url)
-        if profile_data:
-            scraped_data.append(profile_data)
-        # Add delay between requests to avoid rate limiting
-        if i < len(profile_links) - 1:
-            time.sleep(2)
-    
-    return scraped_data 
+    # Try Selenium
+    try:
+        print("Using Selenium scraper...")
+        profile_links = scrape_realtor_list_page(list_url)
+        scraped_data = []
+        
+        for i, profile_url in enumerate(profile_links[:max_profiles]):
+            print(f"Scraping profile {i+1}/{min(len(profile_links), max_profiles)}: {profile_url}")
+            profile_data = scrape_realtor_profile_page(profile_url)
+            if profile_data:
+                scraped_data.append(profile_data)
+            # Add delay between requests to avoid rate limiting
+            if i < len(profile_links) - 1:
+                time.sleep(2)
+        
+        return scraped_data
+    except Exception as e:
+        print(f"Selenium scraper failed: {e}")
+        
+        # Final fallback to simple scraper
+        if SIMPLE_SCRAPER_AVAILABLE:
+            print("Falling back to simple requests-based scraper...")
+            return scrape_with_simple(list_url, max_profiles)
+        else:
+            print("All scraping methods failed. Please ensure Chrome/ChromeDriver or requests/beautifulsoup4 are installed.")
+            return [] 
