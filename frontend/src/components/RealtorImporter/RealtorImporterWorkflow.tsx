@@ -14,6 +14,7 @@ interface RealtorContact {
   state: string | null;
   cell_phone: string | null;
   email: string | null;
+  agent_website: string | null;
   profile_url: string | null;
 }
 
@@ -230,7 +231,18 @@ export const RealtorImporterWorkflow = () => {
                                   <Table.Cell>{contact.first_name} {contact.last_name}</Table.Cell>
                                   <Table.Cell>{contact.company || 'N/A'}</Table.Cell>
                                   <Table.Cell>{contact.city}, {contact.state}</Table.Cell>
-                                  <Table.Cell>{contact.cell_phone || contact.email || 'N/A'}</Table.Cell>
+                                  <Table.Cell>
+                                      {contact.cell_phone && <div>{contact.cell_phone}</div>}
+                                      {contact.email && <div>{contact.email}</div>}
+                                      {contact.agent_website && (
+                                          <div>
+                                              <a href={contact.agent_website} target="_blank" rel="noopener noreferrer">
+                                                  Website
+                                              </a>
+                                          </div>
+                                      )}
+                                      {!contact.cell_phone && !contact.email && !contact.agent_website && 'N/A'}
+                                  </Table.Cell>
                                   <Table.Cell>
                                       {contact.profile_url && (
                                           <a href={contact.profile_url} target="_blank" rel="noopener noreferrer">

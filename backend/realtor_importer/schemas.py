@@ -21,6 +21,7 @@ class RealtorContactBase(BaseModel):
     profile_url: str
     cell_phone: Optional[str] = None
     email: Optional[str] = None
+    agent_website: Optional[str] = None
     years_exp: Optional[int] = None
     fb_or_website: Optional[str] = None
     seller_deals_total_deals: Optional[int] = None
@@ -55,6 +56,7 @@ class RealtorContactResponse(BaseModel):
     state: Optional[str] = None
     cell_phone: Optional[str] = None
     email: Optional[str] = None
+    agent_website: Optional[str] = None
     profile_url: Optional[str] = None
 
 class ScrapingJobResponse(BaseModel):

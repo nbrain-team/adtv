@@ -157,9 +157,35 @@ class WebUnlockerScraper:
                     break
         
         # Extract company/brokerage
-        company_elem = soup.select_one('.brokerage-name, [class*="brokerage"], [class*="company"], .agent-office')
-        if company_elem:
-            data['company'] = self.clean_text(company_elem.get_text())
+        company_selectors = [
+            '.brokerage-name',
+            '[class*="brokerage"]',
+            '[class*="company"]',
+            '.agent-office',
+            '.agent-broker',
+            '.agent-brokerage-name',
+            'div[data-testid="agent-brokerage"]',
+            '.office-name',
+            '.broker-name'
+        ]
+        company_found = False
+        for selector in company_selectors:
+            company_elem = soup.select_one(selector)
+            if company_elem:
+                company_text = self.clean_text(company_elem.get_text())
+                if company_text and not any(skip in company_text.lower() for skip in ['agent', 'realtor', 'profile']):
+                    data['company'] = company_text
+                    company_found = True
+                    break
+        
+        # If no company found, try looking for text patterns
+        if not company_found:
+            # Look for patterns like "at Company Name" or "with Company Name"
+            company_pattern = re.compile(r'(?:at|with|of)\s+([A-Z][^,\n]+?)(?:\s*[-,]|\s*$)', re.I)
+            page_text = soup.get_text()
+            company_match = company_pattern.search(page_text)
+            if company_match:
+                data['company'] = self.clean_text(company_match.group(1))
         
         # Extract location
         location_elem = soup.select_one('.agent-location, [class*="location"], [class*="address"], .agent-city-state')
@@ -190,6 +216,42 @@ class WebUnlockerScraper:
             email_href = email_elem.get('href')
             if email_href:
                 data['email'] = email_href.replace('mailto:', '').strip()
+        
+        # Extract website link
+        website_selectors = [
+            'a.website-link[href]',
+            'a.text-only.website-link[href]',
+            'a[aria-label*="Agent Website"]',
+            'a[title*="Agent Website"]',
+            'a:contains("Agent Website")',
+            'a:contains("Website")',
+            'a[href*="kwcommercial.com"]',
+            'a[href*="kw.com"]'
+        ]
+        
+        website_found = False
+        for selector in website_selectors:
+            # BeautifulSoup doesn't support :contains, so handle it differently
+            if ':contains(' in selector:
+                text_to_find = selector.split(':contains("')[1].split('")')[0]
+                website_elems = soup.find_all('a', string=re.compile(text_to_find, re.I))
+                for elem in website_elems:
+                    href = elem.get('href')
+                    if href and href.startswith('http'):
+                        data['agent_website'] = href
+                        website_found = True
+                        break
+            else:
+                website_elem = soup.select_one(selector)
+                if website_elem:
+                    href = website_elem.get('href')
+                    if href and href.startswith('http'):
+                        data['agent_website'] = href
+                        website_found = True
+                        break
+            
+            if website_found:
+                break
         
         # Extract years of experience
         exp_text = soup.find(text=re.compile(r'\d+\s*years?\s*(of\s*)?experience', re.I))

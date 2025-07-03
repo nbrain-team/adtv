@@ -82,6 +82,7 @@ class RealtorContact(Base):
     profile_url = Column(String, nullable=False, index=True)
     cell_phone = Column(String, nullable=True)
     email = Column(String, nullable=True)
+    agent_website = Column(String, nullable=True)
     years_exp = Column(Integer, nullable=True)
     fb_or_website = Column(String, nullable=True)
     

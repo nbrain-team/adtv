@@ -127,6 +127,7 @@ def get_job_details(
             state=contact.state,
             cell_phone=contact.cell_phone,
             email=contact.email,
+            agent_website=contact.agent_website,
             profile_url=contact.profile_url
         )
         realtor_contacts.append(contact_resp)

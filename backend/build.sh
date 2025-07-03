@@ -122,4 +122,8 @@ echo "Running database setup..."
 python db_setup.py
 echo "Database setup complete."
 
+echo "Running database migrations..."
+python scripts/add_agent_website_column.py
+echo "Database migrations complete."
+
 echo "Build process completed successfully!" 
