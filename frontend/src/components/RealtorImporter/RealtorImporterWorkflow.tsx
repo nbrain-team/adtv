@@ -16,6 +16,16 @@ interface RealtorContact {
   email: string | null;
   agent_website: string | null;
   profile_url: string | null;
+  dma: string | null;
+  source: string | null;
+  years_exp: number | null;
+  fb_or_website: string | null;
+  seller_deals_total_deals: number | null;
+  seller_deals_total_value: number | null;
+  seller_deals_avg_price: number | null;
+  buyer_deals_total_deals: number | null;
+  buyer_deals_total_value: number | null;
+  buyer_deals_avg_price: number | null;
 }
 
 interface ScrapingJob {
@@ -48,6 +58,17 @@ export const RealtorImporterWorkflow = () => {
   const [newUrl, setNewUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Helper function to format currency
+  const formatCurrency = (value: number | null | undefined): string => {
+    if (!value) return 'N/A';
+    if (value >= 1000000) {
+      return `$${(value / 1000000).toFixed(1)}M`;
+    } else if (value >= 1000) {
+      return `$${(value / 1000).toFixed(0)}K`;
+    }
+    return `$${value}`;
+  };
 
   const fetchJobs = async () => {
     try {
@@ -124,47 +145,53 @@ export const RealtorImporterWorkflow = () => {
       <Box mb="4">
         <SalesFilter />
       </Box>
-      <Flex gap="5">
-        <Box width="35%">
-          <Heading size="5" mb="3">Realtor Scraping Jobs</Heading>
-          <Card>
-              <form onSubmit={handleCreateJob}>
-              <Flex direction="column" gap="3">
-                  <TextField.Root 
-                      placeholder="Enter homes.com search URL..." 
-                      value={newUrl}
-                      onChange={(e) => setNewUrl(e.target.value)}
-                      disabled={!!activeJob}
-                  />
-                  <Button disabled={isLoading || !!activeJob}>
-                      {isLoading ? 'Starting...' : 'Start New Scrape'}
-                  </Button>
-                  <Callout.Root color="blue">
-                      <Callout.Icon><InfoCircledIcon /></Callout.Icon>
-                      <Callout.Text size="1">Each scraping job is limited to 25 profiles maximum to ensure reliable performance.</Callout.Text>
-                  </Callout.Root>
-              </Flex>
-              </form>
-              {activeJob && (
-                  <Callout.Root color="blue" mt="3">
-                      <Callout.Icon><InfoCircledIcon /></Callout.Icon>
-                      <Callout.Text>A job is currently in progress. Please wait for it to complete before starting a new one.</Callout.Text>
-                  </Callout.Root>
-              )}
-              {error && (
-                  <Callout.Root color="red" mt="3">
-                      <Callout.Icon><ExclamationTriangleIcon /></Callout.Icon>
-                      <Callout.Text>{error}</Callout.Text>
-                  </Callout.Root>
-              )}
-          </Card>
-          
-          <Flex direction="column" gap="3" mt="4">
+      
+      {/* Scraper Section */}
+      <Box mb="4">
+        <Heading size="5" mb="3">Realtor Scraping Jobs</Heading>
+        <Card>
+            <form onSubmit={handleCreateJob}>
+            <Flex direction="column" gap="3">
+                <TextField.Root 
+                    placeholder="Enter homes.com search URL..." 
+                    value={newUrl}
+                    onChange={(e) => setNewUrl(e.target.value)}
+                    disabled={!!activeJob}
+                />
+                <Button disabled={isLoading || !!activeJob}>
+                    {isLoading ? 'Starting...' : 'Start New Scrape'}
+                </Button>
+                <Callout.Root color="blue">
+                    <Callout.Icon><InfoCircledIcon /></Callout.Icon>
+                    <Callout.Text size="1">Each scraping job is limited to 25 profiles maximum to ensure reliable performance.</Callout.Text>
+                </Callout.Root>
+            </Flex>
+            </form>
+            {activeJob && (
+                <Callout.Root color="blue" mt="3">
+                    <Callout.Icon><InfoCircledIcon /></Callout.Icon>
+                    <Callout.Text>A job is currently in progress. Please wait for it to complete before starting a new one.</Callout.Text>
+                </Callout.Root>
+            )}
+            {error && (
+                <Callout.Root color="red" mt="3">
+                    <Callout.Icon><ExclamationTriangleIcon /></Callout.Icon>
+                    <Callout.Text>{error}</Callout.Text>
+                </Callout.Root>
+            )}
+        </Card>
+      </Box>
+
+      {/* Jobs List Section */}
+      <Flex gap="5" mb="4">
+        <Box width="100%">
+          <Heading size="4" mb="3">Scraping History</Heading>
+          <Flex direction="row" gap="3" wrap="wrap">
               {jobs.map(job => (
                   <Card 
                     key={job.id} 
                     onClick={() => fetchJobDetails(job.id)} 
-                    style={{cursor: 'pointer', position: 'relative'}}
+                    style={{cursor: 'pointer', position: 'relative', minWidth: '300px', flex: '0 0 calc(33.333% - 16px)'}}
                   >
                       <Flex justify="between">
                           <Text size="2" weight="bold" truncate style={{maxWidth: '70%'}}>
@@ -196,33 +223,42 @@ export const RealtorImporterWorkflow = () => {
               ))}
           </Flex>
         </Box>
+      </Flex>
 
-        <Box width="65%">
-          <Heading size="5" mb="3">Job Details</Heading>
-          {selectedJob ? (
-              <Card>
-                  {selectedJob.error_message && (
-                      <Callout.Root color="red" mb="3">
-                          <Callout.Icon><ExclamationTriangleIcon /></Callout.Icon>
-                          <Callout.Text>Error: {selectedJob.error_message}</Callout.Text>
-                      </Callout.Root>
-                  )}
-                  {selectedJob.status === 'completed' && selectedJob.realtor_contacts && selectedJob.realtor_contacts.length > 0 && (
-                      <Flex justify="between" align="center" mb="3">
-                          <Text size="2" weight="bold">
-                              Found {selectedJob.realtor_contacts.length} contacts
-                              {selectedJob.realtor_contacts.length === 25 && ' (limit reached)'}
-                          </Text>
-                      </Flex>
-                  )}
-                  <Table.Root variant="surface">
+      {/* Job Details Section */}
+      <Box width="100%">
+        <Heading size="5" mb="3">Job Details</Heading>
+        {selectedJob ? (
+            <Card>
+                {selectedJob.error_message && (
+                    <Callout.Root color="red" mb="3">
+                        <Callout.Icon><ExclamationTriangleIcon /></Callout.Icon>
+                        <Callout.Text>Error: {selectedJob.error_message}</Callout.Text>
+                    </Callout.Root>
+                )}
+                {selectedJob.status === 'completed' && selectedJob.realtor_contacts && selectedJob.realtor_contacts.length > 0 && (
+                    <Flex justify="between" align="center" mb="3">
+                        <Text size="2" weight="bold">
+                            Found {selectedJob.realtor_contacts.length} contacts
+                            {selectedJob.realtor_contacts.length === 25 && ' (limit reached)'}
+                        </Text>
+                    </Flex>
+                )}
+                <Box style={{ overflowX: 'auto' }}>
+                  <Table.Root variant="surface" size="1">
                       <Table.Header>
                           <Table.Row>
                               <Table.ColumnHeaderCell>Name</Table.ColumnHeaderCell>
                               <Table.ColumnHeaderCell>Company</Table.ColumnHeaderCell>
                               <Table.ColumnHeaderCell>Location</Table.ColumnHeaderCell>
                               <Table.ColumnHeaderCell>Contact</Table.ColumnHeaderCell>
-                              <Table.ColumnHeaderCell>Profile</Table.ColumnHeaderCell>
+                              <Table.ColumnHeaderCell>Years Exp</Table.ColumnHeaderCell>
+                              <Table.ColumnHeaderCell>Seller Deals</Table.ColumnHeaderCell>
+                              <Table.ColumnHeaderCell>Seller Value</Table.ColumnHeaderCell>
+                              <Table.ColumnHeaderCell>Avg Price</Table.ColumnHeaderCell>
+                              <Table.ColumnHeaderCell>Buyer Deals</Table.ColumnHeaderCell>
+                              <Table.ColumnHeaderCell>Buyer Value</Table.ColumnHeaderCell>
+                              <Table.ColumnHeaderCell>Links</Table.ColumnHeaderCell>
                           </Table.Row>
                       </Table.Header>
                       <Table.Body>
@@ -234,41 +270,64 @@ export const RealtorImporterWorkflow = () => {
                                   <Table.Cell>
                                       {contact.cell_phone && <div>{contact.cell_phone}</div>}
                                       {contact.email && <div>{contact.email}</div>}
-                                      {contact.agent_website && (
-                                          <div>
+                                      {!contact.cell_phone && !contact.email && 'N/A'}
+                                  </Table.Cell>
+                                  <Table.Cell>{contact.years_exp || 'N/A'}</Table.Cell>
+                                  <Table.Cell>{contact.seller_deals_total_deals || 'N/A'}</Table.Cell>
+                                  <Table.Cell>
+                                      {contact.seller_deals_total_value 
+                                          ? formatCurrency(contact.seller_deals_total_value) 
+                                          : 'N/A'}
+                                  </Table.Cell>
+                                  <Table.Cell>
+                                      {contact.seller_deals_avg_price 
+                                          ? formatCurrency(contact.seller_deals_avg_price) 
+                                          : 'N/A'}
+                                  </Table.Cell>
+                                  <Table.Cell>{contact.buyer_deals_total_deals || 'N/A'}</Table.Cell>
+                                  <Table.Cell>
+                                      {contact.buyer_deals_total_value 
+                                          ? formatCurrency(contact.buyer_deals_total_value) 
+                                          : 'N/A'}
+                                  </Table.Cell>
+                                  <Table.Cell>
+                                      <Flex direction="column" gap="1">
+                                          {contact.profile_url && (
+                                              <a href={contact.profile_url} target="_blank" rel="noopener noreferrer">
+                                                  Profile
+                                              </a>
+                                          )}
+                                          {contact.agent_website && (
                                               <a href={contact.agent_website} target="_blank" rel="noopener noreferrer">
                                                   Website
                                               </a>
-                                          </div>
-                                      )}
-                                      {!contact.cell_phone && !contact.email && !contact.agent_website && 'N/A'}
-                                  </Table.Cell>
-                                  <Table.Cell>
-                                      {contact.profile_url && (
-                                          <a href={contact.profile_url} target="_blank" rel="noopener noreferrer">
-                                              View Profile
-                                          </a>
-                                      )}
+                                          )}
+                                          {contact.fb_or_website && contact.fb_or_website !== contact.profile_url && (
+                                              <a href={contact.fb_or_website} target="_blank" rel="noopener noreferrer">
+                                                  Social
+                                              </a>
+                                          )}
+                                      </Flex>
                                   </Table.Cell>
                               </Table.Row>
                           ))}
                       </Table.Body>
                   </Table.Root>
-                  {selectedJob.realtor_contacts?.length === 0 && (
-                      <Text size="2" color="gray" style={{display: 'block', textAlign: 'center', padding: '2rem'}}>
-                          {selectedJob.status === 'completed' 
-                              ? 'No contacts found for this search.'
-                              : 'Contacts will appear here once scraping is complete.'}
-                      </Text>
-                  )}
-              </Card>
-          ) : (
-              <Card>
-                  <Text>Select a job on the left to see its details.</Text>
-              </Card>
-          )}
-        </Box>
-      </Flex>
+                </Box>
+                {selectedJob.realtor_contacts?.length === 0 && (
+                    <Text size="2" color="gray" style={{display: 'block', textAlign: 'center', padding: '2rem'}}>
+                        {selectedJob.status === 'completed' 
+                            ? 'No contacts found for this search.'
+                            : 'Contacts will appear here once scraping is complete.'}
+                    </Text>
+                )}
+            </Card>
+        ) : (
+            <Card>
+                <Text>Select a job above to see its details.</Text>
+            </Card>
+        )}
+      </Box>
     </div>
   );
 }; 

@@ -58,6 +58,16 @@ class RealtorContactResponse(BaseModel):
     email: Optional[str] = None
     agent_website: Optional[str] = None
     profile_url: Optional[str] = None
+    dma: Optional[str] = None
+    source: Optional[str] = None
+    years_exp: Optional[int] = None
+    fb_or_website: Optional[str] = None
+    seller_deals_total_deals: Optional[int] = None
+    seller_deals_total_value: Optional[int] = None
+    seller_deals_avg_price: Optional[int] = None
+    buyer_deals_total_deals: Optional[int] = None
+    buyer_deals_total_value: Optional[int] = None
+    buyer_deals_avg_price: Optional[int] = None
 
 class ScrapingJobResponse(BaseModel):
     id: str

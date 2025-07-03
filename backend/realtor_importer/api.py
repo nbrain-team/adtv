@@ -128,7 +128,17 @@ def get_job_details(
             cell_phone=contact.cell_phone,
             email=contact.email,
             agent_website=contact.agent_website,
-            profile_url=contact.profile_url
+            profile_url=contact.profile_url,
+            dma=contact.dma,
+            source=contact.source,
+            years_exp=contact.years_exp,
+            fb_or_website=contact.fb_or_website,
+            seller_deals_total_deals=contact.seller_deals_total_deals,
+            seller_deals_total_value=contact.seller_deals_total_value,
+            seller_deals_avg_price=contact.seller_deals_avg_price,
+            buyer_deals_total_deals=contact.buyer_deals_total_deals,
+            buyer_deals_total_value=contact.buyer_deals_total_value,
+            buyer_deals_avg_price=contact.buyer_deals_avg_price
         )
         realtor_contacts.append(contact_resp)
     
