@@ -398,8 +398,7 @@ Question 2?
 The prompt should guide the AI to produce outputs matching the example's style and structure."""
 
     # Get the AI to generate the prompt template
-    matches = pinecone_manager.query_index("", top_k=0)  # No context needed
-    generator = llm_handler.stream_answer(prompt_generation_query, matches, [])
+    generator = llm_handler.stream_answer(prompt_generation_query, [], [])
     
     prompt_template = ""
     async for chunk in generator:
