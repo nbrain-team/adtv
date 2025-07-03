@@ -32,7 +32,7 @@ class GoogleSearchScraper:
         search_url = f"https://www.google.com/search?q={urllib.parse.quote(query)}"
         
         try:
-            print(f"  Searching Google: {query}")
+            print(f"  Searching Google: {query[:50]}...")  # Truncate long queries
             
             payload = {
                 "zone": "homes_web_unlocker",
@@ -48,13 +48,22 @@ class GoogleSearchScraper:
             )
             
             if response.status_code == 200:
-                return BeautifulSoup(response.content, 'html.parser')
+                soup = BeautifulSoup(response.content, 'html.parser')
+                # Check if we got a valid Google page
+                if soup.find('div', id='search') or soup.find('div', class_='g'):
+                    return soup
+                else:
+                    print(f"  Warning: Got response but doesn't look like Google search results")
+                    return None
             else:
-                print(f"  API error: {response.status_code}")
+                print(f"  API error: {response.status_code} - {response.text[:200]}")
                 return None
                 
+        except requests.exceptions.Timeout:
+            print(f"  Timeout error searching Google")
+            return None
         except Exception as e:
-            print(f"  Error searching Google: {e}")
+            print(f"  Error searching Google: {type(e).__name__}: {str(e)}")
             return None
     
     def extract_email_from_results(self, soup: BeautifulSoup) -> Optional[str]:

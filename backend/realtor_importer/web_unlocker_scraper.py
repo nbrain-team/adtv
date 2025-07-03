@@ -332,12 +332,19 @@ class WebUnlockerScraper:
         return data
 
 
-def scrape_with_web_unlocker(list_url: str, max_profiles: int = 10, use_google_search: bool = True) -> List[Dict[str, Any]]:
+def scrape_with_web_unlocker(list_url: str, max_profiles: int = 10, use_google_search: bool = None) -> List[Dict[str, Any]]:
     """Main entry point for Web Unlocker scraping"""
     print("Using Bright Data Web Unlocker API...")
     scraper = WebUnlockerScraper()
     agent_scraper = AgentWebsiteScraper()  # Initialize Step 2 scraper
-    google_scraper = GoogleSearchScraper()  # Initialize Google search scraper
+    
+    # Check if Google search should be used (can be disabled via env var)
+    if use_google_search is None:
+        use_google_search = os.getenv('USE_GOOGLE_SEARCH', 'true').lower() == 'true'
+    
+    google_scraper = None
+    if use_google_search:
+        google_scraper = GoogleSearchScraper()  # Initialize Google search scraper
     
     # Get agent profile URLs
     profile_urls = scraper.scrape_agent_list(list_url)
@@ -356,14 +363,18 @@ def scrape_with_web_unlocker(list_url: str, max_profiles: int = 10, use_google_s
             
             # Step 2 Option 1: Use Google Search (if enabled)
             if use_google_search:
-                print(f"\nStep 2: Using Google search for additional contact info...")
-                google_results = google_scraper.search_agent_contact(profile_data)
-                
-                # Update with Google results if found
-                if google_results.get('google_email'):
-                    profile_data['personal_email'] = google_results['google_email']
-                if google_results.get('google_phone'):
-                    profile_data['phone2'] = google_results['google_phone']
+                try:
+                    print(f"\nStep 2: Using Google search for additional contact info...")
+                    google_results = google_scraper.search_agent_contact(profile_data)
+                    
+                    # Update with Google results if found
+                    if google_results.get('google_email'):
+                        profile_data['personal_email'] = google_results['google_email']
+                    if google_results.get('google_phone'):
+                        profile_data['phone2'] = google_results['google_phone']
+                except Exception as e:
+                    print(f"  ✗ Google search failed: {str(e)}")
+                    print(f"  Continuing without Google search results...")
             
             # Step 2 Option 2: If agent website was found and Google didn't find everything
             if profile_data.get('agent_website') and (

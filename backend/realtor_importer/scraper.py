@@ -248,7 +248,7 @@ def scrape_realtor_profile_page(profile_url: str) -> Optional[Dict[str, Any]]:
     return data
 
 
-def scrape_realtor_list_with_playwright(list_url: str, max_profiles: int = 10) -> List[Dict[str, Any]]:
+def scrape_realtor_list_with_playwright(list_url: str, max_profiles: int = 10, use_google_search: bool = True) -> List[Dict[str, Any]]:
     """
     Alternative scraping method using Playwright for better bot detection evasion.
     Tries Web Unlocker first, then Bright Data, then proxy, then other methods.
@@ -257,7 +257,7 @@ def scrape_realtor_list_with_playwright(list_url: str, max_profiles: int = 10) -
     if WEB_UNLOCKER_AVAILABLE and os.getenv('BRIGHTDATA_API_TOKEN'):
         print("Using Bright Data Web Unlocker API...")
         try:
-            return scrape_with_web_unlocker(list_url, max_profiles)
+            return scrape_with_web_unlocker(list_url, max_profiles, use_google_search=use_google_search)
         except Exception as e:
             print(f"Web Unlocker failed: {e}")
             print("Falling back to Browser API...")
