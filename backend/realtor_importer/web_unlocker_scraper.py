@@ -9,6 +9,7 @@ from typing import List, Dict, Optional, Any
 import re
 import json
 from .agent_website_scraper import AgentWebsiteScraper
+from .google_search_scraper import GoogleSearchScraper
 
 class WebUnlockerScraper:
     """Scraper using Bright Data's Web Unlocker API"""
@@ -331,11 +332,12 @@ class WebUnlockerScraper:
         return data
 
 
-def scrape_with_web_unlocker(list_url: str, max_profiles: int = 10) -> List[Dict[str, Any]]:
+def scrape_with_web_unlocker(list_url: str, max_profiles: int = 10, use_google_search: bool = True) -> List[Dict[str, Any]]:
     """Main entry point for Web Unlocker scraping"""
     print("Using Bright Data Web Unlocker API...")
     scraper = WebUnlockerScraper()
     agent_scraper = AgentWebsiteScraper()  # Initialize Step 2 scraper
+    google_scraper = GoogleSearchScraper()  # Initialize Google search scraper
     
     # Get agent profile URLs
     profile_urls = scraper.scrape_agent_list(list_url)
@@ -351,22 +353,37 @@ def scrape_with_web_unlocker(list_url: str, max_profiles: int = 10) -> List[Dict
         
         profile_data = scraper.scrape_agent_profile(url)
         if profile_data and (profile_data.get('first_name') or profile_data.get('last_name')):
-            # Step 2: If agent website was found, scrape it for additional data
-            if profile_data.get('agent_website'):
-                print(f"\nStep 2: Found agent website, scraping for additional data...")
+            
+            # Step 2 Option 1: Use Google Search (if enabled)
+            if use_google_search:
+                print(f"\nStep 2: Using Google search for additional contact info...")
+                google_results = google_scraper.search_agent_contact(profile_data)
+                
+                # Update with Google results if found
+                if google_results.get('google_email'):
+                    profile_data['personal_email'] = google_results['google_email']
+                if google_results.get('google_phone'):
+                    profile_data['phone2'] = google_results['google_phone']
+            
+            # Step 2 Option 2: If agent website was found and Google didn't find everything
+            if profile_data.get('agent_website') and (
+                not profile_data.get('personal_email') or 
+                not profile_data.get('phone2') or 
+                not profile_data.get('facebook_profile')
+            ):
+                print(f"\nStep 2b: Scraping agent website for additional data...")
                 step2_data = agent_scraper.scrape_agent_website(profile_data['agent_website'])
                 
-                # Merge Step 2 data into profile data
-                # For Facebook, only update if not already found in Step 1
+                # Merge Step 2 data into profile data (only if not already found)
                 if not profile_data.get('facebook_profile') and step2_data.get('facebook_profile'):
                     profile_data['facebook_profile'] = step2_data['facebook_profile']
                     print(f"  ✓ Found Facebook profile on agent website: {step2_data['facebook_profile']}")
                 
-                # Always update phone2 and personal_email from Step 2
-                profile_data['phone2'] = step2_data.get('phone2')
-                profile_data['personal_email'] = step2_data.get('personal_email')
-            else:
-                print(f"\nStep 2: No agent website found, skipping additional data extraction")
+                # Only update if Google didn't find these
+                if not profile_data.get('phone2') and step2_data.get('phone2'):
+                    profile_data['phone2'] = step2_data.get('phone2')
+                if not profile_data.get('personal_email') and step2_data.get('personal_email'):
+                    profile_data['personal_email'] = step2_data.get('personal_email')
             
             results.append(profile_data)
             print(f"  ✓ Scraped: {profile_data.get('first_name')} {profile_data.get('last_name')}")
