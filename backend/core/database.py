@@ -83,6 +83,12 @@ class RealtorContact(Base):
     cell_phone = Column(String, nullable=True)
     email = Column(String, nullable=True)
     agent_website = Column(String, nullable=True)
+    
+    # Step 2 fields - extracted from agent's website
+    phone2 = Column(String, nullable=True)  # Phone from agent website
+    personal_email = Column(String, nullable=True)  # Personal email from agent website
+    facebook_profile = Column(String, nullable=True)  # Facebook profile link
+    
     years_exp = Column(Integer, nullable=True)
     fb_or_website = Column(String, nullable=True)
     

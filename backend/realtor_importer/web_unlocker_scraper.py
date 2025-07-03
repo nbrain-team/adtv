@@ -8,6 +8,7 @@ import time
 from typing import List, Dict, Optional, Any
 import re
 import json
+from .agent_website_scraper import AgentWebsiteScraper
 
 class WebUnlockerScraper:
     """Scraper using Bright Data's Web Unlocker API"""
@@ -217,6 +218,32 @@ class WebUnlockerScraper:
             if email_href:
                 data['email'] = email_href.replace('mailto:', '').strip()
         
+        # Extract Facebook profile from homes.com
+        facebook_selectors = [
+            'a.social-link[href*="facebook.com"]',
+            'a.text-only.social-link[href*="facebook.com"]',
+            'a[aria-label*="Facebook"]',
+            'a[title*="Facebook"]',
+            'a[href*="facebook.com"]',
+            'a[href*="fb.com"]'
+        ]
+        
+        facebook_found = False
+        print(f"  Looking for Facebook profile on homes.com...")
+        
+        for selector in facebook_selectors:
+            facebook_elem = soup.select_one(selector)
+            if facebook_elem:
+                href = facebook_elem.get('href')
+                if href and ('facebook.com' in href or 'fb.com' in href):
+                    print(f"    ✓ Found Facebook profile: {href}")
+                    data['facebook_profile'] = href
+                    facebook_found = True
+                    break
+        
+        if not facebook_found:
+            print(f"    ✗ No Facebook profile found on homes.com")
+        
         # Extract website link
         website_selectors = [
             'a.website-link[href]',
@@ -298,6 +325,7 @@ class WebUnlockerScraper:
         print(f"    Phone: {data.get('cell_phone')}")
         print(f"    Email: {data.get('email')}")
         print(f"    Agent Website: {data.get('agent_website')}")
+        print(f"    Facebook Profile: {data.get('facebook_profile')}")
         print(f"    Seller Value: {data.get('seller_deals_total_value')}")
         
         return data
@@ -307,6 +335,7 @@ def scrape_with_web_unlocker(list_url: str, max_profiles: int = 10) -> List[Dict
     """Main entry point for Web Unlocker scraping"""
     print("Using Bright Data Web Unlocker API...")
     scraper = WebUnlockerScraper()
+    agent_scraper = AgentWebsiteScraper()  # Initialize Step 2 scraper
     
     # Get agent profile URLs
     profile_urls = scraper.scrape_agent_list(list_url)
@@ -322,6 +351,23 @@ def scrape_with_web_unlocker(list_url: str, max_profiles: int = 10) -> List[Dict
         
         profile_data = scraper.scrape_agent_profile(url)
         if profile_data and (profile_data.get('first_name') or profile_data.get('last_name')):
+            # Step 2: If agent website was found, scrape it for additional data
+            if profile_data.get('agent_website'):
+                print(f"\nStep 2: Found agent website, scraping for additional data...")
+                step2_data = agent_scraper.scrape_agent_website(profile_data['agent_website'])
+                
+                # Merge Step 2 data into profile data
+                # For Facebook, only update if not already found in Step 1
+                if not profile_data.get('facebook_profile') and step2_data.get('facebook_profile'):
+                    profile_data['facebook_profile'] = step2_data['facebook_profile']
+                    print(f"  ✓ Found Facebook profile on agent website: {step2_data['facebook_profile']}")
+                
+                # Always update phone2 and personal_email from Step 2
+                profile_data['phone2'] = step2_data.get('phone2')
+                profile_data['personal_email'] = step2_data.get('personal_email')
+            else:
+                print(f"\nStep 2: No agent website found, skipping additional data extraction")
+            
             results.append(profile_data)
             print(f"  ✓ Scraped: {profile_data.get('first_name')} {profile_data.get('last_name')}")
         else:

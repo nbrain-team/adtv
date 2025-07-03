@@ -15,6 +15,9 @@ interface RealtorContact {
   cell_phone: string | null;
   email: string | null;
   agent_website: string | null;
+  phone2: string | null;
+  personal_email: string | null;
+  facebook_profile: string | null;
   profile_url: string | null;
   dma: string | null;
   source: string | null;
@@ -252,8 +255,11 @@ export const RealtorImporterWorkflow = () => {
                               <Table.ColumnHeaderCell>Company</Table.ColumnHeaderCell>
                               <Table.ColumnHeaderCell>Location</Table.ColumnHeaderCell>
                               <Table.ColumnHeaderCell>Phone</Table.ColumnHeaderCell>
+                              <Table.ColumnHeaderCell>Phone 2</Table.ColumnHeaderCell>
                               <Table.ColumnHeaderCell>Email</Table.ColumnHeaderCell>
+                              <Table.ColumnHeaderCell>Personal Email</Table.ColumnHeaderCell>
                               <Table.ColumnHeaderCell>Agent Website</Table.ColumnHeaderCell>
+                              <Table.ColumnHeaderCell>Facebook</Table.ColumnHeaderCell>
                               <Table.ColumnHeaderCell>Seller Value</Table.ColumnHeaderCell>
                               <Table.ColumnHeaderCell>HC Profile</Table.ColumnHeaderCell>
                           </Table.Row>
@@ -265,11 +271,20 @@ export const RealtorImporterWorkflow = () => {
                                   <Table.Cell>{contact.company || 'N/A'}</Table.Cell>
                                   <Table.Cell>{contact.city}, {contact.state}</Table.Cell>
                                   <Table.Cell>{contact.cell_phone || 'N/A'}</Table.Cell>
+                                  <Table.Cell>{contact.phone2 || 'N/A'}</Table.Cell>
                                   <Table.Cell>{contact.email || 'N/A'}</Table.Cell>
+                                  <Table.Cell>{contact.personal_email || 'N/A'}</Table.Cell>
                                   <Table.Cell>
                                       {contact.agent_website ? (
                                           <a href={contact.agent_website} target="_blank" rel="noopener noreferrer">
-                                              View Website
+                                              View
+                                          </a>
+                                      ) : 'N/A'}
+                                  </Table.Cell>
+                                  <Table.Cell>
+                                      {contact.facebook_profile ? (
+                                          <a href={contact.facebook_profile} target="_blank" rel="noopener noreferrer">
+                                              View
                                           </a>
                                       ) : 'N/A'}
                                   </Table.Cell>
@@ -277,7 +292,7 @@ export const RealtorImporterWorkflow = () => {
                                   <Table.Cell>
                                       {contact.profile_url && (
                                           <a href={contact.profile_url} target="_blank" rel="noopener noreferrer">
-                                              View Profile
+                                              View
                                           </a>
                                       )}
                                   </Table.Cell>
