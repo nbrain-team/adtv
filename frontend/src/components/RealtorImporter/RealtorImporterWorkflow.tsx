@@ -248,48 +248,48 @@ export const RealtorImporterWorkflow = () => {
                     </Flex>
                 )}
                 <Box style={{ overflowX: 'auto' }}>
-                  <Table.Root variant="surface" size="1">
+                  <Table.Root variant="surface" size="1" style={{ fontSize: '0.8em' }}>
                       <Table.Header>
                           <Table.Row>
-                              <Table.ColumnHeaderCell>Name</Table.ColumnHeaderCell>
-                              <Table.ColumnHeaderCell>Company</Table.ColumnHeaderCell>
-                              <Table.ColumnHeaderCell>Location</Table.ColumnHeaderCell>
-                              <Table.ColumnHeaderCell>Phone</Table.ColumnHeaderCell>
-                              <Table.ColumnHeaderCell>Phone 2</Table.ColumnHeaderCell>
-                              <Table.ColumnHeaderCell>Email</Table.ColumnHeaderCell>
-                              <Table.ColumnHeaderCell>Personal Email</Table.ColumnHeaderCell>
-                              <Table.ColumnHeaderCell>Agent Website</Table.ColumnHeaderCell>
-                              <Table.ColumnHeaderCell>Facebook</Table.ColumnHeaderCell>
-                              <Table.ColumnHeaderCell>Seller Value</Table.ColumnHeaderCell>
-                              <Table.ColumnHeaderCell>HC Profile</Table.ColumnHeaderCell>
+                              <Table.ColumnHeaderCell style={{ whiteSpace: 'nowrap' }}>Name</Table.ColumnHeaderCell>
+                              <Table.ColumnHeaderCell style={{ whiteSpace: 'nowrap' }}>Company</Table.ColumnHeaderCell>
+                              <Table.ColumnHeaderCell style={{ whiteSpace: 'nowrap' }}>Location</Table.ColumnHeaderCell>
+                              <Table.ColumnHeaderCell style={{ whiteSpace: 'nowrap' }}>Phone</Table.ColumnHeaderCell>
+                              <Table.ColumnHeaderCell style={{ whiteSpace: 'nowrap' }}>Phone 2</Table.ColumnHeaderCell>
+                              <Table.ColumnHeaderCell style={{ whiteSpace: 'nowrap' }}>Email</Table.ColumnHeaderCell>
+                              <Table.ColumnHeaderCell style={{ whiteSpace: 'nowrap' }}>Personal Email</Table.ColumnHeaderCell>
+                              <Table.ColumnHeaderCell style={{ whiteSpace: 'nowrap' }}>Agent Website</Table.ColumnHeaderCell>
+                              <Table.ColumnHeaderCell style={{ whiteSpace: 'nowrap' }}>Facebook</Table.ColumnHeaderCell>
+                              <Table.ColumnHeaderCell style={{ whiteSpace: 'nowrap' }}>Seller Value</Table.ColumnHeaderCell>
+                              <Table.ColumnHeaderCell style={{ whiteSpace: 'nowrap' }}>HC Profile</Table.ColumnHeaderCell>
                           </Table.Row>
                       </Table.Header>
                       <Table.Body>
                           {selectedJob.realtor_contacts?.map(contact => (
                               <Table.Row key={contact.id}>
-                                  <Table.Cell>{contact.first_name} {contact.last_name}</Table.Cell>
-                                  <Table.Cell>{contact.company || 'N/A'}</Table.Cell>
-                                  <Table.Cell>{contact.city}, {contact.state}</Table.Cell>
-                                  <Table.Cell>{contact.cell_phone || 'N/A'}</Table.Cell>
-                                  <Table.Cell>{contact.phone2 || 'N/A'}</Table.Cell>
-                                  <Table.Cell>{contact.email || 'N/A'}</Table.Cell>
-                                  <Table.Cell>{contact.personal_email || 'N/A'}</Table.Cell>
-                                  <Table.Cell>
+                                  <Table.Cell style={{ whiteSpace: 'nowrap' }}>{contact.first_name} {contact.last_name}</Table.Cell>
+                                  <Table.Cell style={{ whiteSpace: 'nowrap' }}>{contact.company || 'N/A'}</Table.Cell>
+                                  <Table.Cell style={{ whiteSpace: 'nowrap' }}>{contact.city}, {contact.state}</Table.Cell>
+                                  <Table.Cell style={{ whiteSpace: 'nowrap' }}>{contact.cell_phone || 'N/A'}</Table.Cell>
+                                  <Table.Cell style={{ whiteSpace: 'nowrap' }}>{contact.phone2 || 'N/A'}</Table.Cell>
+                                  <Table.Cell style={{ whiteSpace: 'nowrap', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis' }} title={contact.email || 'N/A'}>{contact.email || 'N/A'}</Table.Cell>
+                                  <Table.Cell style={{ whiteSpace: 'nowrap', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis' }} title={contact.personal_email || 'N/A'}>{contact.personal_email || 'N/A'}</Table.Cell>
+                                  <Table.Cell style={{ whiteSpace: 'nowrap' }}>
                                       {contact.agent_website ? (
                                           <a href={contact.agent_website} target="_blank" rel="noopener noreferrer">
                                               View
                                           </a>
                                       ) : 'N/A'}
                                   </Table.Cell>
-                                  <Table.Cell>
+                                  <Table.Cell style={{ whiteSpace: 'nowrap' }}>
                                       {contact.facebook_profile ? (
                                           <a href={contact.facebook_profile} target="_blank" rel="noopener noreferrer">
                                               View
                                           </a>
                                       ) : 'N/A'}
                                   </Table.Cell>
-                                  <Table.Cell>{formatCurrency(contact.seller_deals_total_value)}</Table.Cell>
-                                  <Table.Cell>
+                                  <Table.Cell style={{ whiteSpace: 'nowrap' }}>{formatCurrency(contact.seller_deals_total_value)}</Table.Cell>
+                                  <Table.Cell style={{ whiteSpace: 'nowrap' }}>
                                       {contact.profile_url && (
                                           <a href={contact.profile_url} target="_blank" rel="noopener noreferrer">
                                               View
