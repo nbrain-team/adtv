@@ -150,7 +150,7 @@ export const RealtorImporterWorkflow = () => {
       </Box>
       
       {/* Scraper Section */}
-      <Box mb="4">
+      <Box mb="4" style={{ maxWidth: '700px' }}>
         <Heading size="5" mb="3">Realtor Scraping Jobs</Heading>
         <Card>
             <form onSubmit={handleCreateJob}>
