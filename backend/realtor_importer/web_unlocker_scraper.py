@@ -230,14 +230,18 @@ class WebUnlockerScraper:
         ]
         
         website_found = False
+        print(f"  Looking for agent website...")
+        
         for selector in website_selectors:
             # BeautifulSoup doesn't support :contains, so handle it differently
             if ':contains(' in selector:
                 text_to_find = selector.split(':contains("')[1].split('")')[0]
                 website_elems = soup.find_all('a', string=re.compile(text_to_find, re.I))
+                print(f"    Checking for links containing '{text_to_find}': found {len(website_elems)} elements")
                 for elem in website_elems:
                     href = elem.get('href')
                     if href and href.startswith('http'):
+                        print(f"    ✓ Found agent website: {href}")
                         data['agent_website'] = href
                         website_found = True
                         break
@@ -246,12 +250,16 @@ class WebUnlockerScraper:
                 if website_elem:
                     href = website_elem.get('href')
                     if href and href.startswith('http'):
+                        print(f"    ✓ Found agent website via {selector}: {href}")
                         data['agent_website'] = href
                         website_found = True
                         break
             
             if website_found:
                 break
+        
+        if not website_found:
+            print(f"    ✗ No agent website found")
         
         # Extract years of experience
         exp_text = soup.find(text=re.compile(r'\d+\s*years?\s*(of\s*)?experience', re.I))
@@ -281,6 +289,16 @@ class WebUnlockerScraper:
         data.setdefault('dma', None)
         data.setdefault('fb_or_website', profile_url)
         data.setdefault('years_exp', None)
+        
+        # Debug print extracted data
+        print(f"  Extracted data:")
+        print(f"    Name: {data.get('first_name')} {data.get('last_name')}")
+        print(f"    Company: {data.get('company')}")
+        print(f"    Location: {data.get('city')}, {data.get('state')}")
+        print(f"    Phone: {data.get('cell_phone')}")
+        print(f"    Email: {data.get('email')}")
+        print(f"    Agent Website: {data.get('agent_website')}")
+        print(f"    Seller Value: {data.get('seller_deals_total_value')}")
         
         return data
 

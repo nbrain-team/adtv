@@ -251,14 +251,11 @@ export const RealtorImporterWorkflow = () => {
                               <Table.ColumnHeaderCell>Name</Table.ColumnHeaderCell>
                               <Table.ColumnHeaderCell>Company</Table.ColumnHeaderCell>
                               <Table.ColumnHeaderCell>Location</Table.ColumnHeaderCell>
-                              <Table.ColumnHeaderCell>Contact</Table.ColumnHeaderCell>
-                              <Table.ColumnHeaderCell>Years Exp</Table.ColumnHeaderCell>
-                              <Table.ColumnHeaderCell>Seller Deals</Table.ColumnHeaderCell>
+                              <Table.ColumnHeaderCell>Phone</Table.ColumnHeaderCell>
+                              <Table.ColumnHeaderCell>Email</Table.ColumnHeaderCell>
+                              <Table.ColumnHeaderCell>Agent Website</Table.ColumnHeaderCell>
                               <Table.ColumnHeaderCell>Seller Value</Table.ColumnHeaderCell>
-                              <Table.ColumnHeaderCell>Avg Price</Table.ColumnHeaderCell>
-                              <Table.ColumnHeaderCell>Buyer Deals</Table.ColumnHeaderCell>
-                              <Table.ColumnHeaderCell>Buyer Value</Table.ColumnHeaderCell>
-                              <Table.ColumnHeaderCell>Links</Table.ColumnHeaderCell>
+                              <Table.ColumnHeaderCell>HC Profile</Table.ColumnHeaderCell>
                           </Table.Row>
                       </Table.Header>
                       <Table.Body>
@@ -267,47 +264,22 @@ export const RealtorImporterWorkflow = () => {
                                   <Table.Cell>{contact.first_name} {contact.last_name}</Table.Cell>
                                   <Table.Cell>{contact.company || 'N/A'}</Table.Cell>
                                   <Table.Cell>{contact.city}, {contact.state}</Table.Cell>
+                                  <Table.Cell>{contact.cell_phone || 'N/A'}</Table.Cell>
+                                  <Table.Cell>{contact.email || 'N/A'}</Table.Cell>
                                   <Table.Cell>
-                                      {contact.cell_phone && <div>{contact.cell_phone}</div>}
-                                      {contact.email && <div>{contact.email}</div>}
-                                      {!contact.cell_phone && !contact.email && 'N/A'}
+                                      {contact.agent_website ? (
+                                          <a href={contact.agent_website} target="_blank" rel="noopener noreferrer">
+                                              View Website
+                                          </a>
+                                      ) : 'N/A'}
                                   </Table.Cell>
-                                  <Table.Cell>{contact.years_exp || 'N/A'}</Table.Cell>
-                                  <Table.Cell>{contact.seller_deals_total_deals || 'N/A'}</Table.Cell>
+                                  <Table.Cell>{formatCurrency(contact.seller_deals_total_value)}</Table.Cell>
                                   <Table.Cell>
-                                      {contact.seller_deals_total_value 
-                                          ? formatCurrency(contact.seller_deals_total_value) 
-                                          : 'N/A'}
-                                  </Table.Cell>
-                                  <Table.Cell>
-                                      {contact.seller_deals_avg_price 
-                                          ? formatCurrency(contact.seller_deals_avg_price) 
-                                          : 'N/A'}
-                                  </Table.Cell>
-                                  <Table.Cell>{contact.buyer_deals_total_deals || 'N/A'}</Table.Cell>
-                                  <Table.Cell>
-                                      {contact.buyer_deals_total_value 
-                                          ? formatCurrency(contact.buyer_deals_total_value) 
-                                          : 'N/A'}
-                                  </Table.Cell>
-                                  <Table.Cell>
-                                      <Flex direction="column" gap="1">
-                                          {contact.profile_url && (
-                                              <a href={contact.profile_url} target="_blank" rel="noopener noreferrer">
-                                                  Profile
-                                              </a>
-                                          )}
-                                          {contact.agent_website && (
-                                              <a href={contact.agent_website} target="_blank" rel="noopener noreferrer">
-                                                  Website
-                                              </a>
-                                          )}
-                                          {contact.fb_or_website && contact.fb_or_website !== contact.profile_url && (
-                                              <a href={contact.fb_or_website} target="_blank" rel="noopener noreferrer">
-                                                  Social
-                                              </a>
-                                          )}
-                                      </Flex>
+                                      {contact.profile_url && (
+                                          <a href={contact.profile_url} target="_blank" rel="noopener noreferrer">
+                                              View Profile
+                                          </a>
+                                      )}
                                   </Table.Cell>
                               </Table.Row>
                           ))}
