@@ -23,6 +23,7 @@ from realtor_importer.api import router as realtor_importer_router
 from core.data_lake_routes import router as data_lake_router
 from core.data_lake_models import DataLakeRecord
 from core.user_routes import router as user_router
+from db_setup import update_db_schema, migrate_data
 
 
 load_dotenv()
@@ -103,6 +104,17 @@ def on_startup():
     # Create all tables
     Base.metadata.create_all(bind=engine)
     logger.info("Application startup: Database tables checked/created.")
+    
+    # Run database migrations
+    try:
+        with SessionLocal() as db:
+            logger.info("Running database migrations...")
+            update_db_schema(db)
+            migrate_data(db)
+            db.commit()
+            logger.info("Database migrations completed.")
+    except Exception as e:
+        logger.error(f"Error running migrations: {e}")
 
 # --- CORS Middleware ---
 app.add_middleware(
