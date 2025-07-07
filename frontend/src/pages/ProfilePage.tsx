@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Box, Flex, Heading, Text, Card, TextField, Button, Callout, Table, Checkbox, Badge, IconButton } from '@radix-ui/themes';
-import { InfoCircledIcon, PersonIcon, ExitIcon, MagnifyingGlassIcon, GearIcon } from '@radix-ui/react-icons';
+import { Box, Flex, Heading, Text, Card, TextField, Button, Callout, Table, Checkbox, Badge, IconButton, Dialog, AlertDialog } from '@radix-ui/themes';
+import { InfoCircledIcon, PersonIcon, ExitIcon, MagnifyingGlassIcon, GearIcon, TrashIcon } from '@radix-ui/react-icons';
 import { MainLayout } from '../components/MainLayout';
 import api from '../api';
 import { useAuth } from '../context/AuthContext';
@@ -59,6 +59,7 @@ const ProfilePage = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [savingUserId, setSavingUserId] = useState<string | null>(null);
     const [editingUser, setEditingUser] = useState<string | null>(null);
+    const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
     const [editFormData, setEditFormData] = useState<{
         first_name: string;
         last_name: string;
@@ -257,6 +258,25 @@ const ProfilePage = () => {
             company: '',
             website_url: ''
         });
+    };
+
+    const handleDeleteUser = async (userId: string) => {
+        setSavingUserId(userId);
+        setError(null);
+        setSuccess(null);
+        
+        try {
+            await api.delete(`/user/users/${userId}`);
+            
+            // Remove user from local state
+            setUsers(users.filter(u => u.id !== userId));
+            setDeletingUserId(null);
+            setSuccess('User deleted successfully');
+        } catch (err) {
+            setError('Failed to delete user');
+        } finally {
+            setSavingUserId(null);
+        }
     };
 
     const filteredUsers = users.filter(user =>
@@ -564,6 +584,41 @@ const ProfilePage = () => {
                                                                     >
                                                                         {user.is_active ? 'Deactivate' : 'Activate'}
                                                                     </Button>
+                                                                    <AlertDialog.Root>
+                                                                        <AlertDialog.Trigger>
+                                                                            <IconButton
+                                                                                size="1"
+                                                                                variant="soft"
+                                                                                color="red"
+                                                                                disabled={savingUserId === user.id || user.id === profile.id || editingUser !== null}
+                                                                            >
+                                                                                <TrashIcon />
+                                                                            </IconButton>
+                                                                        </AlertDialog.Trigger>
+                                                                        <AlertDialog.Content style={{ maxWidth: 450 }}>
+                                                                            <AlertDialog.Title>Delete User</AlertDialog.Title>
+                                                                            <AlertDialog.Description size="2">
+                                                                                Are you sure you want to permanently delete <strong>{user.email}</strong>? 
+                                                                                This action cannot be undone and will remove all associated data.
+                                                                            </AlertDialog.Description>
+                                                                            <Flex gap="3" mt="4" justify="end">
+                                                                                <AlertDialog.Cancel>
+                                                                                    <Button variant="soft" color="gray">
+                                                                                        Cancel
+                                                                                    </Button>
+                                                                                </AlertDialog.Cancel>
+                                                                                <AlertDialog.Action>
+                                                                                    <Button 
+                                                                                        variant="solid" 
+                                                                                        color="red"
+                                                                                        onClick={() => handleDeleteUser(user.id)}
+                                                                                    >
+                                                                                        Delete User
+                                                                                    </Button>
+                                                                                </AlertDialog.Action>
+                                                                            </Flex>
+                                                                        </AlertDialog.Content>
+                                                                    </AlertDialog.Root>
                                                                 </Flex>
                                                             )}
                                                         </Table.Cell>

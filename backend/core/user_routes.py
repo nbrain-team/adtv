@@ -177,4 +177,28 @@ async def update_user_profile_admin(
     db.commit()
     db.refresh(user)
     
-    return {"message": "User profile updated successfully"} 
+    return {"message": "User profile updated successfully"}
+
+@router.delete("/users/{user_id}")
+async def delete_user(
+    user_id: str,
+    current_user: User = Depends(auth.get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Delete a user (admin only)"""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    # Prevent deleting yourself
+    if user_id == current_user.id:
+        raise HTTPException(status_code=400, detail="Cannot delete your own account")
+    
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Delete the user and all related data (cascade delete should handle related records)
+    db.delete(user)
+    db.commit()
+    
+    return {"message": "User deleted successfully"} 
