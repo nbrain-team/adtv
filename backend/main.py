@@ -22,6 +22,7 @@ from core.database import Base, get_db, engine, User, ChatSession, SessionLocal,
 from realtor_importer.api import router as realtor_importer_router
 from core.data_lake_routes import router as data_lake_router
 from core.data_lake_models import DataLakeRecord
+from core.user_routes import router as user_router
 
 
 load_dotenv()
@@ -127,6 +128,13 @@ app.include_router(
     dependencies=[Depends(auth.get_current_active_user)]
 )
 
+app.include_router(
+    user_router,
+    prefix="/user",
+    tags=["User Management"],
+    dependencies=[Depends(auth.get_current_active_user)]
+)
+
 @app.get("/")
 def read_root():
     return {"status": "ADTV RAG API is running"}
@@ -191,6 +199,11 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    
+    # Update last login timestamp
+    user.last_login = datetime.now()
+    db.commit()
+    
     access_token = auth.create_access_token(data={"sub": user.email})
     return {"access_token": access_token, "token_type": "bearer"}
 

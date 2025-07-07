@@ -8,9 +8,12 @@ import SignupPage from './pages/SignupPage';
 import { MainLayout } from './components/MainLayout';
 import { useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ProtectedRoute } from './components/ProtectedRoute';
 import LandingPage from './pages/LandingPage';
 import AgentsPage from './pages/AgentsPage';
 import DataLakePage from './pages/DataLakePage';
+import ProfilePage from './pages/ProfilePage';
+import UserManagementPage from './pages/UserManagementPage';
 
 // Define the structure for a message
 interface Message {
@@ -22,60 +25,56 @@ interface Message {
 // Create a client
 const queryClient = new QueryClient();
 
-// A wrapper for routes that require authentication
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated, isLoading } = useAuth();
-  if (isLoading) {
-    return <div>Loading...</div>; // Or a spinner
-  }
-  return isAuthenticated ? <>{children}</> : <Navigate to="/login" />;
-};
-
 function App() {
-  return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <AppRoutes />
-      </AuthProvider>
-    </QueryClientProvider>
-  );
-}
-
-function AppRoutes() {
   const [messages, setMessages] = useState<Message[]>([]);
-  const { isAuthenticated } = useAuth();
-  // Forcing a new build with a dummy comment
-  return (
-    <Router>
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/signup" element={<SignupPage />} />
 
-        {/* New home page without sidebar */}
-        <Route path="/home" element={
-            <ProtectedRoute>
-                <LandingPage />
-            </ProtectedRoute>
-        } />
-        
-        {/* All other authenticated routes get the sidebar via MainLayout */}
-        <Route path="/*" element={
-          isAuthenticated ? (
-            <MainLayout onNewChat={() => setMessages([])}>
-              <Routes>
-                <Route path="/" element={<HomePage messages={messages} setMessages={setMessages} />} />
-                <Route path="/knowledge" element={<KnowledgeBase />} />
-                <Route path="/agents" element={<AgentsPage />} />
-                <Route path="/history" element={<HistoryPage />} />
-                <Route path="/data-lake" element={<DataLakePage />} />
-                {/* Redirect any other nested path to the chat page */}
-                <Route path="*" element={<Navigate to="/" />} />
-              </Routes>
-            </MainLayout>
-          ) : <Navigate to="/login" />
-        }/>
-      </Routes>
-    </Router>
+  return (
+    <AuthProvider>
+      <QueryClientProvider client={queryClient}>
+        <Router>
+          <Routes>
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/signup" element={<SignupPage />} />
+            <Route path="/home" element={
+              <ProtectedRoute requiredPermission="chat">
+                <HomePage messages={messages} setMessages={setMessages} />
+              </ProtectedRoute>
+            } />
+            <Route path="/history" element={
+              <ProtectedRoute requiredPermission="history">
+                <HistoryPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/knowledge" element={
+              <ProtectedRoute requiredPermission="knowledge">
+                <KnowledgeBase />
+              </ProtectedRoute>
+            } />
+            <Route path="/agents" element={
+              <ProtectedRoute requiredPermission="agents">
+                <AgentsPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/data-lake" element={
+              <ProtectedRoute requiredPermission="data-lake">
+                <DataLakePage />
+              </ProtectedRoute>
+            } />
+            <Route path="/profile" element={
+              <ProtectedRoute>
+                <ProfilePage />
+              </ProtectedRoute>
+            } />
+            <Route path="/user-management" element={
+              <ProtectedRoute requireAdmin>
+                <UserManagementPage />
+              </ProtectedRoute>
+            } />
+          </Routes>
+        </Router>
+      </QueryClientProvider>
+    </AuthProvider>
   );
 }
 

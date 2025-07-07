@@ -16,6 +16,60 @@ def update_db_schema(db):
             logger.info("Successfully added 'is_active' column.")
     except Exception as e:
         logger.info(f"Could not check 'users' table, likely doesn't exist yet. Details: {e}")
+    
+    # Add user management fields
+    try:
+        users_columns = [c['name'] for c in inspector.get_columns('users')]
+        
+        # Add new columns if they don't exist
+        if 'first_name' not in users_columns:
+            logger.info("Adding 'first_name' column to 'users' table.")
+            db.execute(text('ALTER TABLE users ADD COLUMN first_name VARCHAR(255)'))
+            
+        if 'last_name' not in users_columns:
+            logger.info("Adding 'last_name' column to 'users' table.")
+            db.execute(text('ALTER TABLE users ADD COLUMN last_name VARCHAR(255)'))
+            
+        if 'company' not in users_columns:
+            logger.info("Adding 'company' column to 'users' table.")
+            db.execute(text('ALTER TABLE users ADD COLUMN company VARCHAR(255)'))
+            
+        if 'website_url' not in users_columns:
+            logger.info("Adding 'website_url' column to 'users' table.")
+            db.execute(text('ALTER TABLE users ADD COLUMN website_url VARCHAR(255)'))
+            
+        if 'role' not in users_columns:
+            logger.info("Adding 'role' column to 'users' table.")
+            db.execute(text("ALTER TABLE users ADD COLUMN role VARCHAR(50) DEFAULT 'user'"))
+            
+        if 'permissions' not in users_columns:
+            logger.info("Adding 'permissions' column to 'users' table.")
+            db.execute(text("ALTER TABLE users ADD COLUMN permissions JSON DEFAULT '{\"chat\": true}'::json"))
+            
+        if 'created_at' not in users_columns:
+            logger.info("Adding 'created_at' column to 'users' table.")
+            db.execute(text('ALTER TABLE users ADD COLUMN created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP'))
+            
+        if 'last_login' not in users_columns:
+            logger.info("Adding 'last_login' column to 'users' table.")
+            db.execute(text('ALTER TABLE users ADD COLUMN last_login TIMESTAMP WITH TIME ZONE'))
+            
+        # Update danny@nbrain.ai to be admin
+        logger.info("Checking admin user...")
+        result = db.execute(text("SELECT role FROM users WHERE email = 'danny@nbrain.ai'"))
+        user = result.fetchone()
+        if user and user[0] != 'admin':
+            logger.info("Setting danny@nbrain.ai as admin...")
+            db.execute(text("""
+                UPDATE users 
+                SET role = 'admin',
+                    permissions = '{"chat": true, "history": true, "knowledge": true, "agents": true, "data-lake": true, "user-management": true}'::json
+                WHERE email = 'danny@nbrain.ai'
+            """))
+            logger.info("Admin user updated successfully!")
+            
+    except Exception as e:
+        logger.info(f"Could not add user management fields. Details: {e}")
 
 def migrate_data(db):
     logger.info("Checking for legacy 'chat_conversations' table...")

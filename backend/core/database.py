@@ -24,6 +24,20 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
     is_active = Column(Boolean, default=True)
+    
+    # User profile fields
+    first_name = Column(String, nullable=True)
+    last_name = Column(String, nullable=True)
+    company = Column(String, nullable=True)
+    website_url = Column(String, nullable=True)
+    
+    # Role and permissions
+    role = Column(String, default="user")  # "user" or "admin"
+    permissions = Column(JSON, default=lambda: {"chat": True})  # Module access permissions
+    
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    last_login = Column(DateTime(timezone=True), nullable=True)
 
     conversations = relationship("ChatSession", back_populates="user")
     template_agents = relationship("TemplateAgent", back_populates="creator", cascade="all, delete-orphan")
