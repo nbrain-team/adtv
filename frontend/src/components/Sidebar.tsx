@@ -80,18 +80,16 @@ export const Sidebar = ({ onNewChat }: { onNewChat: () => void }) => {
                         <img src="/new-icons/14.png" alt="Data Lake" />
                     </button>
                 )}
-            </Flex>
-            
-            <Flex direction="column" align="center" gap="4" style={{ marginBottom: '1rem' }}>
                 {isAdmin() && (
                     <button className="sidebar-icon" title="User Management" onClick={() => navigate('/user-management')}>
                         <img src="/new-icons/15.png" alt="User Management" />
                     </button>
                 )}
-                <button className="sidebar-icon" title="Profile" onClick={() => navigate('/profile')}>
-                    <img src="/new-icons/5.png" alt="Profile" />
-                </button>
             </Flex>
+            
+            <button className="sidebar-icon" title="Profile" onClick={() => navigate('/profile')} style={{ marginBottom: '1rem' }}>
+                <img src="/new-icons/16.png" alt="Profile" />
+            </button>
         </Flex>
     );
 }; 
