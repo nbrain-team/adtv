@@ -5,6 +5,7 @@ import { TrashIcon, ChevronLeftIcon, ChevronRightIcon, UploadIcon, DownloadIcon,
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
+import { MainLayout } from '../components/MainLayout';
 
 interface DataLakeRecord {
   id: number;
@@ -315,30 +316,31 @@ const DataLakePage = () => {
   };
 
   return (
-    <Flex direction="column" style={{ height: '100vh' }}>
-      <style>{STYLES}</style>
-      
-      <Box style={{ padding: '1.5rem 2rem', borderBottom: '1px solid var(--gray-4)', backgroundColor: 'white', position: 'sticky', top: 0, zIndex: 1 }}>
-        <Heading size="7" style={{ color: 'var(--gray-12)' }}>Data Lake</Heading>
-        <Text as="p" size="3" style={{ color: 'var(--gray-10)', marginTop: '0.25rem' }}>
-          View, filter, and manage your data records.
-        </Text>
-      </Box>
+    <MainLayout onNewChat={() => navigate('/home')}>
+      <Flex direction="column" style={{ height: '100vh' }}>
+        <style>{STYLES}</style>
+        
+        <Box style={{ padding: '1.5rem 2rem', borderBottom: '1px solid var(--gray-4)', backgroundColor: 'white', position: 'sticky', top: 0, zIndex: 1 }}>
+          <Heading size="7" style={{ color: 'var(--gray-12)' }}>Data Lake</Heading>
+          <Text as="p" size="3" style={{ color: 'var(--gray-10)', marginTop: '0.25rem' }}>
+            View, filter, and manage your data records.
+          </Text>
+        </Box>
 
-      <div className="data-lake-container" style={{ flex: 1, overflowY: 'auto' }}>
-        <section className="controls-section">
-          <div className="search-bar">
-            <MagnifyingGlassIcon />
-            <input 
-              type="text" 
-              placeholder="Search across all fields..." 
-              value={searchTerm}
-              onChange={e => {
-                setSearchTerm(e.target.value);
-                setCurrentPage(1);
-              }}
-            />
-          </div>
+        <div className="data-lake-container" style={{ flex: 1, overflowY: 'auto' }}>
+          <section className="controls-section">
+            <div className="search-bar">
+              <MagnifyingGlassIcon />
+              <input 
+                type="text" 
+                placeholder="Search across all fields..." 
+                value={searchTerm}
+                onChange={e => {
+                  setSearchTerm(e.target.value);
+                  setCurrentPage(1);
+                }}
+              />
+            </div>
           
           <div className="action-buttons">
             <Button variant="soft" onClick={() => setShowAllColumns(!showAllColumns)}>
@@ -584,6 +586,7 @@ const DataLakePage = () => {
         </Dialog.Content>
       </Dialog.Root>
     </Flex>
+    </MainLayout>
   );
 };
 

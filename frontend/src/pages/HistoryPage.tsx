@@ -4,6 +4,7 @@ import api from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { PersonIcon } from '@radix-ui/react-icons';
+import { MainLayout } from '../components/MainLayout';
 
 interface Conversation {
   id: string;
@@ -32,51 +33,53 @@ const HistoryPage = () => {
     };
 
     return (
-        <Flex direction="column" style={{ height: '100vh', backgroundColor: 'var(--gray-1)' }}>
-             <Box style={{ padding: '1.5rem 2rem', borderBottom: '1px solid var(--gray-4)', backgroundColor: 'white' }}>
-                <Heading size="7" style={{ color: 'var(--gray-12)' }}>Chat History</Heading>
-                <Text as="p" size="3" style={{ color: 'var(--gray-10)', marginTop: '0.25rem' }}>
-                    Review and search past conversations.
-                </Text>
-            </Box>
+        <MainLayout onNewChat={() => navigate('/home')}>
+            <Flex direction="column" style={{ height: '100vh', backgroundColor: 'var(--gray-1)' }}>
+                 <Box style={{ padding: '1.5rem 2rem', borderBottom: '1px solid var(--gray-4)', backgroundColor: 'white' }}>
+                    <Heading size="7" style={{ color: 'var(--gray-12)' }}>Chat History</Heading>
+                    <Text as="p" size="3" style={{ color: 'var(--gray-10)', marginTop: '0.25rem' }}>
+                        Review and search past conversations.
+                    </Text>
+                </Box>
 
-            <Box style={{ flex: 1, padding: '2rem', overflowY: 'auto' }}>
-                {isLoading && (
-                    <Flex justify="center" align="center" style={{ height: '100%' }}>
-                        <Spinner size="3" />
-                    </Flex>
-                )}
-                {error && <Text color="red">Failed to load chat history. Please try again later.</Text>}
-                {conversations && (
-                    <Flex direction="column" gap="3">
-                        {conversations.length === 0 ? (
-                            <Text>No saved conversations found.</Text>
-                        ) : (
-                            conversations.map(convo => (
-                                <Card 
-                                    key={convo.id} 
-                                    onClick={() => handleConversationClick(convo.id)}
-                                    style={{ cursor: 'pointer', transition: 'box-shadow 0.2s' }}
-                                    className="history-card"
-                                >
-                                    <Flex direction="column" gap="1">
-                                        <Text weight="bold">{convo.title}</Text>
-                                        <Text size="1" color="gray">
-                                            {new Date(convo.created_at).toLocaleString()}
-                                        </Text>
-                                    </Flex>
-                                </Card>
-                            ))
-                        )}
-                    </Flex>
-                )}
-            </Box>
-            <style>{`
-                .history-card:hover {
-                    box-shadow: var(--shadow-3);
-                }
-            `}</style>
-        </Flex>
+                <Box style={{ flex: 1, padding: '2rem', overflowY: 'auto' }}>
+                    {isLoading && (
+                        <Flex justify="center" align="center" style={{ height: '100%' }}>
+                            <Spinner size="3" />
+                        </Flex>
+                    )}
+                    {error && <Text color="red">Failed to load chat history. Please try again later.</Text>}
+                    {conversations && (
+                        <Flex direction="column" gap="3">
+                            {conversations.length === 0 ? (
+                                <Text>No saved conversations found.</Text>
+                            ) : (
+                                conversations.map(convo => (
+                                    <Card 
+                                        key={convo.id} 
+                                        onClick={() => handleConversationClick(convo.id)}
+                                        style={{ cursor: 'pointer', transition: 'box-shadow 0.2s' }}
+                                        className="history-card"
+                                    >
+                                        <Flex direction="column" gap="1">
+                                            <Text weight="bold">{convo.title}</Text>
+                                            <Text size="1" color="gray">
+                                                {new Date(convo.created_at).toLocaleString()}
+                                            </Text>
+                                        </Flex>
+                                    </Card>
+                                ))
+                            )}
+                        </Flex>
+                    )}
+                </Box>
+                <style>{`
+                    .history-card:hover {
+                        box-shadow: var(--shadow-3);
+                    }
+                `}</style>
+            </Flex>
+        </MainLayout>
     );
 };
 

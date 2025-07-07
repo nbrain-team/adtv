@@ -5,6 +5,7 @@ import { Checkbox, IconButton, Button, Flex, Heading, Text, Box } from '@radix-u
 import { TrashIcon, ChevronLeftIcon, ChevronRightIcon, PersonIcon } from '@radix-ui/react-icons';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { MainLayout } from '../components/MainLayout';
 
 type UploadType = 'files' | 'urls';
 
@@ -211,199 +212,201 @@ const KnowledgeBase = () => {
     };
 
     return (
-        <Flex direction="column" style={{ height: '100vh' }}>
-            <style>{STYLES}</style>
-            
-            <Box style={{ padding: '1.5rem 2rem', borderBottom: '1px solid var(--gray-4)', backgroundColor: 'white',  position: 'sticky', top: 0, zIndex: 1 }}>
-                <Heading size="7" style={{ color: 'var(--gray-12)' }}>Knowledge Base</Heading>
-                <Text as="p" size="3" style={{ color: 'var(--gray-10)', marginTop: '0.25rem' }}>
-                    Search and manage the documents that power the AI chat.
-                </Text>
-            </Box>
+        <MainLayout onNewChat={() => navigate('/home')}>
+            <Flex direction="column" style={{ height: '100vh' }}>
+                <style>{STYLES}</style>
+                
+                <Box style={{ padding: '1.5rem 2rem', borderBottom: '1px solid var(--gray-4)', backgroundColor: 'white',  position: 'sticky', top: 0, zIndex: 1 }}>
+                    <Heading size="7" style={{ color: 'var(--gray-12)' }}>Knowledge Base</Heading>
+                    <Text as="p" size="3" style={{ color: 'var(--gray-10)', marginTop: '0.25rem' }}>
+                        Search and manage the documents that power the AI chat.
+                    </Text>
+                </Box>
 
-            {/* --- Main Content --- */}
-            <div className="knowledge-base-container" style={{ flex: 1, overflowY: 'auto' }}>
-                <section className="management-section">
-                    <h2>Add to Knowledge Base</h2>
-                    <form onSubmit={handleSubmit} className="upload-area">
-                        <div className="upload-inputs">
-                            <div className="form-group">
-                                <label htmlFor="upload-type-select">Upload Type</label>
-                                <select 
-                                    id="upload-type-select"
-                                    value={uploadType} 
-                                    onChange={e => setUploadType(e.target.value as UploadType)}
-                                >
-                                    <option value="files">Upload Files (.txt, .pdf, .docx)</option>
-                                    <option value="urls">Crawl URLs</option>
-                                </select>
-                            </div>
-
-                            {uploadType === 'files' ? (
+                {/* --- Main Content --- */}
+                <div className="knowledge-base-container" style={{ flex: 1, overflowY: 'auto' }}>
+                    <section className="management-section">
+                        <h2>Add to Knowledge Base</h2>
+                        <form onSubmit={handleSubmit} className="upload-area">
+                            <div className="upload-inputs">
                                 <div className="form-group">
-                                    <label>Select Files</label>
-                                    <div className="custom-file-input-container">
-                                        <input 
-                                            type="file" 
-                                            id="file-input" 
-                                            multiple
-                                            onChange={handleFileChange} 
-                                            style={{ display: 'none' }} 
-                                        />
-                                        <label htmlFor="file-input" className="file-input-label">
-                                            Choose Files
-                                        </label>
-                                        <span className="file-name-display">
-                                            {files ? `${files.length} file(s) chosen` : 'No files chosen'}
-                                        </span>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="form-group">
-                                    <label htmlFor="url-input">Enter URLs (one per line)</label>
-                                    <textarea 
-                                        id="url-input"
-                                        value={urls} 
-                                        onChange={e => setUrls(e.target.value)} 
-                                        placeholder="https://example.com/page1&#10;https://anothersite.com/article"
-                                        rows={4}
-                                    />
-                                </div>
-                            )}
-                        </div>
-                        
-                        <div className="form-group">
-                            <button type="submit" className="submit-btn" disabled={isUploading}>
-                                {isUploading ? uploadStatus : 'Submit to Knowledge Base'}
-                            </button>
-                            {uploadStatus && !isUploading && (
-                                <p className="status-message">{uploadStatus}</p>
-                            )}
-                        </div>
-                    </form>
-                </section>
-
-                <section className="library-section">
-                    <h2>Document Library</h2>
-                    <input 
-                        type="text" 
-                        id="library-search-input" 
-                        className="search-input" 
-                        placeholder="Search library by name..." 
-                        style={{ backgroundColor: 'white', marginBottom: '1.5rem' }}
-                        value={searchTerm}
-                        onChange={e => {
-                            setSearchTerm(e.target.value);
-                            setCurrentPage(1); // Reset to first page on search
-                        }}
-                    />
-                    <table id="document-table">
-                        <thead>
-                            <tr>
-                                <th><Checkbox disabled/></th>
-                                <th>Title / Source</th>
-                                <th>Type</th>
-                                <th>Status</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {isLoadingDocs ? (
-                                <tr><td colSpan={5}>Loading documents...</td></tr>
-                            ) : paginatedDocuments.length > 0 ? (
-                                paginatedDocuments.map(doc => (
-                                    <tr 
-                                        key={doc.name} 
-                                        onClick={() => handleDocSelectionChange(doc.name, !selectedDocs.includes(doc.name))}
-                                        style={{ 
-                                            cursor: 'pointer',
-                                            backgroundColor: selectedDocs.includes(doc.name) ? 'var(--blue-2)' : 'transparent'
-                                        }}
+                                    <label htmlFor="upload-type-select">Upload Type</label>
+                                    <select 
+                                        id="upload-type-select"
+                                        value={uploadType} 
+                                        onChange={e => setUploadType(e.target.value as UploadType)}
                                     >
-                                        <td>
-                                            <Checkbox 
-                                                checked={selectedDocs.includes(doc.name)}
-                                                onCheckedChange={(checked) => handleDocSelectionChange(doc.name, !!checked)} 
-                                            />
-                                        </td>
-                                        <td>{doc.name}</td>
-                                        <td>{doc.type}</td>
-                                        <td>
-                                            <span className={`status status-ready`}>
-                                                {doc.status}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <IconButton 
-                                                variant="ghost" 
-                                                color="red" 
-                                                onClick={(e) => {
-                                                    e.stopPropagation(); // Prevents the row's onClick from firing
-                                                    deleteMutation.mutate(doc.name);
-                                                }} 
-                                                disabled={deleteMutation.isPending}
-                                            >
-                                                <TrashIcon />
-                                            </IconButton>
-                                        </td>
-                                    </tr>
-                                ))
-                            ) : (
-                                <tr><td colSpan={5}>No documents found.</td></tr>
-                            )}
-                        </tbody>
-                    </table>
-                    {totalPages > 1 && (
-                        <div className="pagination-controls">
-                            <Button 
-                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                                disabled={currentPage === 1}
-                                variant="soft"
-                            >
-                                <ChevronLeftIcon /> Previous
-                            </Button>
-                            <span>
-                                Page {currentPage} of {totalPages}
-                            </span>
-                            <Button 
-                                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                                disabled={currentPage === totalPages}
-                                variant="soft"
-                            >
-                                Next <ChevronRightIcon />
-                            </Button>
-                        </div>
-                    )}
-                </section>
+                                        <option value="files">Upload Files (.txt, .pdf, .docx)</option>
+                                        <option value="urls">Crawl URLs</option>
+                                    </select>
+                                </div>
 
-                <section className="query-section">
-                    <form onSubmit={handleQuerySubmit}>
-                        <div className="query-area">
-                            <h3>Query Selected Documents</h3>
-                            <div className="query-controls">
-                                <input 
-                                    type="text" 
-                                    id="query-input" 
-                                    placeholder="Ask a question to the selected documents..." 
-                                    value={query}
-                                    onChange={e => setQuery(e.target.value)}
-                                />
-                                <button id="query-btn" type="submit" className="submit-btn" disabled={queryMutation.isPending || selectedDocs.length === 0}>
-                                    {queryMutation.isPending ? 'Asking...' : 'Ask'}
-                                </button>
-                            </div>
-                            <div id="query-response">
-                                {queryMutation.isPending ? (
-                                    <p>Thinking...</p>
+                                {uploadType === 'files' ? (
+                                    <div className="form-group">
+                                        <label>Select Files</label>
+                                        <div className="custom-file-input-container">
+                                            <input 
+                                                type="file" 
+                                                id="file-input" 
+                                                multiple
+                                                onChange={handleFileChange} 
+                                                style={{ display: 'none' }} 
+                                            />
+                                            <label htmlFor="file-input" className="file-input-label">
+                                                Choose Files
+                                            </label>
+                                            <span className="file-name-display">
+                                                {files ? `${files.length} file(s) chosen` : 'No files chosen'}
+                                            </span>
+                                        </div>
+                                    </div>
                                 ) : (
-                                    <p>{queryResponse || 'Your answer will appear here...'}</p>
+                                    <div className="form-group">
+                                        <label htmlFor="url-input">Enter URLs (one per line)</label>
+                                        <textarea 
+                                            id="url-input"
+                                            value={urls} 
+                                            onChange={e => setUrls(e.target.value)} 
+                                            placeholder="https://example.com/page1&#10;https://anothersite.com/article"
+                                            rows={4}
+                                        />
+                                    </div>
                                 )}
                             </div>
-                        </div>
-                    </form>
-                </section>
-            </div>
-        </Flex>
+                            
+                            <div className="form-group">
+                                <button type="submit" className="submit-btn" disabled={isUploading}>
+                                    {isUploading ? uploadStatus : 'Submit to Knowledge Base'}
+                                </button>
+                                {uploadStatus && !isUploading && (
+                                    <p className="status-message">{uploadStatus}</p>
+                                )}
+                            </div>
+                        </form>
+                    </section>
+
+                    <section className="library-section">
+                        <h2>Document Library</h2>
+                        <input 
+                            type="text" 
+                            id="library-search-input" 
+                            className="search-input" 
+                            placeholder="Search library by name..." 
+                            style={{ backgroundColor: 'white', marginBottom: '1.5rem' }}
+                            value={searchTerm}
+                            onChange={e => {
+                                setSearchTerm(e.target.value);
+                                setCurrentPage(1); // Reset to first page on search
+                            }}
+                        />
+                        <table id="document-table">
+                            <thead>
+                                <tr>
+                                    <th><Checkbox disabled/></th>
+                                    <th>Title / Source</th>
+                                    <th>Type</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {isLoadingDocs ? (
+                                    <tr><td colSpan={5}>Loading documents...</td></tr>
+                                ) : paginatedDocuments.length > 0 ? (
+                                    paginatedDocuments.map(doc => (
+                                        <tr 
+                                            key={doc.name} 
+                                            onClick={() => handleDocSelectionChange(doc.name, !selectedDocs.includes(doc.name))}
+                                            style={{ 
+                                                cursor: 'pointer',
+                                                backgroundColor: selectedDocs.includes(doc.name) ? 'var(--blue-2)' : 'transparent'
+                                            }}
+                                        >
+                                            <td>
+                                                <Checkbox 
+                                                    checked={selectedDocs.includes(doc.name)}
+                                                    onCheckedChange={(checked) => handleDocSelectionChange(doc.name, !!checked)} 
+                                                />
+                                            </td>
+                                            <td>{doc.name}</td>
+                                            <td>{doc.type}</td>
+                                            <td>
+                                                <span className={`status status-ready`}>
+                                                    {doc.status}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <IconButton 
+                                                    variant="ghost" 
+                                                    color="red" 
+                                                    onClick={(e) => {
+                                                        e.stopPropagation(); // Prevents the row's onClick from firing
+                                                        deleteMutation.mutate(doc.name);
+                                                    }} 
+                                                    disabled={deleteMutation.isPending}
+                                                >
+                                                    <TrashIcon />
+                                                </IconButton>
+                                            </td>
+                                        </tr>
+                                    ))
+                                ) : (
+                                    <tr><td colSpan={5}>No documents found.</td></tr>
+                                )}
+                            </tbody>
+                        </table>
+                        {totalPages > 1 && (
+                            <div className="pagination-controls">
+                                <Button 
+                                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                    disabled={currentPage === 1}
+                                    variant="soft"
+                                >
+                                    <ChevronLeftIcon /> Previous
+                                </Button>
+                                <span>
+                                    Page {currentPage} of {totalPages}
+                                </span>
+                                <Button 
+                                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                    disabled={currentPage === totalPages}
+                                    variant="soft"
+                                >
+                                    Next <ChevronRightIcon />
+                                </Button>
+                            </div>
+                        )}
+                    </section>
+
+                    <section className="query-section">
+                        <form onSubmit={handleQuerySubmit}>
+                            <div className="query-area">
+                                <h3>Query Selected Documents</h3>
+                                <div className="query-controls">
+                                    <input 
+                                        type="text" 
+                                        id="query-input" 
+                                        placeholder="Ask a question to the selected documents..." 
+                                        value={query}
+                                        onChange={e => setQuery(e.target.value)}
+                                    />
+                                    <button id="query-btn" type="submit" className="submit-btn" disabled={queryMutation.isPending || selectedDocs.length === 0}>
+                                        {queryMutation.isPending ? 'Asking...' : 'Ask'}
+                                    </button>
+                                </div>
+                                <div id="query-response">
+                                    {queryMutation.isPending ? (
+                                        <p>Thinking...</p>
+                                    ) : (
+                                        <p>{queryResponse || 'Your answer will appear here...'}</p>
+                                    )}
+                                </div>
+                            </div>
+                        </form>
+                    </section>
+                </div>
+            </Flex>
+        </MainLayout>
     );
 };
 

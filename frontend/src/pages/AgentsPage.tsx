@@ -4,6 +4,8 @@ import { ArrowLeftIcon } from '@radix-ui/react-icons';
 import { GeneratorWorkflow } from '../components/GeneratorWorkflow';
 import { RealtorImporterWorkflow } from '../components/RealtorImporter/RealtorImporterWorkflow';
 import { TemplateAgentCreator } from '../components/TemplateAgentCreator';
+import { MainLayout } from '../components/MainLayout';
+import { useNavigate } from 'react-router-dom';
 
 // Define the structure for an agent
 interface Agent {
@@ -43,6 +45,7 @@ const agents: Agent[] = [
 
 const AgentsPage = () => {
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
+  const navigate = useNavigate();
 
   const handleSelectAgent = (agentId: string) => {
     const agent = agents.find(a => a.id === agentId);
@@ -73,56 +76,58 @@ const AgentsPage = () => {
   };
 
   return (
-    <Flex direction="column" style={{ height: '100%', backgroundColor: 'var(--gray-1)' }}>
-      <Box style={{ padding: '1.5rem 2rem', borderBottom: '1px solid var(--gray-4)', backgroundColor: 'white' }}>
-        {selectedAgent ? (
-          <Flex align="center" gap="3">
-            <button onClick={handleGoBack} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.5rem' }}>
-              <ArrowLeftIcon width="24" height="24" />
-            </button>
-            <Box>
-              <Heading size="7" style={{ color: 'var(--gray-12)' }}>{selectedAgent.name}</Heading>
+    <MainLayout onNewChat={() => navigate('/home')}>
+      <Flex direction="column" style={{ height: '100%', backgroundColor: 'var(--gray-1)' }}>
+        <Box style={{ padding: '1.5rem 2rem', borderBottom: '1px solid var(--gray-4)', backgroundColor: 'white' }}>
+          {selectedAgent ? (
+            <Flex align="center" gap="3">
+              <button onClick={handleGoBack} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.5rem' }}>
+                <ArrowLeftIcon width="24" height="24" />
+              </button>
+              <Box>
+                <Heading size="7" style={{ color: 'var(--gray-12)' }}>{selectedAgent.name}</Heading>
+                <Text as="p" size="3" style={{ color: 'var(--gray-10)', marginTop: '0.25rem' }}>
+                  {selectedAgent.description}
+                </Text>
+              </Box>
+            </Flex>
+          ) : (
+            <>
+              <Heading size="7" style={{ color: 'var(--gray-12)' }}>Automation Agents</Heading>
               <Text as="p" size="3" style={{ color: 'var(--gray-10)', marginTop: '0.25rem' }}>
-                {selectedAgent.description}
+                Select an agent to begin an automated workflow.
               </Text>
-            </Box>
-          </Flex>
-        ) : (
-          <>
-            <Heading size="7" style={{ color: 'var(--gray-12)' }}>Automation Agents</Heading>
-            <Text as="p" size="3" style={{ color: 'var(--gray-10)', marginTop: '0.25rem' }}>
-              Select an agent to begin an automated workflow.
-            </Text>
-          </>
-        )}
-      </Box>
+            </>
+          )}
+        </Box>
 
-      <Box style={{ padding: '2rem', flex: 1, overflowY: 'auto' }}>
-        {selectedAgent ? (
-          getAgentComponent(selectedAgent)
-        ) : (
-          <Grid columns={{ initial: '1', sm: '2', md: '3' }} gap="4">
-            {agents.map(agent => (
-              <Card 
-                key={agent.id} 
-                onClick={() => handleSelectAgent(agent.id)}
-                style={{ 
-                  cursor: agent.id === 'pr-outreach' ? 'not-allowed' : 'pointer', 
-                  transition: 'all 0.2s',
-                  opacity: agent.id === 'pr-outreach' ? 0.6 : 1
-                }}
-                className="agent-card"
-              >
-                <Flex direction="column" gap="2">
-                  <Heading size="4">{agent.name}</Heading>
-                  <Text size="2" color="gray">{agent.description}</Text>
-                </Flex>
-              </Card>
-            ))}
-          </Grid>
-        )}
-      </Box>
-    </Flex>
+        <Box style={{ padding: '2rem', flex: 1, overflowY: 'auto' }}>
+          {selectedAgent ? (
+            getAgentComponent(selectedAgent)
+          ) : (
+            <Grid columns={{ initial: '1', sm: '2', md: '3' }} gap="4">
+              {agents.map(agent => (
+                <Card 
+                  key={agent.id} 
+                  onClick={() => handleSelectAgent(agent.id)}
+                  style={{ 
+                    cursor: agent.id === 'pr-outreach' ? 'not-allowed' : 'pointer', 
+                    transition: 'all 0.2s',
+                    opacity: agent.id === 'pr-outreach' ? 0.6 : 1
+                  }}
+                  className="agent-card"
+                >
+                  <Flex direction="column" gap="2">
+                    <Heading size="4">{agent.name}</Heading>
+                    <Text size="2" color="gray">{agent.description}</Text>
+                  </Flex>
+                </Card>
+              ))}
+            </Grid>
+          )}
+        </Box>
+      </Flex>
+    </MainLayout>
   );
 };
 

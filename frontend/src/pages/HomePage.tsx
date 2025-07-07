@@ -7,6 +7,7 @@ import remarkGfm from 'remark-gfm';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { PersonIcon } from '@radix-ui/react-icons';
+import { MainLayout } from '../components/MainLayout';
 
 // Make this interface flexible to avoid conflict with App.tsx
 interface Message {
@@ -28,6 +29,10 @@ const HomePage = ({ messages, setMessages }: HomePageProps) => {
     const handleLogout = () => {
         logout();
         navigate('/login');
+    };
+
+    const handleNewChat = () => {
+        setMessages([]);
     };
 
     const handleSendMessage = async (query: string) => {
@@ -108,55 +113,57 @@ const HomePage = ({ messages, setMessages }: HomePageProps) => {
     };
 
     return (
-        <Flex direction="column" style={{ height: '100vh', backgroundColor: 'var(--gray-1)' }}>
-            <Box style={{ padding: '1.5rem 2rem', borderBottom: '1px solid var(--gray-4)', backgroundColor: 'white' }}>
-                <Heading size="7" style={{ color: 'var(--gray-12)' }}>AI Chat</Heading>
-                <Text as="p" size="3" style={{ color: 'var(--gray-10)', marginTop: '0.25rem' }}>
-                    Ask questions and get answers from your internal knowledge base, powered by AI.
-                </Text>
-            </Box>
-
-            <ScrollArea style={{ flex: 1, padding: '1rem', width: '100%' }}>
-                <Box style={{ maxWidth: '1000px', margin: '0' }}>
-                    {messages.map((msg, index) => (
-                        <div key={index} className="message-container">
-                            <div className={`message-bubble ${msg.sender}`}>
-                                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                                    {msg.text}
-                                </ReactMarkdown>
-                            </div>
-                            {msg.sender === 'ai' && msg.sources && msg.sources.length > 0 && (
-                                <div className="citations">
-                                    <span className="citation-title">Sources:</span>
-                                    {msg.sources.map((source, i) => {
-                                        const sourceText = typeof source === 'string' ? source : source.source;
-                                        return <span key={i} className="citation-source">{sourceText}</span>
-                                    })}
-                                </div>
-                            )}
-                        </div>
-                    ))}
-                    {isLoading && messages[messages.length - 1]?.sender === 'user' && (
-                         <div className="message-bubble ai">
-                            <div className="thinking-indicator">
-                                <span></span>
-                                <span></span>
-                                <span></span>
-                            </div>
-                         </div>
-                    )}
+        <MainLayout onNewChat={handleNewChat}>
+            <Flex direction="column" style={{ height: '100vh', backgroundColor: 'var(--gray-1)' }}>
+                <Box style={{ padding: '1.5rem 2rem', borderBottom: '1px solid var(--gray-4)', backgroundColor: 'white' }}>
+                    <Heading size="7" style={{ color: 'var(--gray-12)' }}>AI Chat</Heading>
+                    <Text as="p" size="3" style={{ color: 'var(--gray-10)', marginTop: '0.25rem' }}>
+                        Ask questions and get answers from your internal knowledge base, powered by AI.
+                    </Text>
                 </Box>
-            </ScrollArea>
-            
-            <Box style={{ 
-                padding: '1.5rem 1rem', 
-                borderTop: '1px solid var(--gray-4)', 
-                backgroundColor: 'white'
-            }}>
-                <CommandCenter onSend={handleSendMessage} isLoading={isLoading} />
-            </Box>
-            <style>{STYLES}</style>
-        </Flex>
+
+                <ScrollArea style={{ flex: 1, padding: '1rem', width: '100%' }}>
+                    <Box style={{ maxWidth: '1000px', margin: '0' }}>
+                        {messages.map((msg, index) => (
+                            <div key={index} className="message-container">
+                                <div className={`message-bubble ${msg.sender}`}>
+                                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                        {msg.text}
+                                    </ReactMarkdown>
+                                </div>
+                                {msg.sender === 'ai' && msg.sources && msg.sources.length > 0 && (
+                                    <div className="citations">
+                                        <span className="citation-title">Sources:</span>
+                                        {msg.sources.map((source, i) => {
+                                            const sourceText = typeof source === 'string' ? source : source.source;
+                                            return <span key={i} className="citation-source">{sourceText}</span>
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                        {isLoading && messages[messages.length - 1]?.sender === 'user' && (
+                             <div className="message-bubble ai">
+                                <div className="thinking-indicator">
+                                    <span></span>
+                                    <span></span>
+                                    <span></span>
+                                </div>
+                             </div>
+                        )}
+                    </Box>
+                </ScrollArea>
+                
+                <Box style={{ 
+                    padding: '1.5rem 1rem', 
+                    borderTop: '1px solid var(--gray-4)', 
+                    backgroundColor: 'white'
+                }}>
+                    <CommandCenter onSend={handleSendMessage} isLoading={isLoading} />
+                </Box>
+                <style>{STYLES}</style>
+            </Flex>
+        </MainLayout>
     );
 };
 
