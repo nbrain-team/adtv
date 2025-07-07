@@ -248,24 +248,28 @@ const ProfilePage = () => {
                                 
                                 <Flex direction="column" gap="3">
                                     <Box>
-                                        <Text size="2" weight="bold" color="gray">Email</Text>
-                                        <Text size="3">{profile.email}</Text>
+                                        <Text size="3">
+                                            <Text as="span" weight="bold">Email:</Text> {profile.email}
+                                        </Text>
                                     </Box>
                                     
                                     <Box>
-                                        <Text size="2" weight="bold" color="gray">Role</Text>
-                                        <Text size="3">{profile.role === 'admin' ? 'Administrator' : 'User'}</Text>
+                                        <Text size="3">
+                                            <Text as="span" weight="bold">Role:</Text> {profile.role === 'admin' ? 'Administrator' : 'User'}
+                                        </Text>
                                     </Box>
                                     
                                     <Box>
-                                        <Text size="2" weight="bold" color="gray">Member Since</Text>
-                                        <Text size="3">{new Date(profile.created_at).toLocaleDateString()}</Text>
+                                        <Text size="3">
+                                            <Text as="span" weight="bold">Member Since:</Text> {new Date(profile.created_at).toLocaleDateString()}
+                                        </Text>
                                     </Box>
                                     
                                     {profile.last_login && (
                                         <Box>
-                                            <Text size="2" weight="bold" color="gray">Last Login</Text>
-                                            <Text size="3">{new Date(profile.last_login).toLocaleString()}</Text>
+                                            <Text size="3">
+                                                <Text as="span" weight="bold">Last Login:</Text> {new Date(profile.last_login).toLocaleString()}
+                                            </Text>
                                         </Box>
                                     )}
                                 </Flex>
