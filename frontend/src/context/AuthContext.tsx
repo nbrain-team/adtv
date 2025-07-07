@@ -58,7 +58,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     localStorage.setItem('token', newToken);
     setToken(newToken);
     api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
-    refreshProfile();
+    // Add a small delay to ensure token is properly set
+    setTimeout(() => {
+      refreshProfile();
+    }, 100);
   };
 
   const logout = () => {

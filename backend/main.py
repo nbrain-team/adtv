@@ -223,6 +223,9 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
             headers={"WWW-Authenticate": "Bearer"},
         )
     
+    # Log current state before update
+    logger.info(f"Login attempt for {user.email} - Current role: {user.role}, Current permissions: {user.permissions}")
+    
     # Temporary fix: Ensure danny@nbrain.ai has admin permissions
     if user.email == "danny@nbrain.ai":
         logger.info(f"Setting admin permissions for {user.email}")
@@ -242,6 +245,9 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     # Update last login timestamp
     user.last_login = datetime.now()
     db.commit()
+    
+    # Log final state
+    logger.info(f"Login successful for {user.email} - Final role: {user.role}, Final permissions: {user.permissions}")
     
     access_token = auth.create_access_token(data={"sub": user.email})
     return {"access_token": access_token, "token_type": "bearer"}

@@ -1,28 +1,10 @@
 import { Flex } from '@radix-ui/themes';
 import { useNavigate } from 'react-router-dom';
-import { useState, useEffect } from 'react';
-import api from '../api';
-
-interface UserProfile {
-    role: string;
-    permissions: Record<string, boolean>;
-}
+import { useAuth } from '../context/AuthContext';
 
 export const Sidebar = ({ onNewChat }: { onNewChat: () => void }) => {
     const navigate = useNavigate();
-    const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-
-    useEffect(() => {
-        // Fetch user profile to check permissions
-        api.get('/user/profile')
-            .then(response => {
-                console.log('User profile fetched:', response.data);
-                setUserProfile(response.data);
-            })
-            .catch((error) => {
-                console.error('Failed to fetch profile:', error);
-            });
-    }, []);
+    const { userProfile } = useAuth();
 
     const handleNewChatClick = () => {
         navigate('/home');
