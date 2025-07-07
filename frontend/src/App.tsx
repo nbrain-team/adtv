@@ -13,7 +13,6 @@ import LandingPage from './pages/LandingPage';
 import AgentsPage from './pages/AgentsPage';
 import DataLakePage from './pages/DataLakePage';
 import ProfilePage from './pages/ProfilePage';
-import UserManagementPage from './pages/UserManagementPage';
 
 // Define the structure for a message
 interface Message {
@@ -69,11 +68,6 @@ function App() {
             <Route path="/profile" element={
               <ProtectedRoute>
                 <ProfilePage />
-              </ProtectedRoute>
-            } />
-            <Route path="/user-management" element={
-              <ProtectedRoute requireAdmin>
-                <UserManagementPage />
               </ProtectedRoute>
             } />
           </Routes>

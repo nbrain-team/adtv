@@ -17,12 +17,6 @@ export const Sidebar = ({ onNewChat }: { onNewChat: () => void }) => {
         return hasIt;
     };
 
-    const isAdmin = () => {
-        const admin = userProfile?.role === 'admin';
-        console.log('Admin check:', admin, userProfile?.role);
-        return admin;
-    };
-
     return (
         <Flex 
             direction="column" 
@@ -69,11 +63,6 @@ export const Sidebar = ({ onNewChat }: { onNewChat: () => void }) => {
                 {hasPermission('data-lake') && (
                     <button className="sidebar-icon" title="Data Lake" onClick={() => navigate('/data-lake')}>
                         <img src="/new-icons/14.png" alt="Data Lake" />
-                    </button>
-                )}
-                {isAdmin() && (
-                    <button className="sidebar-icon" title="User Management" onClick={() => navigate('/user-management')}>
-                        <img src="/new-icons/15.png" alt="User Management" />
                     </button>
                 )}
             </Flex>
