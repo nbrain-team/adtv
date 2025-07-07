@@ -33,9 +33,14 @@ function App() {
       <QueryClientProvider client={queryClient}>
         <Router>
           <Routes>
-            <Route path="/" element={<LandingPage />} />
+            <Route path="/" element={<Navigate to="/login" />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<SignupPage />} />
+            <Route path="/landing" element={
+              <ProtectedRoute>
+                <LandingPage />
+              </ProtectedRoute>
+            } />
             <Route path="/home" element={
               <ProtectedRoute requiredPermission="chat">
                 <HomePage messages={messages} setMessages={setMessages} />

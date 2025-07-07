@@ -15,21 +15,30 @@ export const Sidebar = ({ onNewChat }: { onNewChat: () => void }) => {
     useEffect(() => {
         // Fetch user profile to check permissions
         api.get('/user/profile')
-            .then(response => setUserProfile(response.data))
-            .catch(() => {});
+            .then(response => {
+                console.log('User profile fetched:', response.data);
+                setUserProfile(response.data);
+            })
+            .catch((error) => {
+                console.error('Failed to fetch profile:', error);
+            });
     }, []);
 
     const handleNewChatClick = () => {
-        navigate('/');
+        navigate('/home');
         onNewChat();
     };
 
     const hasPermission = (module: string) => {
-        return userProfile?.permissions?.[module] !== false;
+        const hasIt = userProfile?.permissions?.[module] === true;
+        console.log(`Permission check for ${module}:`, hasIt, userProfile?.permissions);
+        return hasIt;
     };
 
     const isAdmin = () => {
-        return userProfile?.role === 'admin';
+        const admin = userProfile?.role === 'admin';
+        console.log('Admin check:', admin, userProfile?.role);
+        return admin;
     };
 
     return (

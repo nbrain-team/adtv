@@ -26,7 +26,7 @@ const LoginPage = () => {
 
             if (response.data.access_token) {
                 login(response.data.access_token);
-                navigate('/home');
+                navigate('/landing');
             }
         } catch (err: any) {
             setError(err.response?.data?.detail || 'Failed to login. Please check your credentials.');

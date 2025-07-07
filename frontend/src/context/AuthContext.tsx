@@ -29,6 +29,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (token) {
       try {
         const response = await api.get('/user/profile');
+        console.log('AuthContext - Profile fetched:', response.data);
         setUserProfile(response.data);
       } catch (error) {
         console.error('Failed to fetch user profile:', error);
@@ -56,6 +57,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const login = (newToken: string) => {
     localStorage.setItem('token', newToken);
     setToken(newToken);
+    api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+    refreshProfile();
   };
 
   const logout = () => {
