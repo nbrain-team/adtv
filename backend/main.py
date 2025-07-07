@@ -151,6 +151,17 @@ app.include_router(
 def read_root():
     return {"status": "ADTV RAG API is running"}
 
+@app.get("/debug/my-permissions")
+def get_my_permissions(current_user: User = Depends(auth.get_current_active_user)):
+    """Debug endpoint to check current user permissions"""
+    return {
+        "email": current_user.email,
+        "role": current_user.role,
+        "permissions": current_user.permissions,
+        "is_active": current_user.is_active,
+        "id": current_user.id
+    }
+
 # --- Background Processing ---
 def process_and_index_files(temp_file_paths: List[str], original_file_names: List[str]):
     logger.info(f"BACKGROUND_TASK: Starting processing for {len(original_file_names)} files.")
@@ -211,6 +222,22 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    
+    # Temporary fix: Ensure danny@nbrain.ai has admin permissions
+    if user.email == "danny@nbrain.ai":
+        logger.info(f"Setting admin permissions for {user.email}")
+        user.role = "admin"
+        user.permissions = {
+            "chat": True,
+            "history": True,
+            "knowledge": True,
+            "agents": True,
+            "data-lake": True,
+            "user-management": True
+        }
+        db.commit()
+        db.refresh(user)
+        logger.info(f"Updated {user.email} - Role: {user.role}, Permissions: {user.permissions}")
     
     # Update last login timestamp
     user.last_login = datetime.now()
