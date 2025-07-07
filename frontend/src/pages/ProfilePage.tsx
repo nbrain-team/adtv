@@ -58,6 +58,20 @@ const ProfilePage = () => {
     const [users, setUsers] = useState<User[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [savingUserId, setSavingUserId] = useState<string | null>(null);
+    const [editingUser, setEditingUser] = useState<string | null>(null);
+    const [editFormData, setEditFormData] = useState<{
+        first_name: string;
+        last_name: string;
+        email: string;
+        company: string;
+        website_url: string;
+    }>({
+        first_name: '',
+        last_name: '',
+        email: '',
+        company: '',
+        website_url: ''
+    });
 
     useEffect(() => {
         fetchProfile();
@@ -190,6 +204,59 @@ const ProfilePage = () => {
         } finally {
             setSavingUserId(null);
         }
+    };
+
+    const handleEditUser = (user: User) => {
+        setEditingUser(user.id);
+        setEditFormData({
+            first_name: user.first_name || '',
+            last_name: user.last_name || '',
+            email: user.email,
+            company: user.company || '',
+            website_url: ''  // This field might not be in the User interface yet
+        });
+    };
+
+    const handleSaveUserEdit = async (userId: string) => {
+        setSavingUserId(userId);
+        setError(null);
+        setSuccess(null);
+        
+        try {
+            // Update the user profile via admin endpoint
+            await api.put(`/user/users/${userId}/profile`, editFormData);
+            
+            // Update local state
+            setUsers(users.map(u => 
+                u.id === userId 
+                    ? { 
+                        ...u, 
+                        first_name: editFormData.first_name,
+                        last_name: editFormData.last_name,
+                        email: editFormData.email,
+                        company: editFormData.company
+                      }
+                    : u
+            ));
+            
+            setEditingUser(null);
+            setSuccess('User profile updated successfully');
+        } catch (err) {
+            setError('Failed to update user profile');
+        } finally {
+            setSavingUserId(null);
+        }
+    };
+
+    const handleCancelEdit = () => {
+        setEditingUser(null);
+        setEditFormData({
+            first_name: '',
+            last_name: '',
+            email: '',
+            company: '',
+            website_url: ''
+        });
     };
 
     const filteredUsers = users.filter(user =>
@@ -385,13 +452,55 @@ const ProfilePage = () => {
                                                 {filteredUsers.map(user => (
                                                     <Table.Row key={user.id}>
                                                         <Table.Cell>
-                                                            {user.first_name || user.last_name 
-                                                                ? `${user.first_name || ''} ${user.last_name || ''}`.trim()
-                                                                : '-'
-                                                            }
+                                                            {editingUser === user.id ? (
+                                                                <Flex gap="2">
+                                                                    <TextField.Root
+                                                                        size="1"
+                                                                        value={editFormData.first_name}
+                                                                        onChange={(e) => setEditFormData({...editFormData, first_name: e.target.value})}
+                                                                        placeholder="First name"
+                                                                        style={{ width: '100px' }}
+                                                                    />
+                                                                    <TextField.Root
+                                                                        size="1"
+                                                                        value={editFormData.last_name}
+                                                                        onChange={(e) => setEditFormData({...editFormData, last_name: e.target.value})}
+                                                                        placeholder="Last name"
+                                                                        style={{ width: '100px' }}
+                                                                    />
+                                                                </Flex>
+                                                            ) : (
+                                                                user.first_name || user.last_name 
+                                                                    ? `${user.first_name || ''} ${user.last_name || ''}`.trim()
+                                                                    : '-'
+                                                            )}
                                                         </Table.Cell>
-                                                        <Table.Cell>{user.email}</Table.Cell>
-                                                        <Table.Cell>{user.company || '-'}</Table.Cell>
+                                                        <Table.Cell>
+                                                            {editingUser === user.id ? (
+                                                                <TextField.Root
+                                                                    size="1"
+                                                                    value={editFormData.email}
+                                                                    onChange={(e) => setEditFormData({...editFormData, email: e.target.value})}
+                                                                    placeholder="Email"
+                                                                    style={{ width: '200px' }}
+                                                                />
+                                                            ) : (
+                                                                user.email
+                                                            )}
+                                                        </Table.Cell>
+                                                        <Table.Cell>
+                                                            {editingUser === user.id ? (
+                                                                <TextField.Root
+                                                                    size="1"
+                                                                    value={editFormData.company}
+                                                                    onChange={(e) => setEditFormData({...editFormData, company: e.target.value})}
+                                                                    placeholder="Company"
+                                                                    style={{ width: '150px' }}
+                                                                />
+                                                            ) : (
+                                                                user.company || '-'
+                                                            )}
+                                                        </Table.Cell>
                                                         <Table.Cell>
                                                             <Badge color={user.is_active ? 'green' : 'red'}>
                                                                 {user.is_active ? 'Active' : 'Inactive'}
@@ -404,7 +513,7 @@ const ProfilePage = () => {
                                                                     onCheckedChange={(checked) => 
                                                                         handlePermissionChange(user.id, module.key, !!checked)
                                                                     }
-                                                                    disabled={savingUserId === user.id || user.id === profile.id}
+                                                                    disabled={savingUserId === user.id || user.id === profile.id || editingUser === user.id}
                                                                 />
                                                             </Table.Cell>
                                                         ))}
@@ -414,19 +523,49 @@ const ProfilePage = () => {
                                                                 onCheckedChange={(checked) => 
                                                                     handleRoleChange(user.id, !!checked)
                                                                 }
-                                                                disabled={savingUserId === user.id || user.id === profile.id}
+                                                                disabled={savingUserId === user.id || user.id === profile.id || editingUser === user.id}
                                                             />
                                                         </Table.Cell>
                                                         <Table.Cell>
-                                                            <Button
-                                                                size="1"
-                                                                variant="soft"
-                                                                color={user.is_active ? 'red' : 'green'}
-                                                                onClick={() => handleToggleActive(user.id)}
-                                                                disabled={savingUserId === user.id || user.id === profile.id}
-                                                            >
-                                                                {user.is_active ? 'Deactivate' : 'Activate'}
-                                                            </Button>
+                                                            {editingUser === user.id ? (
+                                                                <Flex gap="2">
+                                                                    <Button
+                                                                        size="1"
+                                                                        onClick={() => handleSaveUserEdit(user.id)}
+                                                                        disabled={savingUserId === user.id}
+                                                                    >
+                                                                        Save
+                                                                    </Button>
+                                                                    <Button
+                                                                        size="1"
+                                                                        variant="soft"
+                                                                        onClick={handleCancelEdit}
+                                                                        disabled={savingUserId === user.id}
+                                                                    >
+                                                                        Cancel
+                                                                    </Button>
+                                                                </Flex>
+                                                            ) : (
+                                                                <Flex gap="2">
+                                                                    <Button
+                                                                        size="1"
+                                                                        variant="soft"
+                                                                        onClick={() => handleEditUser(user)}
+                                                                        disabled={savingUserId === user.id || user.id === profile.id || editingUser !== null}
+                                                                    >
+                                                                        Edit
+                                                                    </Button>
+                                                                    <Button
+                                                                        size="1"
+                                                                        variant="soft"
+                                                                        color={user.is_active ? 'red' : 'green'}
+                                                                        onClick={() => handleToggleActive(user.id)}
+                                                                        disabled={savingUserId === user.id || user.id === profile.id || editingUser !== null}
+                                                                    >
+                                                                        {user.is_active ? 'Deactivate' : 'Activate'}
+                                                                    </Button>
+                                                                </Flex>
+                                                            )}
                                                         </Table.Cell>
                                                     </Table.Row>
                                                 ))}

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from datetime import datetime
 
 from . import auth
@@ -15,6 +15,7 @@ class UserProfileUpdate(BaseModel):
     last_name: Optional[str] = None
     company: Optional[str] = None
     website_url: Optional[str] = None
+    email: Optional[EmailStr] = None  # Added for admin updates
 
 class UserResponse(BaseModel):
     id: str
@@ -138,4 +139,42 @@ async def toggle_user_active(
     user.is_active = not user.is_active
     db.commit()
     
-    return {"message": f"User {'activated' if user.is_active else 'deactivated'} successfully"} 
+    return {"message": f"User {'activated' if user.is_active else 'deactivated'} successfully"}
+
+@router.put("/users/{user_id}/profile")
+async def update_user_profile_admin(
+    user_id: str,
+    profile_data: UserProfileUpdate,
+    current_user: User = Depends(auth.get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Update another user's profile (admin only)"""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Update fields if provided
+    if profile_data.first_name is not None:
+        user.first_name = profile_data.first_name
+    if profile_data.last_name is not None:
+        user.last_name = profile_data.last_name
+    if profile_data.company is not None:
+        user.company = profile_data.company
+    if profile_data.website_url is not None:
+        user.website_url = profile_data.website_url
+    
+    # Special handling for email updates
+    if hasattr(profile_data, 'email') and profile_data.email:
+        # Check if email is already taken by another user
+        existing_user = db.query(User).filter(User.email == profile_data.email, User.id != user_id).first()
+        if existing_user:
+            raise HTTPException(status_code=400, detail="Email already in use")
+        user.email = profile_data.email
+    
+    db.commit()
+    db.refresh(user)
+    
+    return {"message": "User profile updated successfully"} 
