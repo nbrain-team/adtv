@@ -5,11 +5,15 @@ import requests
 from bs4 import BeautifulSoup
 import os
 import time
+import logging
 from typing import List, Dict, Optional, Any
 import re
 import json
 from .agent_website_scraper import AgentWebsiteScraper
 from .google_search_scraper import GoogleSearchScraper
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 class WebUnlockerScraper:
     """Scraper using Bright Data's Web Unlocker API"""
@@ -32,7 +36,7 @@ class WebUnlockerScraper:
     def get_page(self, url: str) -> Optional[BeautifulSoup]:
         """Fetch a page using Web Unlocker API"""
         try:
-            print(f"Fetching: {url}")
+            logger.info(f"Fetching: {url}")
             
             # Prepare the request payload
             payload = {
@@ -51,22 +55,24 @@ class WebUnlockerScraper:
             
             # Check response status
             if response.status_code == 200:
+                logger.info(f"Successfully fetched {url}")
                 return BeautifulSoup(response.content, 'html.parser')
             else:
-                print(f"API error: {response.status_code} - {response.text}")
+                logger.error(f"API error: {response.status_code} - {response.text}")
                 return None
                 
         except Exception as e:
-            print(f"Error fetching {url}: {e}")
+            logger.error(f"Error fetching {url}: {e}")
             return None
     
     def scrape_agent_list(self, list_url: str) -> List[str]:
         """Scrape list of agent profile URLs"""
         soup = self.get_page(list_url)
         if not soup:
+            logger.error("Failed to get page soup")
             return []
         
-        print(f"Page title: {soup.title.string if soup.title else 'No title'}")
+        logger.info(f"Page title: {soup.title.string if soup.title else 'No title'}")
         
         profile_links = set()
         
@@ -87,7 +93,7 @@ class WebUnlockerScraper:
         for selector in selectors:
             elements = soup.select(selector)
             if elements:
-                print(f"Selector '{selector}' found {len(elements)} elements")
+                logger.info(f"Selector '{selector}' found {len(elements)} elements")
             
             for elem in elements:
                 href = elem.get('href')
@@ -102,7 +108,7 @@ class WebUnlockerScraper:
         
         # Debug: If no profiles found, print some page content
         if len(profile_links) == 0:
-            print("No profiles found. Checking page content...")
+            logger.warning("No profiles found. Checking page content...")
             # Look for any links with real estate agent patterns
             all_links = soup.find_all('a', href=True)
             agent_pattern = re.compile(r'real.*estate.*agent|realtor|agent.*profile', re.I)
@@ -110,9 +116,9 @@ class WebUnlockerScraper:
                 href = link.get('href', '')
                 text = link.get_text(strip=True)
                 if agent_pattern.search(href) or agent_pattern.search(text):
-                    print(f"  Potential agent link: {href} - {text[:50]}")
+                    logger.info(f"  Potential agent link: {href} - {text[:50]}")
         
-        print(f"Found {len(profile_links)} unique agent profiles")
+        logger.info(f"Found {len(profile_links)} unique agent profiles")
         return list(profile_links)
     
     def clean_text(self, text: Optional[str]) -> Optional[str]:
@@ -230,20 +236,20 @@ class WebUnlockerScraper:
         ]
         
         facebook_found = False
-        print(f"  Looking for Facebook profile on homes.com...")
+        logger.info(f"  Looking for Facebook profile on homes.com...")
         
         for selector in facebook_selectors:
             facebook_elem = soup.select_one(selector)
             if facebook_elem:
                 href = facebook_elem.get('href')
                 if href and ('facebook.com' in href or 'fb.com' in href):
-                    print(f"    ✓ Found Facebook profile: {href}")
+                    logger.info(f"    ✓ Found Facebook profile: {href}")
                     data['facebook_profile'] = href
                     facebook_found = True
                     break
         
         if not facebook_found:
-            print(f"    ✗ No Facebook profile found on homes.com")
+            logger.info(f"    ✗ No Facebook profile found on homes.com")
         
         # Extract website link
         website_selectors = [
@@ -258,18 +264,18 @@ class WebUnlockerScraper:
         ]
         
         website_found = False
-        print(f"  Looking for agent website...")
+        logger.info(f"  Looking for agent website...")
         
         for selector in website_selectors:
             # BeautifulSoup doesn't support :contains, so handle it differently
             if ':contains(' in selector:
                 text_to_find = selector.split(':contains("')[1].split('")')[0]
                 website_elems = soup.find_all('a', string=re.compile(text_to_find, re.I))
-                print(f"    Checking for links containing '{text_to_find}': found {len(website_elems)} elements")
+                logger.info(f"    Checking for links containing '{text_to_find}': found {len(website_elems)} elements")
                 for elem in website_elems:
                     href = elem.get('href')
                     if href and href.startswith('http'):
-                        print(f"    ✓ Found agent website: {href}")
+                        logger.info(f"    ✓ Found agent website: {href}")
                         data['agent_website'] = href
                         website_found = True
                         break
@@ -278,7 +284,7 @@ class WebUnlockerScraper:
                 if website_elem:
                     href = website_elem.get('href')
                     if href and href.startswith('http'):
-                        print(f"    ✓ Found agent website via {selector}: {href}")
+                        logger.info(f"    ✓ Found agent website via {selector}: {href}")
                         data['agent_website'] = href
                         website_found = True
                         break
@@ -287,7 +293,7 @@ class WebUnlockerScraper:
                 break
         
         if not website_found:
-            print(f"    ✗ No agent website found")
+            logger.info(f"    ✗ No agent website found")
         
         # Extract years of experience
         exp_text = soup.find(text=re.compile(r'\d+\s*years?\s*(of\s*)?experience', re.I))
@@ -319,22 +325,22 @@ class WebUnlockerScraper:
         data.setdefault('years_exp', None)
         
         # Debug print extracted data
-        print(f"  Extracted data:")
-        print(f"    Name: {data.get('first_name')} {data.get('last_name')}")
-        print(f"    Company: {data.get('company')}")
-        print(f"    Location: {data.get('city')}, {data.get('state')}")
-        print(f"    Phone: {data.get('cell_phone')}")
-        print(f"    Email: {data.get('email')}")
-        print(f"    Agent Website: {data.get('agent_website')}")
-        print(f"    Facebook Profile: {data.get('facebook_profile')}")
-        print(f"    Seller Value: {data.get('seller_deals_total_value')}")
+        logger.info(f"  Extracted data:")
+        logger.info(f"    Name: {data.get('first_name')} {data.get('last_name')}")
+        logger.info(f"    Company: {data.get('company')}")
+        logger.info(f"    Location: {data.get('city')}, {data.get('state')}")
+        logger.info(f"    Phone: {data.get('cell_phone')}")
+        logger.info(f"    Email: {data.get('email')}")
+        logger.info(f"    Agent Website: {data.get('agent_website')}")
+        logger.info(f"    Facebook Profile: {data.get('facebook_profile')}")
+        logger.info(f"    Seller Value: {data.get('seller_deals_total_value')}")
         
         return data
 
 
 def scrape_with_web_unlocker(list_url: str, max_profiles: int = 10, use_google_search: bool = None, batch_callback=None) -> List[Dict[str, Any]]:
     """Main entry point for Web Unlocker scraping with pagination support"""
-    print("Using Bright Data Web Unlocker API...")
+    logger.info("Using Bright Data Web Unlocker API...")
     scraper = WebUnlockerScraper()
     agent_scraper = AgentWebsiteScraper()  # Initialize Step 2 scraper
     
@@ -352,17 +358,17 @@ def scrape_with_web_unlocker(list_url: str, max_profiles: int = 10, use_google_s
     
     # Scrape multiple pages until we have enough profiles or no more pages
     while len(all_profile_urls) < max_profiles:
-        print(f"\nScraping page {page_num}: {current_url}")
+        logger.info(f"\nScraping page {page_num}: {current_url}")
         
         # Get agent profile URLs from current page
         profile_urls = scraper.scrape_agent_list(current_url)
         
         if not profile_urls:
-            print(f"No profiles found on page {page_num}")
+            logger.warning(f"No profiles found on page {page_num}")
             break
         
         all_profile_urls.extend(profile_urls)
-        print(f"Found {len(profile_urls)} profiles on page {page_num}, total: {len(all_profile_urls)}")
+        logger.info(f"Found {len(profile_urls)} profiles on page {page_num}, total: {len(all_profile_urls)}")
         
         # Check if we have enough profiles
         if len(all_profile_urls) >= max_profiles:
@@ -423,12 +429,12 @@ def scrape_with_web_unlocker(list_url: str, max_profiles: int = 10, use_google_s
                 page_num += 1
                 time.sleep(2)  # Be respectful between pages
             else:
-                print("No next page found")
+                logger.warning("No next page found")
                 break
         else:
             break
     
-    print(f"\nTotal profiles to scrape: {len(all_profile_urls)}")
+    logger.info(f"\nTotal profiles to scrape: {len(all_profile_urls)}")
     
     # Scrape individual profiles
     results = []
@@ -436,7 +442,7 @@ def scrape_with_web_unlocker(list_url: str, max_profiles: int = 10, use_google_s
     BATCH_SIZE = 50
     
     for i, url in enumerate(all_profile_urls):
-        print(f"\nScraping profile {i+1}/{len(all_profile_urls)}: {url}")
+        logger.info(f"\nScraping profile {i+1}/{len(all_profile_urls)}: {url}")
         
         profile_data = scraper.scrape_agent_profile(url)
         if profile_data and (profile_data.get('first_name') or profile_data.get('last_name')):
@@ -444,7 +450,7 @@ def scrape_with_web_unlocker(list_url: str, max_profiles: int = 10, use_google_s
             # Step 2 Option 1: Use Google Search (if enabled)
             if use_google_search:
                 try:
-                    print(f"\nStep 2: Using Google search for additional contact info...")
+                    logger.info(f"\nStep 2: Using Google search for additional contact info...")
                     google_results = google_scraper.search_agent_contact(profile_data)
                     
                     # Update with Google results if found
@@ -453,8 +459,8 @@ def scrape_with_web_unlocker(list_url: str, max_profiles: int = 10, use_google_s
                     if google_results.get('google_phone'):
                         profile_data['phone2'] = google_results['google_phone']
                 except Exception as e:
-                    print(f"  ✗ Google search failed: {str(e)}")
-                    print(f"  Continuing without Google search results...")
+                    logger.error(f"  ✗ Google search failed: {str(e)}")
+                    logger.info(f"  Continuing without Google search results...")
             
             # Step 2 Option 2: If agent website was found and Google didn't find everything
             if profile_data.get('agent_website') and (
@@ -462,13 +468,13 @@ def scrape_with_web_unlocker(list_url: str, max_profiles: int = 10, use_google_s
                 not profile_data.get('phone2') or 
                 not profile_data.get('facebook_profile')
             ):
-                print(f"\nStep 2b: Scraping agent website for additional data...")
+                logger.info(f"\nStep 2b: Scraping agent website for additional data...")
                 step2_data = agent_scraper.scrape_agent_website(profile_data['agent_website'])
                 
                 # Merge Step 2 data into profile data (only if not already found)
                 if not profile_data.get('facebook_profile') and step2_data.get('facebook_profile'):
                     profile_data['facebook_profile'] = step2_data['facebook_profile']
-                    print(f"  ✓ Found Facebook profile on agent website: {step2_data['facebook_profile']}")
+                    logger.info(f"  ✓ Found Facebook profile on agent website: {step2_data['facebook_profile']}")
                 
                 # Only update if Google didn't find these
                 if not profile_data.get('phone2') and step2_data.get('phone2'):
@@ -478,15 +484,15 @@ def scrape_with_web_unlocker(list_url: str, max_profiles: int = 10, use_google_s
             
             results.append(profile_data)
             batch_data.append(profile_data)
-            print(f"  ✓ Scraped: {profile_data.get('first_name')} {profile_data.get('last_name')}")
+            logger.info(f"  ✓ Scraped: {profile_data.get('first_name')} {profile_data.get('last_name')}")
             
             # Call batch callback when we have BATCH_SIZE profiles
             if batch_callback and len(batch_data) >= BATCH_SIZE:
                 batch_callback(batch_data)
                 batch_data = []
-                print(f"  ✓ Batch of {BATCH_SIZE} profiles saved")
+                logger.info(f"  ✓ Batch of {BATCH_SIZE} profiles saved")
         else:
-            print(f"  ✗ Failed to extract data")
+            logger.warning(f"  ✗ Failed to extract data")
         
         # Be respectful with delays
         if i < len(all_profile_urls) - 1:
@@ -495,9 +501,9 @@ def scrape_with_web_unlocker(list_url: str, max_profiles: int = 10, use_google_s
     # Don't forget remaining batch data
     if batch_callback and batch_data:
         batch_callback(batch_data)
-        print(f"  ✓ Final batch of {len(batch_data)} profiles saved")
+        logger.info(f"  ✓ Final batch of {len(batch_data)} profiles saved")
     
-    print(f"\nCompleted: Scraped {len(results)} profiles successfully")
+    logger.info(f"\nCompleted: Scraped {len(results)} profiles successfully")
     return results
 
 
@@ -506,10 +512,10 @@ if __name__ == "__main__":
     test_url = "https://www.homes.com/real-estate-agents/carlsbad-ca/"
     results = scrape_with_web_unlocker(test_url, max_profiles=5)
     
-    print("\n=== Results ===")
+    logger.info("\n=== Results ===")
     for r in results:
-        print(f"{r.get('first_name')} {r.get('last_name')} - {r.get('company')} ({r.get('city')}, {r.get('state')})")
+        logger.info(f"{r.get('first_name')} {r.get('last_name')} - {r.get('company')} ({r.get('city')}, {r.get('state')})")
         if r.get('cell_phone'):
-            print(f"  Phone: {r.get('cell_phone')}")
+            logger.info(f"  Phone: {r.get('cell_phone')}")
         if r.get('email'):
-            print(f"  Email: {r.get('email')}") 
+            logger.info(f"  Email: {r.get('email')}") 
