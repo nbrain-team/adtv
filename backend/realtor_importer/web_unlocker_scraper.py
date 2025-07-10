@@ -20,8 +20,11 @@ class WebUnlockerScraper:
     
     def __init__(self):
         # Get API token from environment or use default
-        self.api_token = os.getenv('BRIGHTDATA_API_TOKEN', 
-            '041d23cddd90190caf6a08a9d703285033917e714f29ea3d6ab8b6d03533e7d6')
+        self.api_token = os.getenv('BRIGHTDATA_API_TOKEN')
+        if not self.api_token:
+            logger.error("BRIGHTDATA_API_TOKEN environment variable not set!")
+            raise ValueError("BRIGHTDATA_API_TOKEN is required for Web Unlocker")
+        
         self.zone = os.getenv('BRIGHTDATA_ZONE', 'homes_web_unlocker')
         
         # API endpoint
