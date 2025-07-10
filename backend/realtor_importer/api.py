@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime
 import threading
+import logging
 
 from core import auth
 from core.database import get_db, User, engine, ScrapingJob, RealtorContact
@@ -11,6 +12,10 @@ from . import tasks
 
 router = APIRouter()
 
+# Set up logging
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
 # Start the background task processor in a separate thread
 task_thread = None
 
@@ -18,8 +23,12 @@ def ensure_task_processor_running():
     """Ensure the background task processor is running"""
     global task_thread
     if task_thread is None or not task_thread.is_alive():
+        logger.info("Starting background task processor thread...")
         task_thread = threading.Thread(target=tasks.run_task_processor, daemon=True)
         task_thread.start()
+        logger.info("Background task processor thread started")
+    else:
+        logger.info("Background task processor thread is already running")
 
 @router.post("/", response_model=schemas.ScrapingJobResponse, status_code=202)
 def create_scraping_job(
@@ -30,6 +39,8 @@ def create_scraping_job(
     """
     Starts a new scraping job for the given URL.
     """
+    logger.info(f"Creating scraping job for URL: {request.url}")
+    
     # Ensure task processor is running
     ensure_task_processor_running()
     
@@ -39,6 +50,7 @@ def create_scraping_job(
     ).first()
     
     if active_job:
+        logger.warning(f"Active job already exists: {active_job.id}")
         raise HTTPException(
             status_code=400, 
             detail="Another job is already in progress. Please wait for it to complete."
@@ -53,6 +65,8 @@ def create_scraping_job(
     db.add(new_job)
     db.commit()
     db.refresh(new_job)
+    
+    logger.info(f"Created scraping job with ID: {new_job.id}")
     
     return schemas.ScrapingJobResponse(
         id=new_job.id,

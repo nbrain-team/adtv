@@ -2,10 +2,22 @@
 Background task processor for handling Realtor imports
 """
 import time
+import logging
+import sys
 from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
 from . import scraper
 from core.database import engine, ScrapingJob, RealtorContact, SessionLocal, ScrapingJobStatus
+
+# Set up logging to ensure output is visible
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+logger = logging.getLogger(__name__)
 
 # Maximum profiles to scrape per job (to control costs and prevent abuse)
 MAX_PROFILES_PER_JOB = 700
@@ -21,14 +33,14 @@ def process_scrape_job(job_id: str):
     with SessionLocal() as session:
         job = session.query(ScrapingJob).filter_by(id=job_id).first()
         if not job:
-            print(f"Job {job_id} not found")
+            logger.error(f"Job {job_id} not found")
             return
         
-        print(f"\n{'='*60}")
-        print(f"Starting scrape job {job_id}")
-        print(f"URL: {job.start_url}")
-        print(f"Max profiles: {MAX_PROFILES_PER_JOB}")
-        print(f"{'='*60}\n")
+        logger.info(f"\n{'='*60}")
+        logger.info(f"Starting scrape job {job_id}")
+        logger.info(f"URL: {job.start_url}")
+        logger.info(f"Max profiles: {MAX_PROFILES_PER_JOB}")
+        logger.info(f"{'='*60}\n")
         
         job.status = ScrapingJobStatus.IN_PROGRESS
         session.commit()
@@ -42,10 +54,10 @@ def process_scrape_job(job_id: str):
                 batch_callback=lambda batch: save_batch(session, job_id, batch)
             )
             
-            print(f"\n{'='*60}")
-            print(f"Scraping completed for job {job_id}")
-            print(f"Total profiles scraped: {len(scraped_data)}")
-            print(f"{'='*60}\n")
+            logger.info(f"\n{'='*60}")
+            logger.info(f"Scraping completed for job {job_id}")
+            logger.info(f"Total profiles scraped: {len(scraped_data)}")
+            logger.info(f"{'='*60}\n")
             
             # Save any remaining data that wasn't part of a full batch
             if scraped_data:
@@ -57,12 +69,12 @@ def process_scrape_job(job_id: str):
             job.status = ScrapingJobStatus.COMPLETED
             
         except Exception as e:
-            print(f"\n{'='*60}")
-            print(f"ERROR processing job {job_id}: {str(e)}")
-            print(f"Error type: {type(e).__name__}")
+            logger.error(f"\n{'='*60}")
+            logger.error(f"ERROR processing job {job_id}: {str(e)}")
+            logger.error(f"Error type: {type(e).__name__}")
             import traceback
-            traceback.print_exc()
-            print(f"{'='*60}\n")
+            logger.error(traceback.format_exc())
+            logger.error(f"{'='*60}\n")
             job.status = ScrapingJobStatus.FAILED
             # Note: The existing model doesn't have error_message field
         
@@ -71,16 +83,16 @@ def process_scrape_job(job_id: str):
 
 def save_batch(session: Session, job_id: str, batch: List[Dict[str, Any]]):
     """Save a batch of scraped data"""
-    print(f"Saving batch of {len(batch)} profiles...")
+    logger.info(f"Saving batch of {len(batch)} profiles...")
     
     for i, data in enumerate(batch):
         try:
             # Log the data being saved for debugging
-            print(f"  Profile {i+1}: {data.get('first_name', 'Unknown')} {data.get('last_name', 'Unknown')} - {data.get('profile_url', 'No URL')}")
+            logger.info(f"  Profile {i+1}: {data.get('first_name', 'Unknown')} {data.get('last_name', 'Unknown')} - {data.get('profile_url', 'No URL')}")
             
             # Ensure profile_url exists (it's required)
             if not data.get('profile_url'):
-                print(f"  WARNING: Skipping profile without profile_url: {data}")
+                logger.warning(f"  WARNING: Skipping profile without profile_url: {data}")
                 continue
                 
             contact = RealtorContact(
@@ -89,16 +101,16 @@ def save_batch(session: Session, job_id: str, batch: List[Dict[str, Any]]):
             )
             session.add(contact)
         except Exception as e:
-            print(f"  ERROR saving profile {i+1}: {str(e)}")
-            print(f"  Data: {data}")
+            logger.error(f"  ERROR saving profile {i+1}: {str(e)}")
+            logger.error(f"  Data: {data}")
             # Continue with other profiles instead of failing the whole batch
             continue
     
     try:
         session.commit()
-        print(f"Batch saved successfully")
+        logger.info(f"Batch saved successfully")
     except Exception as e:
-        print(f"ERROR committing batch: {str(e)}")
+        logger.error(f"ERROR committing batch: {str(e)}")
         session.rollback()
         raise
 
@@ -107,7 +119,7 @@ def run_task_processor():
     """
     Main task processor loop
     """
-    print("Starting Realtor importer task processor...")
+    logger.info("Starting Realtor importer task processor...")
     
     while True:
         with SessionLocal() as session:
@@ -117,7 +129,7 @@ def run_task_processor():
             ).first()
             
             if pending_job:
-                print(f"Processing job {pending_job.id}")
+                logger.info(f"Found pending job: {pending_job.id}")
                 process_scrape_job(pending_job.id)
             else:
                 # No jobs, wait
