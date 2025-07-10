@@ -406,9 +406,9 @@ async def scrape_with_brightdata(list_url: str, max_profiles: int = 10, batch_ca
 
 
 # Synchronous wrapper
-def scrape_homes_brightdata(list_url: str, max_profiles: int = 10) -> List[Dict[str, Any]]:
+def scrape_homes_brightdata(list_url: str, max_profiles: int = 10, batch_callback=None) -> List[Dict[str, Any]]:
     """Synchronous wrapper for Bright Data scraping"""
-    return asyncio.run(scrape_with_brightdata(list_url, max_profiles))
+    return asyncio.run(scrape_with_brightdata(list_url, max_profiles, batch_callback))
 
 
 if __name__ == "__main__":

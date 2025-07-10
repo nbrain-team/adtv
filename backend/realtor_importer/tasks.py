@@ -24,6 +24,12 @@ def process_scrape_job(job_id: str):
             print(f"Job {job_id} not found")
             return
         
+        print(f"\n{'='*60}")
+        print(f"Starting scrape job {job_id}")
+        print(f"URL: {job.start_url}")
+        print(f"Max profiles: {MAX_PROFILES_PER_JOB}")
+        print(f"{'='*60}\n")
+        
         job.status = ScrapingJobStatus.IN_PROGRESS
         session.commit()
         
@@ -36,7 +42,10 @@ def process_scrape_job(job_id: str):
                 batch_callback=lambda batch: save_batch(session, job_id, batch)
             )
             
-            print(f"Scraped {len(scraped_data)} profiles (max: {MAX_PROFILES_PER_JOB})")
+            print(f"\n{'='*60}")
+            print(f"Scraping completed for job {job_id}")
+            print(f"Total profiles scraped: {len(scraped_data)}")
+            print(f"{'='*60}\n")
             
             # Save any remaining data that wasn't part of a full batch
             if scraped_data:
@@ -48,7 +57,12 @@ def process_scrape_job(job_id: str):
             job.status = ScrapingJobStatus.COMPLETED
             
         except Exception as e:
-            print(f"Error processing job {job_id}: {str(e)}")
+            print(f"\n{'='*60}")
+            print(f"ERROR processing job {job_id}: {str(e)}")
+            print(f"Error type: {type(e).__name__}")
+            import traceback
+            traceback.print_exc()
+            print(f"{'='*60}\n")
             job.status = ScrapingJobStatus.FAILED
             # Note: The existing model doesn't have error_message field
         
@@ -58,14 +72,35 @@ def process_scrape_job(job_id: str):
 def save_batch(session: Session, job_id: str, batch: List[Dict[str, Any]]):
     """Save a batch of scraped data"""
     print(f"Saving batch of {len(batch)} profiles...")
-    for data in batch:
-        contact = RealtorContact(
-            job_id=job_id,
-            **data
-        )
-        session.add(contact)
-    session.commit()
-    print(f"Batch saved successfully")
+    
+    for i, data in enumerate(batch):
+        try:
+            # Log the data being saved for debugging
+            print(f"  Profile {i+1}: {data.get('first_name', 'Unknown')} {data.get('last_name', 'Unknown')} - {data.get('profile_url', 'No URL')}")
+            
+            # Ensure profile_url exists (it's required)
+            if not data.get('profile_url'):
+                print(f"  WARNING: Skipping profile without profile_url: {data}")
+                continue
+                
+            contact = RealtorContact(
+                job_id=job_id,
+                **data
+            )
+            session.add(contact)
+        except Exception as e:
+            print(f"  ERROR saving profile {i+1}: {str(e)}")
+            print(f"  Data: {data}")
+            # Continue with other profiles instead of failing the whole batch
+            continue
+    
+    try:
+        session.commit()
+        print(f"Batch saved successfully")
+    except Exception as e:
+        print(f"ERROR committing batch: {str(e)}")
+        session.rollback()
+        raise
 
 
 def run_task_processor():
