@@ -186,8 +186,8 @@ class ProxyRealtorScraper:
         return data
 
 
-async def scrape_with_proxy(list_url: str, max_profiles: int = 10) -> List[Dict[str, Any]]:
-    """Main entry point for proxy scraping"""
+async def scrape_with_proxy(list_url: str, max_profiles: int = 10, batch_callback=None) -> List[Dict[str, Any]]:
+    """Main entry point for proxy scraping with batch callback support"""
     scraper = ProxyRealtorScraper()
     
     # Get profile URLs
@@ -199,15 +199,30 @@ async def scrape_with_proxy(list_url: str, max_profiles: int = 10) -> List[Dict[
     
     # Scrape individual profiles
     results = []
+    batch_data = []
+    BATCH_SIZE = 50
+    
     for i, url in enumerate(profile_urls[:max_profiles]):
         print(f"Scraping profile {i+1}/{min(len(profile_urls), max_profiles)}: {url}")
         profile_data = await scraper.scrape_profile_with_proxy(url)
         if profile_data:
             results.append(profile_data)
+            batch_data.append(profile_data)
+            
+            # Call batch callback when we have BATCH_SIZE profiles
+            if batch_callback and len(batch_data) >= BATCH_SIZE:
+                batch_callback(batch_data)
+                batch_data = []
+                print(f"  ✓ Batch of {BATCH_SIZE} profiles saved")
         
         # Add delay between requests
         if i < len(profile_urls) - 1:
             await asyncio.sleep(random.uniform(2, 4))
+    
+    # Don't forget remaining batch data
+    if batch_callback and batch_data:
+        batch_callback(batch_data)
+        print(f"  ✓ Final batch of {len(batch_data)} profiles saved")
     
     return results
 

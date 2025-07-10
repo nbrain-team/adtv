@@ -124,6 +124,132 @@ class BrightDataScraper:
             if browser:
                 await browser.close()
     
+    async def scrape_homes_list_with_pagination(self, list_url: str, max_profiles: int = 700) -> List[str]:
+        """Scrape homes.com list pages with pagination support"""
+        all_profile_links = []
+        current_url = list_url
+        page_num = 1
+        
+        while len(all_profile_links) < max_profiles:
+            print(f"\nScraping page {page_num}: {current_url}")
+            browser = None
+            
+            try:
+                browser, page = await self.connect_to_brightdata()
+                
+                print(f"Navigating to: {current_url}")
+                await page.goto(current_url, wait_until='domcontentloaded', timeout=30000)
+                
+                # Wait for agent cards to appear
+                print("Waiting for page to load...")
+                try:
+                    await page.wait_for_selector('.agent-card, .realtor-card, a[href*="/real-estate-agents/"]', timeout=10000)
+                except:
+                    print("Warning: Could not find expected agent selectors, continuing anyway...")
+                
+                await self.human_delay(2000, 4000)
+                
+                # Scroll to load more results
+                print("Scrolling to load more results...")
+                for i in range(3):
+                    await page.evaluate(f"window.scrollTo(0, document.body.scrollHeight * {(i+1)/4})")
+                    await self.human_delay(1000, 2000)
+                
+                # Extract agent profile links
+                profile_links = set()
+                selectors = [
+                    'a[href*="/real-estate-agents/"]',
+                    '.agent-card a[href*="/profile/"]',
+                    '.agent-list-item a[href*="/real-estate-agents/"]',
+                    'a.agent-name',
+                    '.realtor-card a',
+                    '[class*="agent"] a[href*="/"]',
+                    'div[class*="card"] a[href*="/real-estate-agents/"]'
+                ]
+                
+                for selector in selectors:
+                    try:
+                        elements = await page.locator(selector).all()
+                        for element in elements:
+                            try:
+                                href = await element.get_attribute('href')
+                                if href and ('/real-estate-agents/' in href or '/profile/' in href):
+                                    if not href.startswith('http'):
+                                        href = f"https://www.homes.com{href}"
+                                    if not any(skip in href for skip in ['/search/', '/office/', '/company/', '/listings/']):
+                                        profile_links.add(href)
+                            except:
+                                continue
+                    except Exception as e:
+                        print(f"Error with selector {selector}: {e}")
+                        continue
+                
+                page_profile_links = list(profile_links)
+                print(f"Found {len(page_profile_links)} agent profiles on page {page_num}")
+                
+                if not page_profile_links:
+                    print("No profiles found on this page, stopping pagination")
+                    break
+                
+                all_profile_links.extend(page_profile_links)
+                
+                # Check if we have enough profiles
+                if len(all_profile_links) >= max_profiles:
+                    all_profile_links = all_profile_links[:max_profiles]
+                    break
+                
+                # Look for next page link
+                next_page_url = None
+                pagination_selectors = [
+                    'a[aria-label="Next page"]',
+                    'a.next-page',
+                    'a[rel="next"]',
+                    '.pagination a:has-text("Next")',
+                    '.pagination a:has-text(">")',
+                    'a[title="Next"]',
+                    'nav[aria-label="pagination"] a[aria-label*="next"]',
+                    '.page-numbers a.next',
+                    'a:has-text("Next")',
+                    '[class*="pagination"] a[href*="page="]'
+                ]
+                
+                for selector in pagination_selectors:
+                    try:
+                        next_elem = await page.locator(selector).first
+                        if await next_elem.count() > 0:
+                            href = await next_elem.get_attribute('href')
+                            if href:
+                                if not href.startswith('http'):
+                                    # Make absolute URL
+                                    base_url = page.url.split('?')[0].rsplit('/', 1)[0]
+                                    next_page_url = f"{base_url}/{href}" if not href.startswith('/') else f"https://www.homes.com{href}"
+                                else:
+                                    next_page_url = href
+                                break
+                    except:
+                        continue
+                
+                if next_page_url and next_page_url != current_url:
+                    current_url = next_page_url
+                    page_num += 1
+                else:
+                    print("No next page found or same URL, stopping pagination")
+                    break
+                    
+            except Exception as e:
+                print(f"Error during list scraping: {e}")
+                break
+            finally:
+                if browser:
+                    await browser.close()
+            
+            # Small delay between pages
+            if len(all_profile_links) < max_profiles:
+                await asyncio.sleep(2)
+        
+        print(f"\nTotal profiles found across all pages: {len(all_profile_links)}")
+        return all_profile_links
+    
     async def scrape_agent_profile(self, profile_url: str) -> Optional[Dict[str, Any]]:
         """Scrape individual agent profile"""
         browser = None
@@ -238,12 +364,12 @@ class BrightDataScraper:
                 await browser.close()
 
 
-async def scrape_with_brightdata(list_url: str, max_profiles: int = 10) -> List[Dict[str, Any]]:
-    """Main entry point for Bright Data scraping"""
+async def scrape_with_brightdata(list_url: str, max_profiles: int = 10, batch_callback=None) -> List[Dict[str, Any]]:
+    """Main entry point for Bright Data scraping with pagination and batch support"""
     scraper = BrightDataScraper()
     
-    # Get profile URLs from list page
-    profile_urls = await scraper.scrape_homes_list(list_url)
+    # Get profile URLs from all pages
+    profile_urls = await scraper.scrape_homes_list_with_pagination(list_url, max_profiles)
     
     if not profile_urls:
         print("No profiles found on list page")
@@ -251,15 +377,30 @@ async def scrape_with_brightdata(list_url: str, max_profiles: int = 10) -> List[
     
     # Scrape individual profiles
     results = []
-    for i, url in enumerate(profile_urls[:max_profiles]):
-        print(f"\nScraping profile {i+1}/{min(len(profile_urls), max_profiles)}")
+    batch_data = []
+    BATCH_SIZE = 50
+    
+    for i, url in enumerate(profile_urls):
+        print(f"\nScraping profile {i+1}/{len(profile_urls)}")
         profile_data = await scraper.scrape_agent_profile(url)
         if profile_data:
             results.append(profile_data)
+            batch_data.append(profile_data)
+            
+            # Call batch callback when we have BATCH_SIZE profiles
+            if batch_callback and len(batch_data) >= BATCH_SIZE:
+                batch_callback(batch_data)
+                batch_data = []
+                print(f"  ✓ Batch of {BATCH_SIZE} profiles saved")
         
         # Add delay between profiles
         if i < len(profile_urls) - 1:
             await asyncio.sleep(random.uniform(2, 4))
+    
+    # Don't forget remaining batch data
+    if batch_callback and batch_data:
+        batch_callback(batch_data)
+        print(f"  ✓ Final batch of {len(batch_data)} profiles saved")
     
     return results
 

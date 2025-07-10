@@ -332,8 +332,8 @@ class WebUnlockerScraper:
         return data
 
 
-def scrape_with_web_unlocker(list_url: str, max_profiles: int = 10, use_google_search: bool = None) -> List[Dict[str, Any]]:
-    """Main entry point for Web Unlocker scraping"""
+def scrape_with_web_unlocker(list_url: str, max_profiles: int = 10, use_google_search: bool = None, batch_callback=None) -> List[Dict[str, Any]]:
+    """Main entry point for Web Unlocker scraping with pagination support"""
     print("Using Bright Data Web Unlocker API...")
     scraper = WebUnlockerScraper()
     agent_scraper = AgentWebsiteScraper()  # Initialize Step 2 scraper
@@ -346,17 +346,97 @@ def scrape_with_web_unlocker(list_url: str, max_profiles: int = 10, use_google_s
     if use_google_search:
         google_scraper = GoogleSearchScraper()  # Initialize Google search scraper
     
-    # Get agent profile URLs
-    profile_urls = scraper.scrape_agent_list(list_url)
+    all_profile_urls = []
+    current_url = list_url
+    page_num = 1
     
-    if not profile_urls:
-        print("No profiles found on list page")
-        return []
+    # Scrape multiple pages until we have enough profiles or no more pages
+    while len(all_profile_urls) < max_profiles:
+        print(f"\nScraping page {page_num}: {current_url}")
+        
+        # Get agent profile URLs from current page
+        profile_urls = scraper.scrape_agent_list(current_url)
+        
+        if not profile_urls:
+            print(f"No profiles found on page {page_num}")
+            break
+        
+        all_profile_urls.extend(profile_urls)
+        print(f"Found {len(profile_urls)} profiles on page {page_num}, total: {len(all_profile_urls)}")
+        
+        # Check if we have enough profiles
+        if len(all_profile_urls) >= max_profiles:
+            all_profile_urls = all_profile_urls[:max_profiles]
+            break
+        
+        # Look for next page link
+        soup = scraper.get_page(current_url)
+        if soup:
+            next_page_url = None
+            
+            # Try different pagination selectors
+            pagination_selectors = [
+                'a[aria-label="Next page"]',
+                'a.next-page',
+                'a[rel="next"]',
+                '.pagination a:contains("Next")',
+                '.pagination a:contains(">")',
+                'a[title="Next"]',
+                'nav[aria-label="pagination"] a[aria-label*="next"]',
+                '.page-numbers a.next'
+            ]
+            
+            for selector in pagination_selectors:
+                next_elem = soup.select_one(selector)
+                if next_elem and next_elem.get('href'):
+                    href = next_elem['href']
+                    if not href.startswith('http'):
+                        # Make absolute URL
+                        from urllib.parse import urljoin
+                        next_page_url = urljoin(current_url, href)
+                    else:
+                        next_page_url = href
+                    break
+            
+            # Alternative: Look for numbered pagination
+            if not next_page_url:
+                # Try to find current page number and increment
+                current_page_elem = soup.select_one('.pagination .active, .page-numbers .current')
+                if current_page_elem:
+                    try:
+                        current_page_num = int(current_page_elem.get_text().strip())
+                        next_page_num = current_page_num + 1
+                        # Look for link with next page number
+                        next_link = soup.select_one(f'.pagination a:contains("{next_page_num}"), .page-numbers a:contains("{next_page_num}")')
+                        if next_link and next_link.get('href'):
+                            href = next_link['href']
+                            if not href.startswith('http'):
+                                from urllib.parse import urljoin
+                                next_page_url = urljoin(current_url, href)
+                            else:
+                                next_page_url = href
+                    except:
+                        pass
+            
+            if next_page_url:
+                current_url = next_page_url
+                page_num += 1
+                time.sleep(2)  # Be respectful between pages
+            else:
+                print("No next page found")
+                break
+        else:
+            break
+    
+    print(f"\nTotal profiles to scrape: {len(all_profile_urls)}")
     
     # Scrape individual profiles
     results = []
-    for i, url in enumerate(profile_urls[:max_profiles]):
-        print(f"\nScraping profile {i+1}/{min(len(profile_urls), max_profiles)}: {url}")
+    batch_data = []
+    BATCH_SIZE = 50
+    
+    for i, url in enumerate(all_profile_urls):
+        print(f"\nScraping profile {i+1}/{len(all_profile_urls)}: {url}")
         
         profile_data = scraper.scrape_agent_profile(url)
         if profile_data and (profile_data.get('first_name') or profile_data.get('last_name')):
@@ -397,13 +477,25 @@ def scrape_with_web_unlocker(list_url: str, max_profiles: int = 10, use_google_s
                     profile_data['personal_email'] = step2_data.get('personal_email')
             
             results.append(profile_data)
+            batch_data.append(profile_data)
             print(f"  ✓ Scraped: {profile_data.get('first_name')} {profile_data.get('last_name')}")
+            
+            # Call batch callback when we have BATCH_SIZE profiles
+            if batch_callback and len(batch_data) >= BATCH_SIZE:
+                batch_callback(batch_data)
+                batch_data = []
+                print(f"  ✓ Batch of {BATCH_SIZE} profiles saved")
         else:
             print(f"  ✗ Failed to extract data")
         
         # Be respectful with delays
-        if i < len(profile_urls) - 1:
+        if i < len(all_profile_urls) - 1:
             time.sleep(2)
+    
+    # Don't forget remaining batch data
+    if batch_callback and batch_data:
+        batch_callback(batch_data)
+        print(f"  ✓ Final batch of {len(batch_data)} profiles saved")
     
     print(f"\nCompleted: Scraped {len(results)} profiles successfully")
     return results

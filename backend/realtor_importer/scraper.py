@@ -248,16 +248,22 @@ def scrape_realtor_profile_page(profile_url: str) -> Optional[Dict[str, Any]]:
     return data
 
 
-def scrape_realtor_list_with_playwright(list_url: str, max_profiles: int = 10, use_google_search: bool = True) -> List[Dict[str, Any]]:
+def scrape_realtor_list_with_playwright(list_url: str, max_profiles: int = 10, use_google_search: bool = True, batch_callback=None) -> List[Dict[str, Any]]:
     """
     Alternative scraping method using Playwright for better bot detection evasion.
     Tries Web Unlocker first, then Bright Data, then proxy, then other methods.
+    
+    Args:
+        list_url: The URL to scrape
+        max_profiles: Maximum number of profiles to scrape
+        use_google_search: Whether to use Google search for additional info
+        batch_callback: Optional callback function to call with batches of results
     """
     # Try Web Unlocker first (most reliable for anti-bot bypassing)
     if WEB_UNLOCKER_AVAILABLE and os.getenv('BRIGHTDATA_API_TOKEN'):
         print("Using Bright Data Web Unlocker API...")
         try:
-            return scrape_with_web_unlocker(list_url, max_profiles, use_google_search=use_google_search)
+            return scrape_with_web_unlocker(list_url, max_profiles, use_google_search=use_google_search, batch_callback=batch_callback)
         except Exception as e:
             print(f"Web Unlocker failed: {e}")
             print("Falling back to Browser API...")
@@ -266,7 +272,7 @@ def scrape_realtor_list_with_playwright(list_url: str, max_profiles: int = 10, u
     if BRIGHTDATA_AVAILABLE and os.getenv('BRIGHTDATA_BROWSER_URL'):
         print("Using Bright Data Browser API...")
         try:
-            return scrape_homes_brightdata(list_url, max_profiles)
+            return scrape_homes_brightdata(list_url, max_profiles, batch_callback=batch_callback)
         except Exception as e:
             print(f"Bright Data scraper failed: {e}")
             print("Falling back to proxy scraper...")
@@ -275,7 +281,7 @@ def scrape_realtor_list_with_playwright(list_url: str, max_profiles: int = 10, u
     if PROXY_SCRAPER_AVAILABLE and os.getenv('RESIDENTIAL_PROXY_URL'):
         print("Using proxy scraper (residential proxy configured)...")
         try:
-            return scrape_with_proxy(list_url, max_profiles)
+            return scrape_with_proxy(list_url, max_profiles, batch_callback=batch_callback)
         except Exception as e:
             print(f"Proxy scraper failed: {e}")
             print("Falling back to indirect navigation...")
@@ -284,7 +290,7 @@ def scrape_realtor_list_with_playwright(list_url: str, max_profiles: int = 10, u
     if INDIRECT_SCRAPER_AVAILABLE:
         print("Using indirect navigation scraper (navigating from homepage)...")
         try:
-            return scrape_indirect(list_url, max_profiles)
+            return scrape_indirect(list_url, max_profiles, batch_callback=batch_callback)
         except Exception as e:
             print(f"Indirect navigation scraper failed: {e}")
             print("Falling back to direct Playwright scraper...")
@@ -293,7 +299,7 @@ def scrape_realtor_list_with_playwright(list_url: str, max_profiles: int = 10, u
     if PLAYWRIGHT_AVAILABLE:
         print("Using Playwright scraper for better bot detection evasion...")
         try:
-            return scrape_with_playwright(list_url, max_profiles)
+            return scrape_with_playwright(list_url, max_profiles, batch_callback=batch_callback)
         except Exception as e:
             print(f"Playwright scraper failed: {e}")
             print("Falling back to Selenium...")
@@ -303,15 +309,28 @@ def scrape_realtor_list_with_playwright(list_url: str, max_profiles: int = 10, u
         print("Using Selenium scraper...")
         profile_links = scrape_realtor_list_page(list_url)
         scraped_data = []
+        batch_data = []
+        BATCH_SIZE = 50
         
         for i, profile_url in enumerate(profile_links[:max_profiles]):
             print(f"Scraping profile {i+1}/{min(len(profile_links), max_profiles)}: {profile_url}")
             profile_data = scrape_realtor_profile_page(profile_url)
             if profile_data:
                 scraped_data.append(profile_data)
+                batch_data.append(profile_data)
+                
+                # Call batch callback every BATCH_SIZE profiles
+                if batch_callback and len(batch_data) >= BATCH_SIZE:
+                    batch_callback(batch_data)
+                    batch_data = []
+            
             # Add delay between requests to avoid rate limiting
             if i < len(profile_links) - 1:
                 time.sleep(2)
+        
+        # Don't forget remaining batch data
+        if batch_callback and batch_data:
+            batch_callback(batch_data)
         
         return scraped_data
     except Exception as e:
@@ -320,7 +339,7 @@ def scrape_realtor_list_with_playwright(list_url: str, max_profiles: int = 10, u
         # Final fallback to simple scraper
         if SIMPLE_SCRAPER_AVAILABLE:
             print("Falling back to simple requests-based scraper...")
-            return scrape_with_simple(list_url, max_profiles)
+            return scrape_with_simple(list_url, max_profiles, batch_callback=batch_callback)
         else:
             print("All scraping methods failed. Please ensure Chrome/ChromeDriver or requests/beautifulsoup4 are installed.")
             return [] 

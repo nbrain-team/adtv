@@ -8,7 +8,10 @@ from . import scraper
 from core.database import engine, ScrapingJob, RealtorContact, SessionLocal, ScrapingJobStatus
 
 # Maximum profiles to scrape per job (to control costs and prevent abuse)
-MAX_PROFILES_PER_JOB = 25
+MAX_PROFILES_PER_JOB = 700
+
+# Batch size for saving results
+BATCH_SIZE = 50
 
 
 def process_scrape_job(job_id: str):
@@ -29,18 +32,18 @@ def process_scrape_job(job_id: str):
             # This will automatically fall back to Selenium if Playwright is not available
             scraped_data = scraper.scrape_realtor_list_with_playwright(
                 job.start_url, 
-                max_profiles=MAX_PROFILES_PER_JOB
+                max_profiles=MAX_PROFILES_PER_JOB,
+                batch_callback=lambda batch: save_batch(session, job_id, batch)
             )
             
             print(f"Scraped {len(scraped_data)} profiles (max: {MAX_PROFILES_PER_JOB})")
             
-            # Save scraped data
-            for data in scraped_data:
-                contact = RealtorContact(
-                    job_id=job_id,
-                    **data
-                )
-                session.add(contact)
+            # Save any remaining data that wasn't part of a full batch
+            if scraped_data:
+                remaining_count = len(scraped_data) % BATCH_SIZE
+                if remaining_count > 0:
+                    remaining_batch = scraped_data[-remaining_count:]
+                    save_batch(session, job_id, remaining_batch)
             
             job.status = ScrapingJobStatus.COMPLETED
             
@@ -50,6 +53,19 @@ def process_scrape_job(job_id: str):
             # Note: The existing model doesn't have error_message field
         
         session.commit()
+
+
+def save_batch(session: Session, job_id: str, batch: List[Dict[str, Any]]):
+    """Save a batch of scraped data"""
+    print(f"Saving batch of {len(batch)} profiles...")
+    for data in batch:
+        contact = RealtorContact(
+            job_id=job_id,
+            **data
+        )
+        session.add(contact)
+    session.commit()
+    print(f"Batch saved successfully")
 
 
 def run_task_processor():

@@ -212,8 +212,8 @@ class IndirectNavigationScraper:
         print(f"Found {len(profile_links)} agent profiles")
         return list(profile_links)
     
-    async def scrape_with_indirect_navigation(self, location: str, max_profiles: int = 10):
-        """Main scraping method using indirect navigation"""
+    async def scrape_with_indirect_navigation(self, location: str, max_profiles: int = 10, batch_callback=None):
+        """Main scraping method using indirect navigation with batch callback support"""
         page = await self.setup_browser(headless=True)
         
         try:
@@ -229,9 +229,29 @@ class IndirectNavigationScraper:
                 print("No profile links found")
                 return []
             
-            # For now, just return the profile links
+            # For now, just return the profile links with batch support
             # Profile scraping would be implemented similarly
-            return [{"profile_url": url, "source": "homes.com"} for url in profile_links[:max_profiles]]
+            results = []
+            batch_data = []
+            BATCH_SIZE = 50
+            
+            for i, url in enumerate(profile_links[:max_profiles]):
+                profile_data = {"profile_url": url, "source": "homes.com"}
+                results.append(profile_data)
+                batch_data.append(profile_data)
+                
+                # Call batch callback when we have BATCH_SIZE profiles
+                if batch_callback and len(batch_data) >= BATCH_SIZE:
+                    batch_callback(batch_data)
+                    batch_data = []
+                    print(f"  ✓ Batch of {BATCH_SIZE} profiles saved")
+            
+            # Don't forget remaining batch data
+            if batch_callback and batch_data:
+                batch_callback(batch_data)
+                print(f"  ✓ Final batch of {len(batch_data)} profiles saved")
+            
+            return results
             
         except Exception as e:
             print(f"Error during scraping: {str(e)}")
@@ -241,17 +261,15 @@ class IndirectNavigationScraper:
                 await self.browser.close()
 
 
-def scrape_indirect(location: str, max_profiles: int = 10) -> List[Dict[str, Any]]:
-    """Synchronous wrapper for indirect navigation scraper"""
+def scrape_indirect(list_url: str, max_profiles: int = 10, batch_callback=None):
+    """Wrapper function for indirect navigation scraper with batch callback support"""
+    # Extract location from URL (e.g., "pittsburgh-pa" from the URL)
+    import re
+    match = re.search(r'/real-estate-agents/([^/]+)', list_url)
+    if match:
+        location = match.group(1).replace('-', ' ')
+    else:
+        location = "Pittsburgh PA"  # Default fallback
+    
     scraper = IndirectNavigationScraper()
-    
-    # Extract city from the URL if a full URL is provided
-    if location.startswith('http'):
-        # Extract city from URL like /real-estate-agents/pittsburgh-pa/
-        match = re.search(r'/real-estate-agents/([^/]+)', location)
-        if match:
-            location = match.group(1).replace('-', ' ')
-        else:
-            location = "Pittsburgh PA"  # Default
-    
-    return asyncio.run(scraper.scrape_with_indirect_navigation(location, max_profiles)) 
+    return asyncio.run(scraper.scrape_with_indirect_navigation(location, max_profiles, batch_callback)) 

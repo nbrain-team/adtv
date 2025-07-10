@@ -166,14 +166,18 @@ export const RealtorImporterWorkflow = () => {
                 </Button>
                 <Callout.Root color="blue">
                     <Callout.Icon><InfoCircledIcon /></Callout.Icon>
-                    <Callout.Text size="1">Each scraping job is limited to 25 profiles maximum to ensure reliable performance.</Callout.Text>
+                    <Callout.Text size="1">Each scraping job can process up to 700 profiles. Results are displayed in batches of 50 as they're scraped.</Callout.Text>
                 </Callout.Root>
             </Flex>
             </form>
             {activeJob && (
                 <Callout.Root color="blue" mt="3">
                     <Callout.Icon><InfoCircledIcon /></Callout.Icon>
-                    <Callout.Text>A job is currently in progress. Please wait for it to complete before starting a new one.</Callout.Text>
+                    <Callout.Text>
+                        A job is currently in progress. 
+                        {activeJob.contact_count > 0 && ` ${activeJob.contact_count} profiles scraped so far...`}
+                        Please wait for it to complete before starting a new one.
+                    </Callout.Text>
                 </Callout.Root>
             )}
             {error && (
@@ -210,7 +214,7 @@ export const RealtorImporterWorkflow = () => {
                       </Flex>
                       {job.status === 'processing' && (
                           <Text size="1" color="blue" mt="1">
-                              Scraping up to 25 profiles...
+                              Scraping profiles... {job.contact_count > 0 && `(${job.contact_count} so far)`}
                           </Text>
                       )}
                       <Button 
@@ -239,12 +243,18 @@ export const RealtorImporterWorkflow = () => {
                         <Callout.Text>Error: {selectedJob.error_message}</Callout.Text>
                     </Callout.Root>
                 )}
-                {selectedJob.status === 'completed' && selectedJob.realtor_contacts && selectedJob.realtor_contacts.length > 0 && (
+                {selectedJob.realtor_contacts && selectedJob.realtor_contacts.length > 0 && (
                     <Flex justify="between" align="center" mb="3">
                         <Text size="2" weight="bold">
-                            Found {selectedJob.realtor_contacts.length} contacts
-                            {selectedJob.realtor_contacts.length === 25 && ' (limit reached)'}
+                            {selectedJob.status === 'processing' ? 'Scraping in progress: ' : 'Found '}
+                            {selectedJob.realtor_contacts.length} contacts
+                            {selectedJob.realtor_contacts.length === 700 && ' (limit reached)'}
                         </Text>
+                        {selectedJob.status === 'processing' && (
+                            <Text size="1" color="blue">
+                                Results are displayed as they're scraped...
+                            </Text>
+                        )}
                     </Flex>
                 )}
                 <Box style={{ overflowX: 'auto' }}>

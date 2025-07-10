@@ -297,8 +297,8 @@ class RealtorPlaywrightScraper:
         
         return scraped_data
     
-    async def scrape_from_list_url(self, list_url: str, max_profiles: int = 10):
-        """Complete scraping flow from list URL"""
+    async def scrape_from_list_url(self, list_url: str, max_profiles: int = 10, batch_callback=None):
+        """Complete scraping flow from list URL with batch callback support"""
         page = await self.setup_browser(headless=True)
         
         try:
@@ -311,6 +311,9 @@ class RealtorPlaywrightScraper:
             
             # Scrape individual profiles
             scraped_data = []
+            batch_data = []
+            BATCH_SIZE = 50
+            
             for i, profile_url in enumerate(profile_links[:max_profiles]):
                 print(f"\nScraping profile {i+1}/{min(len(profile_links), max_profiles)}")
                 
@@ -318,10 +321,22 @@ class RealtorPlaywrightScraper:
                 profile_data = await self.scrape_realtor_profile_page(page, profile_url)
                 if profile_data:
                     scraped_data.append(profile_data)
+                    batch_data.append(profile_data)
+                    
+                    # Call batch callback when we have BATCH_SIZE profiles
+                    if batch_callback and len(batch_data) >= BATCH_SIZE:
+                        batch_callback(batch_data)
+                        batch_data = []
+                        print(f"  ✓ Batch of {BATCH_SIZE} profiles saved")
                 
                 # Random delay between profiles
                 if i < len(profile_links) - 1:
                     await self.human_like_delay(2000, 5000)
+            
+            # Don't forget remaining batch data
+            if batch_callback and batch_data:
+                batch_callback(batch_data)
+                print(f"  ✓ Final batch of {len(batch_data)} profiles saved")
             
             return scraped_data
             
@@ -330,8 +345,7 @@ class RealtorPlaywrightScraper:
                 await self.browser.close()
 
 
-# Synchronous wrapper for use with existing code
-def scrape_with_playwright(list_url: str, max_profiles: int = 10) -> List[Dict[str, Any]]:
-    """Synchronous wrapper for the async scraper"""
+def scrape_with_playwright(list_url: str, max_profiles: int = 10, batch_callback=None):
+    """Wrapper function to run async scraper with batch callback support"""
     scraper = RealtorPlaywrightScraper()
-    return asyncio.run(scraper.scrape_from_list_url(list_url, max_profiles)) 
+    return asyncio.run(scraper.scrape_from_list_url(list_url, max_profiles, batch_callback)) 
