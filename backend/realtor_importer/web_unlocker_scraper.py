@@ -358,9 +358,10 @@ def scrape_with_web_unlocker(list_url: str, max_profiles: int = 10, use_google_s
     all_profile_urls = []
     current_url = list_url
     page_num = 1
+    max_pages = 20  # Safety limit to prevent infinite loops
     
     # Scrape multiple pages until we have enough profiles or no more pages
-    while len(all_profile_urls) < max_profiles:
+    while len(all_profile_urls) < max_profiles and page_num <= max_pages:
         logger.info(f"\nScraping page {page_num}: {current_url}")
         
         # Get agent profile URLs from current page
@@ -370,12 +371,19 @@ def scrape_with_web_unlocker(list_url: str, max_profiles: int = 10, use_google_s
             logger.warning(f"No profiles found on page {page_num}")
             break
         
-        all_profile_urls.extend(profile_urls)
-        logger.info(f"Found {len(profile_urls)} profiles on page {page_num}, total: {len(all_profile_urls)}")
+        # Check for duplicates before adding
+        new_profiles = [url for url in profile_urls if url not in all_profile_urls]
+        if not new_profiles:
+            logger.warning(f"All profiles on page {page_num} are duplicates, stopping pagination")
+            break
+            
+        all_profile_urls.extend(new_profiles)
+        logger.info(f"Found {len(profile_urls)} profiles on page {page_num} ({len(new_profiles)} new), total: {len(all_profile_urls)}")
         
         # Check if we have enough profiles
         if len(all_profile_urls) >= max_profiles:
             all_profile_urls = all_profile_urls[:max_profiles]
+            logger.info(f"Reached max_profiles limit of {max_profiles}")
             break
         
         # Look for next page link
@@ -392,42 +400,78 @@ def scrape_with_web_unlocker(list_url: str, max_profiles: int = 10, use_google_s
                 '.pagination a:contains(">")',
                 'a[title="Next"]',
                 'nav[aria-label="pagination"] a[aria-label*="next"]',
-                '.page-numbers a.next'
+                '.page-numbers a.next',
+                # Add more homes.com specific selectors
+                'a[href*="?page="]',
+                'a.pagination-next',
+                '.pagination-list a[aria-label*="next"]',
+                'ul.pagination a[rel="next"]'
             ]
             
+            logger.info("Looking for pagination links...")
             for selector in pagination_selectors:
                 next_elem = soup.select_one(selector)
                 if next_elem and next_elem.get('href'):
                     href = next_elem['href']
+                    logger.info(f"Found next page link with selector '{selector}': {href}")
                     if not href.startswith('http'):
                         # Make absolute URL
                         from urllib.parse import urljoin
                         next_page_url = urljoin(current_url, href)
                     else:
                         next_page_url = href
+                    logger.info(f"Next page URL: {next_page_url}")
                     break
             
             # Alternative: Look for numbered pagination
             if not next_page_url:
+                logger.info("No 'Next' link found, trying numbered pagination...")
                 # Try to find current page number and increment
-                current_page_elem = soup.select_one('.pagination .active, .page-numbers .current')
+                current_page_elem = soup.select_one('.pagination .active, .page-numbers .current, .pagination-list .is-current')
                 if current_page_elem:
                     try:
                         current_page_num = int(current_page_elem.get_text().strip())
                         next_page_num = current_page_num + 1
+                        logger.info(f"Current page: {current_page_num}, looking for page {next_page_num}")
+                        
                         # Look for link with next page number
                         next_link = soup.select_one(f'.pagination a:contains("{next_page_num}"), .page-numbers a:contains("{next_page_num}")')
                         if next_link and next_link.get('href'):
                             href = next_link['href']
+                            logger.info(f"Found page {next_page_num} link: {href}")
                             if not href.startswith('http'):
                                 from urllib.parse import urljoin
                                 next_page_url = urljoin(current_url, href)
                             else:
                                 next_page_url = href
-                    except:
-                        pass
+                        else:
+                            logger.warning(f"Could not find link for page {next_page_num}")
+                    except Exception as e:
+                        logger.error(f"Error parsing page numbers: {e}")
+                else:
+                    logger.warning("Could not find current page number element")
+                    
+                # Last resort: check for page parameter in URL
+                if not next_page_url:
+                    logger.info("Trying URL parameter pagination...")
+                    from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+                    parsed = urlparse(current_url)
+                    query_params = parse_qs(parsed.query)
+                    
+                    # Check if there's a page parameter
+                    current_page = int(query_params.get('page', ['1'])[0])
+                    logger.info(f"Current page from URL: {current_page}")
+                    
+                    # Increment page
+                    query_params['page'] = [str(current_page + 1)]
+                    new_query = urlencode(query_params, doseq=True)
+                    next_page_url = urlunparse(parsed._replace(query=new_query))
+                    logger.info(f"Generated next page URL: {next_page_url}")
             
             if next_page_url:
+                if next_page_url == current_url:
+                    logger.warning("Next page URL is same as current URL, stopping pagination")
+                    break
                 current_url = next_page_url
                 page_num += 1
                 time.sleep(2)  # Be respectful between pages
@@ -436,6 +480,14 @@ def scrape_with_web_unlocker(list_url: str, max_profiles: int = 10, use_google_s
                 break
         else:
             break
+    
+    # Log pagination summary
+    if page_num > max_pages:
+        logger.warning(f"Stopped pagination at max_pages limit ({max_pages})")
+    elif len(all_profile_urls) >= max_profiles:
+        logger.info(f"Stopped pagination after reaching {max_profiles} profiles")
+    else:
+        logger.info(f"Pagination ended naturally after {page_num} pages")
     
     logger.info(f"\nTotal profiles to scrape: {len(all_profile_urls)}")
     
