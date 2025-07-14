@@ -8,7 +8,7 @@ from datetime import datetime
 import json
 
 from core.database import get_db
-from core.auth import get_current_user
+from core.auth import get_current_active_user
 from core.campaign_models import Campaign, CampaignStatus, Client, ContentItem, Platform, ContentStatus
 from campaign_services.content_generator import ContentGeneratorService
 from . import schemas
@@ -23,7 +23,7 @@ async def create_campaign(
     campaign_data: schemas.CampaignCreate,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_active_user)
 ):
     """Create a new campaign and generate content"""
     
@@ -67,7 +67,7 @@ async def list_campaigns(
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_active_user)
 ):
     """List campaigns with optional filters"""
     
@@ -86,7 +86,7 @@ async def list_campaigns(
 async def get_campaign(
     campaign_id: str,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_active_user)
 ):
     """Get campaign details including content items"""
     
@@ -104,7 +104,7 @@ async def update_campaign_status(
     campaign_id: str,
     status_update: schemas.CampaignStatusUpdate,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_active_user)
 ):
     """Update campaign status (approve, pause, etc.)"""
     
@@ -132,7 +132,7 @@ async def regenerate_content(
     content_id: str,
     feedback: schemas.ContentFeedback,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_active_user)
 ):
     """Regenerate specific content with feedback"""
     
@@ -161,7 +161,7 @@ async def regenerate_content(
 async def preview_campaign(
     campaign_id: str,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_active_user)
 ):
     """Get campaign preview for approval"""
     
