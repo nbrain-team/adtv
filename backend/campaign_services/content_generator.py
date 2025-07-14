@@ -8,13 +8,13 @@ from datetime import datetime, timedelta
 import json
 
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain.embeddings import HuggingFaceEmbeddings
-from langchain.vectorstores import Pinecone
-from langchain.chains import RetrievalQA
-from langchain.prompts import PromptTemplate
-from langchain.schema import Document
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from sentence_transformers import SentenceTransformer
+from langchain_pinecone import Pinecone
+from langchain_core.prompts import PromptTemplate
+from langchain_core.documents import Document
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 import pinecone
+import numpy as np
 
 from core.campaign_models import Client, Campaign, ContentItem, Platform
 
@@ -27,10 +27,21 @@ class ContentGeneratorService:
             environment=os.getenv("PINECONE_ENV", "us-east-1")
         )
         
-        # Initialize embeddings - using HuggingFace instead of OpenAI
-        self.embeddings = HuggingFaceEmbeddings(
-            model_name="sentence-transformers/all-MiniLM-L6-v2"
-        )
+        # Initialize embeddings - using SentenceTransformer directly
+        self.embeddings_model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')
+        
+        # Create a wrapper for langchain compatibility
+        class EmbeddingsWrapper:
+            def __init__(self, model):
+                self.model = model
+            
+            def embed_documents(self, texts):
+                return self.model.encode(texts).tolist()
+            
+            def embed_query(self, text):
+                return self.model.encode([text])[0].tolist()
+        
+        self.embeddings = EmbeddingsWrapper(self.embeddings_model)
         
         # Initialize vector store
         self.index_name = os.getenv("PINECONE_INDEX", "marketing-content")
