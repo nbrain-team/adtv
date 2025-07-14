@@ -37,6 +37,7 @@ const MODULES = [
     { key: 'knowledge', name: 'Knowledge Base' },
     { key: 'agents', name: 'Agents' },
     { key: 'data-lake', name: 'Data Lake' },
+    { key: 'campaigns', name: 'Marketing Campaigns' },
 ];
 
 const ProfilePage = () => {
