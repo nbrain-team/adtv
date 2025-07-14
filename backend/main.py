@@ -23,6 +23,7 @@ from realtor_importer.api import router as realtor_importer_router
 from core.data_lake_routes import router as data_lake_router
 from core.data_lake_models import DataLakeRecord
 from core.user_routes import router as user_router
+from campaign_api.campaign_routes import router as campaign_router
 from db_setup import update_db_schema, migrate_data
 
 
@@ -144,6 +145,13 @@ app.include_router(
     user_router,
     prefix="/user",
     tags=["User Management"],
+    dependencies=[Depends(auth.get_current_active_user)]
+)
+
+app.include_router(
+    campaign_router,
+    prefix="/campaign",
+    tags=["Campaign Management"],
     dependencies=[Depends(auth.get_current_active_user)]
 )
 

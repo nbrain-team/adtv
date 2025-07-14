@@ -1,6 +1,8 @@
 import logging
 from sqlalchemy import inspect, text
-from core.database import Base, engine, SessionLocal
+from core.database import Base, engine, SessionLocal, User, ChatSession, TemplateAgent
+from core.data_lake_models import DataLakeRecord
+from core.campaign_models import Client, Campaign, ContentItem  # Import campaign models
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
