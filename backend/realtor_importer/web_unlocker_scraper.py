@@ -59,7 +59,16 @@ class WebUnlockerScraper:
             # Check response status
             if response.status_code == 200:
                 logger.info(f"Successfully fetched {url}")
-                return BeautifulSoup(response.content, 'html.parser')
+                soup = BeautifulSoup(response.content, 'html.parser')
+                
+                # Check if this is a valid agent list page
+                # If we're on a non-existent page, homes.com might redirect or show different content
+                title = soup.title.string if soup.title else ""
+                if "404" in title or "not found" in title.lower():
+                    logger.warning(f"Page appears to be 404: {title}")
+                    return None
+                    
+                return soup
             else:
                 logger.error(f"API error: {response.status_code} - {response.text}")
                 return None
@@ -359,22 +368,34 @@ def scrape_with_web_unlocker(list_url: str, max_profiles: int = 10, use_google_s
     current_url = list_url
     page_num = 1
     max_pages = 20  # Safety limit to prevent infinite loops
+    consecutive_empty_pages = 0  # Track consecutive pages with no new profiles
     
     # Scrape multiple pages until we have enough profiles or no more pages
     while len(all_profile_urls) < max_profiles and page_num <= max_pages:
         logger.info(f"\nScraping page {page_num}: {current_url}")
         
+        # Get the page first to check if it exists
+        soup = scraper.get_page(current_url)
+        if not soup:
+            logger.warning(f"Failed to fetch page {page_num}, assuming we've reached the end")
+            break
+            
         # Get agent profile URLs from current page
         profile_urls = scraper.scrape_agent_list(current_url)
         
         if not profile_urls:
             logger.warning(f"No profiles found on page {page_num}")
-            break
+            consecutive_empty_pages += 1
+            if consecutive_empty_pages >= 2:
+                logger.info("Two consecutive pages with no profiles, stopping pagination")
+                break
+        else:
+            consecutive_empty_pages = 0  # Reset counter
         
         # Check for duplicates before adding
         new_profiles = [url for url in profile_urls if url not in all_profile_urls]
-        if not new_profiles:
-            logger.warning(f"All profiles on page {page_num} are duplicates, stopping pagination")
+        if not new_profiles and profile_urls:  # Has profiles but all are duplicates
+            logger.warning(f"All profiles on page {page_num} are duplicates, likely reached the end")
             break
             
         all_profile_urls.extend(new_profiles)
@@ -386,100 +407,49 @@ def scrape_with_web_unlocker(list_url: str, max_profiles: int = 10, use_google_s
             logger.info(f"Reached max_profiles limit of {max_profiles}")
             break
         
-        # Look for next page link
-        soup = scraper.get_page(current_url)
-        if soup:
-            next_page_url = None
-            
-            # Try different pagination selectors
-            pagination_selectors = [
-                'a[aria-label="Next page"]',
-                'a.next-page',
-                'a[rel="next"]',
-                '.pagination a:contains("Next")',
-                '.pagination a:contains(">")',
-                'a[title="Next"]',
-                'nav[aria-label="pagination"] a[aria-label*="next"]',
-                '.page-numbers a.next',
-                # Add more homes.com specific selectors
-                'a[href*="?page="]',
-                'a.pagination-next',
-                '.pagination-list a[aria-label*="next"]',
-                'ul.pagination a[rel="next"]'
-            ]
-            
-            logger.info("Looking for pagination links...")
-            for selector in pagination_selectors:
-                next_elem = soup.select_one(selector)
-                if next_elem and next_elem.get('href'):
-                    href = next_elem['href']
-                    logger.info(f"Found next page link with selector '{selector}': {href}")
-                    if not href.startswith('http'):
-                        # Make absolute URL
-                        from urllib.parse import urljoin
-                        next_page_url = urljoin(current_url, href)
-                    else:
-                        next_page_url = href
-                    logger.info(f"Next page URL: {next_page_url}")
-                    break
-            
-            # Alternative: Look for numbered pagination
-            if not next_page_url:
-                logger.info("No 'Next' link found, trying numbered pagination...")
-                # Try to find current page number and increment
-                current_page_elem = soup.select_one('.pagination .active, .page-numbers .current, .pagination-list .is-current')
-                if current_page_elem:
-                    try:
-                        current_page_num = int(current_page_elem.get_text().strip())
-                        next_page_num = current_page_num + 1
-                        logger.info(f"Current page: {current_page_num}, looking for page {next_page_num}")
-                        
-                        # Look for link with next page number
-                        next_link = soup.select_one(f'.pagination a:contains("{next_page_num}"), .page-numbers a:contains("{next_page_num}")')
-                        if next_link and next_link.get('href'):
-                            href = next_link['href']
-                            logger.info(f"Found page {next_page_num} link: {href}")
-                            if not href.startswith('http'):
-                                from urllib.parse import urljoin
-                                next_page_url = urljoin(current_url, href)
-                            else:
-                                next_page_url = href
-                        else:
-                            logger.warning(f"Could not find link for page {next_page_num}")
-                    except Exception as e:
-                        logger.error(f"Error parsing page numbers: {e}")
-                else:
-                    logger.warning("Could not find current page number element")
-                    
-                # Last resort: check for page parameter in URL
-                if not next_page_url:
-                    logger.info("Trying URL parameter pagination...")
-                    from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
-                    parsed = urlparse(current_url)
-                    query_params = parse_qs(parsed.query)
-                    
-                    # Check if there's a page parameter
-                    current_page = int(query_params.get('page', ['1'])[0])
-                    logger.info(f"Current page from URL: {current_page}")
-                    
-                    # Increment page
-                    query_params['page'] = [str(current_page + 1)]
-                    new_query = urlencode(query_params, doseq=True)
-                    next_page_url = urlunparse(parsed._replace(query=new_query))
-                    logger.info(f"Generated next page URL: {next_page_url}")
-            
-            if next_page_url:
-                if next_page_url == current_url:
-                    logger.warning("Next page URL is same as current URL, stopping pagination")
-                    break
-                current_url = next_page_url
-                page_num += 1
-                time.sleep(2)  # Be respectful between pages
-            else:
-                logger.warning("No next page found")
-                break
+        # Special check for homes.com - if we're on page 13+, this might be the last page
+        import re
+        page_match = re.search(r'/p(\d+)/?', current_url)
+        if page_match and int(page_match.group(1)) >= 13:
+            logger.info(f"Reached page {page_match.group(1)} which is typically the last page on homes.com")
+            # Still try the next page but be prepared to stop
+        
+        # Generate next page URL based on homes.com pattern
+        from urllib.parse import urlparse, urlunparse
+        
+        # Parse current URL
+        parsed_url = urlparse(current_url)
+        path = parsed_url.path
+        
+        # Check for existing page pattern /p{number}/
+        page_pattern = re.search(r'/p(\d+)/?', path)
+        
+        if page_pattern:
+            # URL already has page number, increment it
+            current_page_num = int(page_pattern.group(1))
+            next_page_num = current_page_num + 1
+            # Replace the page number in the path
+            new_path = re.sub(r'/p\d+/?', f'/p{next_page_num}/', path)
+            logger.info(f"Found page pattern in URL: p{current_page_num} -> p{next_page_num}")
         else:
-            break
+            # No page number in URL, this must be page 1
+            # Add /p2/ to the path
+            if path.endswith('/'):
+                new_path = path + 'p2/'
+            else:
+                new_path = path + '/p2/'
+            logger.info(f"No page pattern found, assuming page 1 -> adding p2")
+        
+        # Construct the next page URL
+        next_page_url = urlunparse(parsed_url._replace(path=new_path))
+        logger.info(f"Next page URL: {next_page_url}")
+        
+        # Update current URL and page number
+        current_url = next_page_url
+        page_num += 1
+        
+        # Be respectful between pages
+        time.sleep(2)
     
     # Log pagination summary
     if page_num > max_pages:
@@ -487,7 +457,7 @@ def scrape_with_web_unlocker(list_url: str, max_profiles: int = 10, use_google_s
     elif len(all_profile_urls) >= max_profiles:
         logger.info(f"Stopped pagination after reaching {max_profiles} profiles")
     else:
-        logger.info(f"Pagination ended naturally after {page_num} pages")
+        logger.info(f"Pagination completed successfully after {page_num - 1} pages")
     
     logger.info(f"\nTotal profiles to scrape: {len(all_profile_urls)}")
     

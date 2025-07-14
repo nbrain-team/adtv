@@ -70,6 +70,20 @@ def update_db_schema(db):
             
     except Exception as e:
         logger.info(f"Could not add user management fields. Details: {e}")
+    
+    # Add name column to scraping_jobs table
+    try:
+        if inspector.has_table('scraping_jobs'):
+            scraping_jobs_columns = [c['name'] for c in inspector.get_columns('scraping_jobs')]
+            
+            if 'name' not in scraping_jobs_columns:
+                logger.info("Adding 'name' column to 'scraping_jobs' table.")
+                db.execute(text('ALTER TABLE scraping_jobs ADD COLUMN name VARCHAR(255)'))
+                logger.info("Successfully added 'name' column to 'scraping_jobs' table.")
+        else:
+            logger.info("'scraping_jobs' table doesn't exist yet, will be created with name column.")
+    except Exception as e:
+        logger.info(f"Error updating scraping_jobs table: {e}")
 
 def migrate_data(db):
     logger.info("Checking for legacy 'chat_conversations' table...")

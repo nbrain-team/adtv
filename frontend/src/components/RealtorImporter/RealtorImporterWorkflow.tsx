@@ -33,6 +33,7 @@ interface RealtorContact {
 
 interface ScrapingJob {
   id: string;
+  name?: string | null;
   start_url: string;
   status: 'pending' | 'processing' | 'completed' | 'failed';
   created_at: string;
@@ -57,9 +58,11 @@ const statusLabels: { [key in ScrapingJob['status']]: string } = {
 
 export const RealtorImporterWorkflow = () => {
   const [jobs, setJobs] = useState<ScrapingJob[]>([]);
-  const [selectedJob, setSelectedJob] = useState<ScrapingJob | null>(null);
-  const [newUrl, setNewUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [newUrl, setNewUrl] = useState('');
+  const [newJobName, setNewJobName] = useState('');  // Add state for job name
+  const [selectedJob, setSelectedJob] = useState<ScrapingJob | null>(null);
+  const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Helper function to format currency
@@ -112,14 +115,19 @@ export const RealtorImporterWorkflow = () => {
 
   const handleCreateJob = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!newUrl) return;
+
     setIsLoading(true);
-    setError(null);
     try {
-      await api.post('/realtor-importer/', { url: newUrl });
+      const response = await api.post('/realtor-importer/', { 
+        url: newUrl,
+        name: newJobName || null  // Include the name in the request
+      });
       setNewUrl('');
-      fetchJobs(); // Refresh list immediately
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.detail || 'Failed to start new job. Please check the URL and try again.';
+      setNewJobName('');  // Clear the name field
+      fetchJobs();
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.detail || 'Failed to start new job. Please check the URL and try again.';
       setError(errorMessage);
     } finally {
       setIsLoading(false);
@@ -161,6 +169,12 @@ export const RealtorImporterWorkflow = () => {
                     onChange={(e) => setNewUrl(e.target.value)}
                     disabled={!!activeJob}
                 />
+                <TextField.Root 
+                    placeholder="Optional: Name your job" 
+                    value={newJobName}
+                    onChange={(e) => setNewJobName(e.target.value)}
+                    disabled={!!activeJob}
+                />
                 <Button disabled={isLoading || !!activeJob}>
                     {isLoading ? 'Starting...' : 'Start New Scrape'}
                 </Button>
@@ -200,10 +214,15 @@ export const RealtorImporterWorkflow = () => {
                     onClick={() => fetchJobDetails(job.id)} 
                     style={{cursor: 'pointer', position: 'relative', minWidth: '300px', flex: '0 0 calc(33.333% - 16px)'}}
                   >
-                      <Flex justify="between">
-                          <Text size="2" weight="bold" truncate style={{maxWidth: '70%'}}>
-                            {job.start_url}
-                          </Text>
+                      <Flex justify="between" align="start">
+                          <Box style={{maxWidth: '70%'}}>
+                              <Text size="2" weight="bold" truncate>
+                                {job.name || 'Unnamed Job'}
+                              </Text>
+                              <Text size="1" color="gray" truncate>
+                                {job.start_url}
+                              </Text>
+                          </Box>
                           <Badge color={statusColors[job.status]}>
                             {statusLabels[job.status]}
                           </Badge>
@@ -237,6 +256,15 @@ export const RealtorImporterWorkflow = () => {
         <Heading size="5" mb="3">Job Details</Heading>
         {selectedJob ? (
             <Card>
+                <Box mb="3">
+                    <Text size="3" weight="bold">{selectedJob.name || 'Unnamed Job'}</Text>
+                    <Text size="2" color="gray">{selectedJob.start_url}</Text>
+                    <Text size="1" color="gray" mt="1">
+                        Created: {new Date(selectedJob.created_at).toLocaleString()} • 
+                        Status: {statusLabels[selectedJob.status]} • 
+                        Contacts: {selectedJob.contact_count}
+                    </Text>
+                </Box>
                 {selectedJob.error_message && (
                     <Callout.Root color="red" mb="3">
                         <Callout.Icon><ExclamationTriangleIcon /></Callout.Icon>

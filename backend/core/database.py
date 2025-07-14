@@ -67,6 +67,7 @@ class ScrapingJob(Base):
     __tablename__ = "scraping_jobs"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    name = Column(String, nullable=True)  # User-defined name for the job
     start_url = Column(String, nullable=False)
     status = Column(SAEnum(ScrapingJobStatus), default=ScrapingJobStatus.PENDING, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

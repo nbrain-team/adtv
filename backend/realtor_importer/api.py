@@ -58,6 +58,7 @@ def create_scraping_job(
     
     # Create the job in the database
     new_job = ScrapingJob(
+        name=request.name,  # Add the name field
         start_url=request.url,
         user_id=current_user.id,
         status="PENDING"
@@ -70,6 +71,7 @@ def create_scraping_job(
     
     return schemas.ScrapingJobResponse(
         id=new_job.id,
+        name=new_job.name,
         start_url=new_job.start_url,
         status=new_job.status.value,
         created_at=new_job.created_at,
@@ -99,6 +101,7 @@ def get_all_jobs(
         
         results.append(schemas.ScrapingJobResponse(
             id=job.id,
+            name=job.name,
             start_url=job.start_url,
             status=job.status.value,
             created_at=job.created_at,
@@ -161,6 +164,7 @@ def get_job_details(
     
     return schemas.ScrapingJobDetail(
         id=job.id,
+        name=job.name,
         start_url=job.start_url,
         status=job.status.value,
         created_at=job.created_at,

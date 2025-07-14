@@ -49,6 +49,7 @@ class RealtorContact(RealtorContactBase):
 
 class ScrapeRequest(BaseModel):
     url: str
+    name: Optional[str] = None  # User-defined name for the job
 
 class RealtorContactResponse(BaseModel):
     id: str
@@ -77,6 +78,7 @@ class RealtorContactResponse(BaseModel):
 
 class ScrapingJobResponse(BaseModel):
     id: str
+    name: Optional[str] = None
     start_url: str
     status: str
     created_at: datetime
@@ -84,6 +86,7 @@ class ScrapingJobResponse(BaseModel):
 
 class ScrapingJobDetail(BaseModel):
     id: str
+    name: Optional[str] = None
     start_url: str
     status: str
     created_at: datetime
@@ -92,6 +95,7 @@ class ScrapingJobDetail(BaseModel):
 
 class ScrapingJobBase(BaseModel):
     id: str
+    name: Optional[str] = None
     status: ScrapingJobStatus
     start_url: str
     created_at: datetime
