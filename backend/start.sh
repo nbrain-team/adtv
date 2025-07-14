@@ -16,13 +16,13 @@ fi
 
 # Try to import the app to catch any import errors
 echo "Testing imports..."
-python -c "import main; print('Imports successful')" || {
+python -c "import main; print('Imports successful')" 2>&1 || {
     echo "ERROR: Failed to import main.py"
     echo "Trying to get more error details..."
-    python main.py
+    python main.py 2>&1
     exit 1
 }
 
-# Start uvicorn
+# Start uvicorn with error output
 echo "Starting uvicorn..."
-python -m uvicorn main:app --host 0.0.0.0 --port $PORT 
+exec python -m uvicorn main:app --host 0.0.0.0 --port $PORT 2>&1 

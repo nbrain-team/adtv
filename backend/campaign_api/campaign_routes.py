@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime
 import json
+import logging
 
 from core.database import get_db
 from core.auth import get_current_active_user
@@ -15,8 +16,16 @@ from . import schemas
 
 router = APIRouter(prefix="/campaigns", tags=["campaigns"])
 
-# Initialize content generator
-content_generator = ContentGeneratorService()
+# Initialize content generator with error handling
+logger = logging.getLogger(__name__)
+content_generator = None
+
+try:
+    content_generator = ContentGeneratorService()
+    logger.info("Content generator initialized successfully")
+except Exception as e:
+    logger.warning(f"Content generator initialization failed: {e}")
+    logger.warning("Campaign content generation will not be available")
 
 @router.post("/", response_model=schemas.CampaignResponse)
 async def create_campaign(
@@ -26,6 +35,13 @@ async def create_campaign(
     current_user = Depends(get_current_active_user)
 ):
     """Create a new campaign and generate content"""
+    
+    # Check if content generator is available
+    if not content_generator:
+        raise HTTPException(
+            status_code=503, 
+            detail="Content generation service is not available. Please check GEMINI_API_KEY configuration."
+        )
     
     # Verify client exists and user has access
     client = db.query(Client).filter(
@@ -136,6 +152,13 @@ async def regenerate_content(
 ):
     """Regenerate specific content with feedback"""
     
+    # Check if content generator is available
+    if not content_generator:
+        raise HTTPException(
+            status_code=503, 
+            detail="Content generation service is not available. Please check GEMINI_API_KEY configuration."
+        )
+    
     content_item = db.query(ContentItem).filter(
         ContentItem.id == content_id,
         ContentItem.campaign_id == campaign_id
@@ -206,6 +229,15 @@ def generate_campaign_content_task(campaign_id: str, platforms: List[str]):
     db = Session()
     
     try:
+        # Check if content generator is available
+        if not content_generator:
+            print(f"Content generator not available for campaign {campaign_id}")
+            campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
+            if campaign:
+                campaign.status = CampaignStatus.FAILED
+                db.commit()
+            return
+            
         # Get campaign and client
         campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
         client = campaign.client
@@ -242,7 +274,9 @@ def generate_campaign_content_task(campaign_id: str, platforms: List[str]):
         
     except Exception as e:
         print(f"Error generating content: {e}")
-        campaign.status = CampaignStatus.FAILED
-        db.commit()
+        campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
+        if campaign:
+            campaign.status = CampaignStatus.FAILED
+            db.commit()
     finally:
         db.close() 
