@@ -86,6 +86,10 @@ class WebUnlockerScraper:
         
         logger.info(f"Page title: {soup.title.string if soup.title else 'No title'}")
         
+        # Debug: Log if we're on a pagination page
+        if '/p' in list_url:
+            logger.info(f"Currently on a paginated URL: {list_url}")
+        
         profile_links = set()
         
         # Try multiple selectors for agent links
@@ -129,6 +133,11 @@ class WebUnlockerScraper:
                 text = link.get_text(strip=True)
                 if agent_pattern.search(href) or agent_pattern.search(text):
                     logger.info(f"  Potential agent link: {href} - {text[:50]}")
+            
+            # Also check if this might be a "no results" page
+            page_text = soup.get_text()
+            if "no results" in page_text.lower() or "no agents found" in page_text.lower():
+                logger.warning("This appears to be a 'no results' page")
         
         logger.info(f"Found {len(profile_links)} unique agent profiles")
         return list(profile_links)
@@ -415,11 +424,14 @@ def scrape_with_web_unlocker(list_url: str, max_profiles: int = 10, use_google_s
             # Still try the next page but be prepared to stop
         
         # Generate next page URL based on homes.com pattern
-        from urllib.parse import urlparse, urlunparse
+        # Check if current URL already has a page pattern
+        import re
+        from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
         
         # Parse current URL
         parsed_url = urlparse(current_url)
         path = parsed_url.path
+        query_params = parse_qs(parsed_url.query)
         
         # Check for existing page pattern /p{number}/
         page_pattern = re.search(r'/p(\d+)/?', path)
@@ -433,15 +445,16 @@ def scrape_with_web_unlocker(list_url: str, max_profiles: int = 10, use_google_s
             logger.info(f"Found page pattern in URL: p{current_page_num} -> p{next_page_num}")
         else:
             # No page number in URL, this must be page 1
-            # Add /p2/ to the path
+            # Add /p2/ before the query parameters
             if path.endswith('/'):
-                new_path = path + 'p2/'
+                new_path = path[:-1] + '/p2/'
             else:
                 new_path = path + '/p2/'
             logger.info(f"No page pattern found, assuming page 1 -> adding p2")
         
-        # Construct the next page URL
-        next_page_url = urlunparse(parsed_url._replace(path=new_path))
+        # Reconstruct the URL with the same query parameters
+        new_query = urlencode(query_params, doseq=True)
+        next_page_url = urlunparse(parsed_url._replace(path=new_path, query=new_query))
         logger.info(f"Next page URL: {next_page_url}")
         
         # Update current URL and page number
