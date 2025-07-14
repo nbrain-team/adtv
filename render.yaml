@@ -13,10 +13,11 @@ services:
         source: /*
         destination: /index.html
 
+  # Backend service - updated configuration
   - type: web
     name: adtv-backend
-    runtime: python
-    runtimeVersion: 3.11
+    env: python
+    pythonVersion: 3.11
     region: oregon
     plan: standard
     rootDir: backend
