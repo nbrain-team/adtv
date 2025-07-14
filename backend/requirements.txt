@@ -26,4 +26,4 @@ playwright
 langchain-openai==0.1.8
 langchain-anthropic==0.1.11
 openai==1.26.0
-anthropic==0.8.0 
+anthropic==0.23.0 
