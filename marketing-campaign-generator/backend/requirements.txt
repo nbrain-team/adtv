@@ -1,0 +1,52 @@
+# Core Framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+
+# Database
+sqlalchemy==2.0.23
+psycopg2-binary==2.9.9
+alembic==1.13.0
+
+# Authentication (from user module)
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+
+# AI/LLM
+langchain==0.1.0
+langchain-openai==0.0.2
+langchain-anthropic==0.0.1
+openai==1.6.0
+anthropic==0.8.0
+
+# Vector Database
+pinecone-client==2.2.4
+
+# Data Processing
+pandas==2.1.4
+numpy==1.26.2
+pydantic==2.5.0
+pydantic[email]
+
+# Social Media APIs
+tweepy==4.14.0  # Twitter
+facebook-sdk==3.1.0
+python-linkedin-v2==0.9.4
+
+# Email
+sendgrid==6.10.0
+python-dotenv==1.0.0
+
+# Scheduling
+apscheduler==3.10.4
+celery==5.3.4
+redis==5.0.1
+
+# Monitoring
+langsmith==0.0.69
+prometheus-client==0.19.0
+
+# Utils
+httpx==0.25.2
+beautifulsoup4==4.12.2
+python-dateutil==2.8.2 
