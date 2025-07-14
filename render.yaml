@@ -15,13 +15,13 @@ services:
 
   - type: web
     name: adtv-backend
-    env: nix
+    env: python
     region: oregon
     plan: standard
     clearCache: true
     rootDir: backend
-    buildCommand: chmod +x build.sh && ./build.sh
-    startCommand: chmod +x start.sh && ./start.sh
+    buildCommand: pip install -r requirements.txt && python db_setup.py || true
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PINECONE_API_KEY
         sync: false
@@ -40,4 +40,10 @@ services:
       - key: BRIGHTDATA_BROWSER_URL
         sync: false
       - key: BRIGHTDATA_API_TOKEN
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: PINECONE_INDEX
         sync: false
