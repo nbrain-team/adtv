@@ -7,8 +7,8 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
 import json
 
-from langchain.chat_models import ChatOpenAI, ChatAnthropic
-from langchain.embeddings import OpenAIEmbeddings
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.vectorstores import Pinecone
 from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
@@ -27,29 +27,39 @@ class ContentGeneratorService:
             environment=os.getenv("PINECONE_ENV", "us-east-1")
         )
         
-        # Initialize embeddings
-        self.embeddings = OpenAIEmbeddings(
-            model="text-embedding-ada-002"
+        # Initialize embeddings - using HuggingFace instead of OpenAI
+        self.embeddings = HuggingFaceEmbeddings(
+            model_name="sentence-transformers/all-MiniLM-L6-v2"
         )
         
         # Initialize vector store
         self.index_name = os.getenv("PINECONE_INDEX", "marketing-content")
-        self.vectorstore = Pinecone.from_existing_index(
-            index_name=self.index_name,
-            embedding=self.embeddings
-        )
+        try:
+            self.vectorstore = Pinecone.from_existing_index(
+                index_name=self.index_name,
+                embedding=self.embeddings
+            )
+        except:
+            # If index doesn't exist, we'll create it when we have documents
+            self.vectorstore = None
         
-        # Initialize LLMs
-        self.primary_llm = ChatOpenAI(
-            model="gpt-4-turbo-preview",
+        # Initialize Gemini LLMs
+        gemini_api_key = os.getenv("GEMINI_API_KEY")
+        if not gemini_api_key:
+            raise ValueError("GEMINI_API_KEY environment variable is required")
+            
+        self.primary_llm = ChatGoogleGenerativeAI(
+            model="gemini-pro",
+            google_api_key=gemini_api_key,
             temperature=0.7,
-            max_tokens=2000
+            max_output_tokens=2000
         )
         
-        self.creative_llm = ChatOpenAI(
-            model="gpt-4",
+        self.creative_llm = ChatGoogleGenerativeAI(
+            model="gemini-pro",
+            google_api_key=gemini_api_key,
             temperature=0.9,
-            max_tokens=1500
+            max_output_tokens=1500
         )
         
         # Text splitter for documents
@@ -78,7 +88,15 @@ class ContentGeneratorService:
                 all_texts.append(Document(page_content=chunk, metadata=metadata))
         
         # Add to vector store
-        self.vectorstore.add_documents(all_texts)
+        if self.vectorstore is None:
+            # Create new index if it doesn't exist
+            self.vectorstore = Pinecone.from_documents(
+                all_texts, 
+                self.embeddings,
+                index_name=self.index_name
+            )
+        else:
+            self.vectorstore.add_documents(all_texts)
     
     def generate_campaign_content(
         self,
@@ -110,6 +128,10 @@ class ContentGeneratorService:
     
     def _get_client_context(self, client_id: str, topics: List[str]) -> str:
         """Retrieve relevant context from vector store"""
+        # If no vectorstore, return empty context
+        if self.vectorstore is None:
+            return ""
+            
         # Create query from topics
         query = f"Client information and content related to: {', '.join(topics)}"
         

@@ -232,7 +232,7 @@ def generate_campaign_content_task(campaign_id: str, platforms: List[str]):
                     scheduled_date=item_data.get("scheduled_date"),
                     status=ContentStatus.DRAFT,
                     prompt_used=f"Generated for topic: {item_data.get('topic')}",
-                    model_used="gpt-4"
+                    model_used="gemini-pro"
                 )
                 db.add(content_item)
         
