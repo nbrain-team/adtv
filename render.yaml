@@ -16,11 +16,12 @@ services:
   - type: web
     name: adtv-backend
     env: python
+    pythonVersion: "3.11"
     region: oregon
     plan: standard
     clearCache: true
     rootDir: backend
-    buildCommand: pip install -r requirements.txt && python db_setup.py || true
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PINECONE_API_KEY
