@@ -114,6 +114,10 @@ async def update_user_permissions(
     # Update role if provided
     if permissions_data.role:
         user.role = permissions_data.role
+        
+        # If user is becoming admin, ensure they have campaigns permission
+        if permissions_data.role == "admin" and user.permissions:
+            user.permissions["campaigns"] = True
     
     db.commit()
     return {"message": "User permissions updated successfully"}

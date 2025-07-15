@@ -530,11 +530,22 @@ const ProfilePage = () => {
                                                         {MODULES.map(module => (
                                                             <Table.Cell key={module.key} align="center">
                                                                 <Checkbox
-                                                                    checked={user.permissions[module.key] || false}
+                                                                    checked={
+                                                                        // Admins always have campaigns enabled
+                                                                        (module.key === 'campaigns' && user.role === 'admin') 
+                                                                            ? true 
+                                                                            : (user.permissions[module.key] || false)
+                                                                    }
                                                                     onCheckedChange={(checked) => 
                                                                         handlePermissionChange(user.id, module.key, !!checked)
                                                                     }
-                                                                    disabled={savingUserId === user.id || user.id === profile.id || editingUser === user.id}
+                                                                    disabled={
+                                                                        // Disable campaigns checkbox for admins (always on)
+                                                                        (module.key === 'campaigns' && user.role === 'admin') ||
+                                                                        savingUserId === user.id || 
+                                                                        user.id === profile.id || 
+                                                                        editingUser === user.id
+                                                                    }
                                                                 />
                                                             </Table.Cell>
                                                         ))}

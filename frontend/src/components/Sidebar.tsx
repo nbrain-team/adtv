@@ -12,6 +12,11 @@ export const Sidebar = ({ onNewChat }: { onNewChat: () => void }) => {
     };
 
     const hasPermission = (module: string) => {
+        // Admins always have access to campaigns
+        if (module === 'campaigns' && userProfile?.role === 'admin') {
+            return true;
+        }
+        
         const hasIt = userProfile?.permissions?.[module] === true;
         console.log(`Permission check for ${module}:`, hasIt, userProfile?.permissions);
         return hasIt;
