@@ -15,6 +15,7 @@ import DataLakePage from './pages/DataLakePage';
 import ProfilePage from './pages/ProfilePage';
 import CampaignsPage from './pages/CampaignsPage';
 import CampaignDetailPage from './pages/CampaignDetailPage';
+import TemplateManagerPage from './pages/TemplateManagerPage';
 
 // Define the structure for a message
 interface Message {
@@ -80,6 +81,11 @@ function App() {
             <Route path="/profile" element={
               <ProtectedRoute>
                 <ProfilePage />
+              </ProtectedRoute>
+            } />
+            <Route path="/template-manager" element={
+              <ProtectedRoute requiredPermission="template-manager">
+                <TemplateManagerPage />
               </ProtectedRoute>
             } />
           </Routes>

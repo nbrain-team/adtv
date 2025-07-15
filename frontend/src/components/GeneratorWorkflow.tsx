@@ -1,144 +1,18 @@
 import { Box, Card, Text, Button, Flex, TextArea, Select, Spinner, Checkbox, Heading, Grid, TextField, Badge } from '@radix-ui/themes';
-import { UploadIcon, DownloadIcon, ChevronDownIcon } from '@radix-ui/react-icons';
+import { UploadIcon, DownloadIcon, ChevronDownIcon, GearIcon } from '@radix-ui/react-icons';
 import { useState, useRef, ChangeEvent, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Papa from 'papaparse';
 import ReactMarkdown from 'react-markdown';
+import api from '../api';
 
-// Email templates
-const EMAIL_TEMPLATES = {
-    roadshow1: {
-        name: "Roadshow 1 - Marketing Campaign Ramp Up",
-        content: `Hi {{MM}},
-
-{{City}} is in [[DaysUntilEvent]] days, and we are ramping up to begin our marketing campaign! As soon as you secure a friendly (Existing cast member/Realtor, Mortgage) please add them to the bottom of the {{City}} tab and highlight them in yellow. I will include them in the confirmation email and texts.
-
-Thank you,
-[[YourName]]`,
-        goal: "Simple internal communication for marketing campaign coordination."
-    },
-    roadshow2: {
-        name: "Roadshow 2 - Initial Outreach (Long)",
-        content: `Hey {{FirstName}},
-I've been asked to reach out to you, on behalf of my CEO and Executive Show Producer Craig Sewing.  
-I'll keep this email short and sweet, as I know you're busy (just in case, please know this is a very real email here).
-Craig did create a personal video message for you below that elaborates a bit:
-[[VideoLink]]
-
-After watching that, let me get you few more details…
-You might know Craig, as he speaks at National real estate events, and was an Inman News Nominee for Most Influential in Real Estate, etc, etc. 
-We've have a team that does some market research and outreach (me:), and you were referred to us as being reputable in real estate we should invite to learn about this.
-
-My hope here is to set you up with an exploratory conversation about a new show coming into {{State}}, airing on HGTV and other major networks. 
-A REAL show (not some reality TV drama thing), specifically about real estate and lifestyles, showing us the neighborhoods you sell real estate.
-
-I do intend to call and text you as well, but figured an email makes it easier to explain, and get a reply on what you think. 
-Specifically, Craig is flying into [[DestinationCity]] next week and I am responsible for coordinating some private meetings.   
-He could do this with you on zoom, but he wants to meet with you if you're up for it.   
-You were referred to us as someone that we should try to connect with (fyi, I have a short list of others I am reaching out to as well).
-
-As for me, I am the associate producer for the New TV Show that will be featured on HGTV and the Travel Channel called, "Selling {{State}}"
-A real show, not some reality TV thing, and honestly its a media model developed by some of the leaders in the real estate industry.  A really cool show, and concept.
-
-It will air on TV, and showcase the cool real estate, neighborhoods, and lifestyles of {{State}} and the surrounding markets, through the lens of real estate professionals.
-We've done previous shows and models in {{State}}, but NOT this.  
-This is brand new to your market, and a really cool show concept we'd love to explore with you. 
-
-We just aligned with HGTV and are looking for experts in the different micro markets of {{State}} and ALL the surrounding areas ([[ExampleCities]] to name a few NOT limited to these markets)
-
-The show is a 2x EMMY Nominated 12x Telly Award Winning production, that garners millions of views.  
-Again, A REAL show, with REAL professionals (not some drama filled reality TV.)
- 
-We are opening conversations with potential real estate professionals to be featured as "THE VOICE" for why people love where you live.  Pretty fun show and concept! And if it matters, the agents who get chosen tend to get a lot of referrals. 
-To add some color, here is a RECENT PROMO of the show featuring real estate industry leaders, and another PROMO that features some of our real estate experts in other cities.  
-Some of your industry leaders who've been on the show:  Tom Ferry, Mike Ferry, Robert Reffkin, Grant & Elena Cardone, Shannon Gillette, Ryan Serhant, to name a few…
-
-For further validation if needed, here is the Facebook and Instagram page for the 2xEMMY nominated media network that will be producing the show.  
-Click here for Instagram
-Click here for Facebook
-
-As I mentioned, our CEO Craig Sewing is holding meetings for some reputable agents, and would like to have a conversation with you.
-No strings attached.
-Just a casual meeting, and conversation to explain, answer all of your questions, and see if its a good fit.  If not, no worries.`,
-        goal: "Comprehensive initial outreach explaining the show opportunity, establishing credibility, and requesting a meeting."
-    },
-    roadshow3: {
-        name: "Roadshow 3 - SMS/Short Follow-up",
-        content: `Hi - my name is [[YourName]].  I'm with ADTV Network.  We are launching a new show in {{City}} focusing on real estate, lifestyle and culture.  We are already airing in other markets across the country and are excited to come to your area.  My CEO Craig Sewing is flying into town/hosting a web meeting next week and would love to meet with you about it.  I sent you an email with all the details yesterday. If you didn't receive it, please text me with your email address at this number [[YourPhoneNumber]] and I'll be happy to re-send. Thanks, and I hope to see you there!`,
-        goal: "Brief follow-up message suitable for SMS or quick email to ensure initial email was received."
-    },
-    roadshow4: {
-        name: "Roadshow 4 - Meeting Scheduling",
-        content: `{{FirstName}}, can you meet next [[MeetingDays]]? [[SpecificDates]]
-
-Hi {{FirstName}}, 
-
-I just wanted to check in as I sent an email last week and I wanted to make sure you received it! 
-
-I'm a Producer for an Emmy nominated, national TV show centered around Real Estate and Lifestyle. We are in the process of launching a new show in {{City}} (and surrounding markets). The email I sent outlines all the details, so I'll keep this note short and sweet just in case you did see it and maybe wrote it off as spam. Let me know if you didn't receive it and I am happy to send it again if needed. 
-
-Our CEO and Executive Producer, Craig Sewing, is flying into {{City}} next week and would like to meet with you to discuss potentially being considered as a market expert to host in {{City}}. 
-
-As of now, Craig is available at the following dates/times below at [[HotelName]]:
-
-[[AvailableDateTimes]]
-
-Let me know which works best for you, and I can follow up with the calendar invitation and confirm your meeting with Craig. 
-
-Craig recorded this video message for you that explains the show further:
-
-[[CraigVideoLink]]
-
-If you don't think you'd be a good fit, no worries, just let me know so I can reach out to others more interested. Thank you so much, and have a wonderful rest of your day!`,
-        goal: "Follow-up email to schedule specific meeting times with Craig Sewing, includes video link and specific availability."
-    },
-    roadshow5: {
-        name: "Roadshow 5 - Pre-Meeting Confirmation",
-        content: `Sneak Peek of ADTV Network - "Selling {{City}}"
-
-Hi {{FirstName}},
-
-We want to share with you the official ADTV Network - "Selling {{City}}" promo!! We are excited to meet you next week, [[MeetingDateTime]] at the [[Location]]
-
-[[PromoVideoLink]]
-
-P.S. While you are out showing property, feel free to share this promo with your clients, and tell them you are being considered to represent {{City}} on a national Emmy nominated, Telly award winning TV show.`,
-        goal: "Pre-meeting excitement builder with promo video, confirming meeting details."
-    },
-    followup: {
-        name: "General Follow-Up Template",
-        content: `Hello {{FirstName}},
-
-I wanted to follow up on our previous conversation about {{Topic}}. I hope this email finds you well.
-
-{{PersonalizedContent}}
-
-Looking forward to hearing from you.
-
-Best,
-{{SenderName}}`,
-        goal: "Create a personalized follow-up message based on previous interactions and current context."
-    },
-    introduction: {
-        name: "Introduction Email",
-        content: `Dear {{FirstName}},
-
-I hope this email finds you well. My name is [[YourName]] from [[YourCompany]], and I'm reaching out because {{ReasonForContact}}.
-
-{{PersonalizedIntro}}
-
-I believe there could be great synergy between {{TheirCompany}} and what we're doing at [[YourCompany]].
-
-{{CallToAction}}
-
-Would you be available for a brief call next week to discuss this further?
-
-Best regards,
-[[YourName]]
-[[YourTitle]]
-[[YourCompany]]`,
-        goal: "Professional introduction email for new contacts. Personalize based on their company and background."
-    }
-};
+interface EmailTemplate {
+    id: string;
+    name: string;
+    content: string;
+    goal: string;
+    is_system: boolean;
+}
 
 // A modern, reusable file input component
 const FileInput = ({ onFileSelect, disabled }: { onFileSelect: (file: File) => void, disabled: boolean }) => {
@@ -191,6 +65,7 @@ const arrayToCsv = (data: string[][]): string => {
 };
 
 export const GeneratorWorkflow = () => {
+    const navigate = useNavigate();
     const [csvFile, setCsvFile] = useState<File | null>(null);
     const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
     const [keyFields, setKeyFields] = useState<string[]>([]);
@@ -203,12 +78,30 @@ export const GeneratorWorkflow = () => {
     const [selectedTemplates, setSelectedTemplates] = useState<string[]>([]);
     const [workflowType, setWorkflowType] = useState<'template' | 'scratch' | null>(null);
     const [manualFields, setManualFields] = useState<Record<string, string>>({});
+    const [templates, setTemplates] = useState<EmailTemplate[]>([]);
+    const [isLoadingTemplates, setIsLoadingTemplates] = useState(true);
     
     // Ref for the textarea to handle cursor position
     const textAreaRef = useRef<HTMLTextAreaElement>(null);
 
     const openBraces = '{{';
     const closeBraces = '}}';
+
+    // Fetch templates on component mount
+    useEffect(() => {
+        fetchTemplates();
+    }, []);
+
+    const fetchTemplates = async () => {
+        try {
+            const response = await api.get('/email-templates');
+            setTemplates(response.data);
+        } catch (error) {
+            console.error('Failed to fetch templates:', error);
+        } finally {
+            setIsLoadingTemplates(false);
+        }
+    };
 
     // Extract fields that need manual input from template content
     const extractManualFields = (content: string): string[] => {
@@ -226,8 +119,8 @@ export const GeneratorWorkflow = () => {
     // Get all manual fields from all selected templates
     const getAllManualFields = (): string[] => {
         const allFields: string[] = [];
-        selectedTemplates.forEach(templateKey => {
-            const template = EMAIL_TEMPLATES[templateKey as keyof typeof EMAIL_TEMPLATES];
+        selectedTemplates.forEach(templateId => {
+            const template = templates.find(t => t.id === templateId);
             if (template) {
                 const fields = extractManualFields(template.content);
                 fields.forEach(field => {
@@ -242,8 +135,8 @@ export const GeneratorWorkflow = () => {
 
     // Combine all selected templates into one
     const combineTemplates = (): string => {
-        return selectedTemplates.map(templateKey => {
-            const template = EMAIL_TEMPLATES[templateKey as keyof typeof EMAIL_TEMPLATES];
+        return selectedTemplates.map(templateId => {
+            const template = templates.find(t => t.id === templateId);
             return template ? template.content : '';
         }).join('\n\n---\n\n');
     };
@@ -307,20 +200,20 @@ export const GeneratorWorkflow = () => {
     };
     
     // Handle template selection
-    const handleTemplateToggle = (templateKey: string) => {
-        if (selectedTemplates.includes(templateKey)) {
+    const handleTemplateToggle = (templateId: string) => {
+        if (selectedTemplates.includes(templateId)) {
             // Remove template
-            setSelectedTemplates(selectedTemplates.filter(t => t !== templateKey));
+            setSelectedTemplates(selectedTemplates.filter(t => t !== templateId));
         } else {
             // Add template
-            setSelectedTemplates([...selectedTemplates, templateKey]);
+            setSelectedTemplates([...selectedTemplates, templateId]);
         }
         
         // Update manual fields for all selected templates
         const allFields = getAllManualFieldsForTemplates(
-            selectedTemplates.includes(templateKey) 
-                ? selectedTemplates.filter(t => t !== templateKey)
-                : [...selectedTemplates, templateKey]
+            selectedTemplates.includes(templateId) 
+                ? selectedTemplates.filter(t => t !== templateId)
+                : [...selectedTemplates, templateId]
         );
         
         const newManualFields: Record<string, string> = {};
@@ -331,10 +224,10 @@ export const GeneratorWorkflow = () => {
     };
 
     // Helper function to get manual fields for specific templates
-    const getAllManualFieldsForTemplates = (templates: string[]): string[] => {
+    const getAllManualFieldsForTemplates = (templateIds: string[]): string[] => {
         const allFields: string[] = [];
-        templates.forEach(templateKey => {
-            const template = EMAIL_TEMPLATES[templateKey as keyof typeof EMAIL_TEMPLATES];
+        templateIds.forEach(templateId => {
+            const template = templates.find(t => t.id === templateId);
             if (template) {
                 const fields = extractManualFields(template.content);
                 fields.forEach(field => {
@@ -350,15 +243,15 @@ export const GeneratorWorkflow = () => {
     // Update content when templates change
     useEffect(() => {
         if (selectedTemplates.length > 0) {
-            const combinedContent = selectedTemplates.map(templateKey => {
-                const template = EMAIL_TEMPLATES[templateKey as keyof typeof EMAIL_TEMPLATES];
+            const combinedContent = selectedTemplates.map(templateId => {
+                const template = templates.find(t => t.id === templateId);
                 return template ? template.content : '';
             }).join('\n\n---\n\n');
             setCoreContent(combinedContent);
             
             // Set combined goals
-            const goals = selectedTemplates.map(templateKey => {
-                const template = EMAIL_TEMPLATES[templateKey as keyof typeof EMAIL_TEMPLATES];
+            const goals = selectedTemplates.map(templateId => {
+                const template = templates.find(t => t.id === templateId);
                 return template ? `[${template.name}]: ${template.goal}` : '';
             }).filter(g => g).join('\n\n');
             setGenerationGoal(goals);
@@ -533,34 +426,59 @@ export const GeneratorWorkflow = () => {
                 {/* Template Workflow - Step 2: Select Template */}
                 {workflowType === 'template' && currentStep === 2 && (
                     <Box>
-                        <Heading as="h2" size="4" mb="1">Step 1: Select Email Templates</Heading>
+                        <Flex justify="between" align="center" mb="1">
+                            <Heading as="h2" size="4">Step 1: Select Email Templates</Heading>
+                            <Button 
+                                size="2" 
+                                variant="ghost"
+                                onClick={() => navigate('/template-manager')}
+                            >
+                                <GearIcon />
+                                Manage Templates
+                            </Button>
+                        </Flex>
                         <Text as="p" size="2" color="gray" mb="3">
                             Choose one or more templates. You can combine multiple templates for different scenarios.
                         </Text>
                         
-                        <Flex direction="column" gap="3">
-                            {Object.entries(EMAIL_TEMPLATES).map(([key, template]) => (
-                                <Card 
-                                    key={key}
-                                    style={{ 
-                                        cursor: 'pointer',
-                                        border: selectedTemplates.includes(key) ? '2px solid var(--accent-9)' : '1px solid var(--gray-6)',
-                                        transition: 'all 0.2s'
-                                    }}
-                                >
-                                    <Flex gap="3" align="start">
-                                        <Checkbox
-                                            checked={selectedTemplates.includes(key)}
-                                            onCheckedChange={() => handleTemplateToggle(key)}
-                                        />
-                                        <Box style={{ flex: 1 }} onClick={() => handleTemplateToggle(key)}>
-                                            <Text weight="medium" size="3">{template.name}</Text>
-                                            <Text size="2" color="gray" mt="1">{template.goal}</Text>
-                                        </Box>
-                                    </Flex>
-                                </Card>
-                            ))}
-                        </Flex>
+                        {isLoadingTemplates ? (
+                            <Flex justify="center" p="4">
+                                <Spinner />
+                            </Flex>
+                        ) : templates.length === 0 ? (
+                            <Card>
+                                <Flex direction="column" align="center" gap="3" p="4">
+                                    <Text color="gray">No templates available yet.</Text>
+                                    <Button onClick={() => navigate('/template-manager')}>
+                                        Create Templates
+                                    </Button>
+                                </Flex>
+                            </Card>
+                        ) : (
+                            <Flex direction="column" gap="3">
+                                {templates.map(template => (
+                                    <Card 
+                                        key={template.id}
+                                        style={{ 
+                                            cursor: 'pointer',
+                                            border: selectedTemplates.includes(template.id) ? '2px solid var(--accent-9)' : '1px solid var(--gray-6)',
+                                            transition: 'all 0.2s'
+                                        }}
+                                    >
+                                        <Flex gap="3" align="start">
+                                            <Checkbox
+                                                checked={selectedTemplates.includes(template.id)}
+                                                onCheckedChange={() => handleTemplateToggle(template.id)}
+                                            />
+                                            <Box style={{ flex: 1 }} onClick={() => handleTemplateToggle(template.id)}>
+                                                <Text weight="medium" size="3">{template.name}</Text>
+                                                <Text size="2" color="gray" mt="1">{template.goal}</Text>
+                                            </Box>
+                                        </Flex>
+                                    </Card>
+                                ))}
+                            </Flex>
+                        )}
                         
                         <Flex gap="3" mt="4">
                             <Button 
@@ -748,10 +666,10 @@ export const GeneratorWorkflow = () => {
                         <Card mb="3">
                             <Text size="2" weight="medium" mb="2">Selected Templates:</Text>
                             <Flex gap="2" wrap="wrap">
-                                {selectedTemplates.map(templateKey => {
-                                    const template = EMAIL_TEMPLATES[templateKey as keyof typeof EMAIL_TEMPLATES];
+                                {selectedTemplates.map(templateId => {
+                                    const template = templates.find(t => t.id === templateId);
                                     return template ? (
-                                        <Badge key={templateKey} size="2" variant="soft">
+                                        <Badge key={template.id} size="2" variant="soft">
                                             {template.name}
                                         </Badge>
                                     ) : null;

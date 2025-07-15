@@ -9,8 +9,19 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 GENERATOR_PERSONA = """
-You are an expert-level marketing and sales copywriter. Your task is to rewrite a piece of core content for a specific individual based on their data.
-You must seamlessly weave the user's data into the core content to make it feel personal, natural, and compelling.
+You are an expert-level marketing and sales copywriter with deep understanding of regional cultures, industries, and human psychology. 
+Your task is to intelligently personalize content by:
+1. Making direct replacements where placeholders exist
+2. Using contextual data to make logical inferences and adaptations
+3. Maintaining the original message structure and intent while making it feel naturally personalized
+
+You excel at using limited data points to create rich, contextual personalizations. For example:
+- Location data → regional references, weather patterns, local culture, timezone considerations
+- Company/Industry → industry challenges, trends, terminology, pain points
+- Title/Role → responsibilities, priorities, communication style
+- Name → cultural considerations, formality level
+- Company size → scale of challenges, decision-making process
+
 The final output should ONLY be the personalized text. Do not add any extra greetings, commentary, or sign-offs.
 """
 
@@ -57,39 +68,58 @@ async def generate_content_rows(
                 if placeholder in temp_content and field in row and pd.notna(row[field]):
                     temp_content = temp_content.replace(placeholder, str(row[field]))
 
-            # Prepare contextual data for the AI
-            context_data = {k: v for k, v in row.items() if k not in key_fields}
-            context_str = ", ".join([f"{k}: '{v}'" for k, v in context_data.items() if pd.notna(v)])
+            # Prepare contextual data for the AI - include ALL fields for inference
+            all_data = {k: v for k, v in row.items() if pd.notna(v)}
+            
+            # Create rich context descriptions
+            context_parts = []
+            for k, v in all_data.items():
+                if pd.notna(v):
+                    context_parts.append(f"{k}: {v}")
+            
+            context_str = "\n".join(context_parts)
 
             # Conditionally add the overall goal to the prompt
             goal_section = ""
             if generation_goal:
                 goal_section = f"""
-**Overall Goal for This Personalization:**
----
+**Overall Personalization Goal:**
 {generation_goal}
----
 """
-            # Construct the prompt
+            
+            # Construct the enhanced prompt
             prompt = f"""
 Your Task:
-You are an expert copywriter. Your goal is to rewrite and personalize the 'Smart Template' below.
-It is crucial that you **maintain the original tone, style, length, and overall structure** of the Smart Template.
-The personalization should be subtle and natural, using the 'Contextual Data' to make the message highly relevant to the recipient.
-If the Contextual Data is sparse or unhelpful, still do your best to personalize the message. **Under no circumstances should you state that you couldn't find information.**
-Do NOT simply list the data. Instead, weave the information naturally into the template.
+You are personalizing an email template for a specific recipient. Your goal is to create a version that feels personally written for them while maintaining the original structure and intent.
+
+**INTELLIGENT PERSONALIZATION INSTRUCTIONS:**
+1. First, replace any {{placeholders}} that were already handled
+2. Then, use ALL the contextual data below to make intelligent adaptations:
+   - If they're on the West Coast and template mentions "west coast beauty", keep it
+   - If they're on the East Coast and template mentions "west coast beauty", adapt to "East Coast charm" or "beautiful fall foliage"
+   - If template mentions industry pain points generically, make them specific to their industry
+   - Adapt cultural references, weather mentions, time zones, local events based on location
+   - Adjust formality and terminology based on their role/title
+   - Reference company-specific details when relevant
+
+3. MAINTAIN the overall structure, length, and core message
+4. Make personalizations feel natural, not forced
+5. If data is limited, still make subtle adaptations based on what you have
+
 {goal_section}
-**Contextual Data for This Prospect:**
----
+
+**Recipient's Data:**
 {context_str}
----
 
-**Smart Template to Personalize:**
----
+**Email Template to Personalize:**
 {temp_content}
----
 
-**IMPORTANT:** The output should ONLY be the final rewritten text. Do not add any of your own commentary, greetings, or sign-offs.
+**CRITICAL RULES:**
+- Output ONLY the final personalized email
+- Keep the same overall structure and flow
+- Make intelligent inferences from the data (e.g., Boston → cold winters, tech hub, historical city)
+- Personalization should enhance, not replace, the core message
+- If uncertain about a detail, make reasonable assumptions based on the data provided
 """
             messages = [
                 SystemMessage(content=GENERATOR_PERSONA),

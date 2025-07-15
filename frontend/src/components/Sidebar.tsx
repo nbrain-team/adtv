@@ -75,6 +75,11 @@ export const Sidebar = ({ onNewChat }: { onNewChat: () => void }) => {
                         <img src="/new-icons/8.png" alt="Marketing Campaigns" />
                     </button>
                 )}
+                {userProfile?.role === 'admin' && (
+                    <button className="sidebar-icon" title="Email Templates" onClick={() => navigate('/template-manager')}>
+                        <img src="/new-icons/9.png" alt="Email Templates" />
+                    </button>
+                )}
             </Flex>
             
             <button className="sidebar-icon" title="Profile" onClick={() => navigate('/profile')} style={{ marginBottom: '1rem' }}>
