@@ -43,7 +43,8 @@ export const ProtectedRoute = ({ children, requiredPermission, requireAdmin }: P
   }
   
   // Check specific permission
-  if (requiredPermission && userProfile?.permissions?.[requiredPermission] !== true) {
+  // Admin users bypass permission checks (except for requireAdmin which is handled above)
+  if (requiredPermission && userProfile?.role !== 'admin' && userProfile?.permissions?.[requiredPermission] !== true) {
     return (
       <MainLayout onNewChat={() => navigate('/home')}>
         <Box style={{ 
