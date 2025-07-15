@@ -1,6 +1,6 @@
-import { Box, Card, Text, Button, Flex, TextArea, Select, Spinner, Checkbox, Heading, Grid, TextField } from '@radix-ui/themes';
+import { Box, Card, Text, Button, Flex, TextArea, Select, Spinner, Checkbox, Heading, Grid, TextField, Badge } from '@radix-ui/themes';
 import { UploadIcon, DownloadIcon, ChevronDownIcon } from '@radix-ui/react-icons';
-import { useState, useRef, ChangeEvent } from 'react';
+import { useState, useRef, ChangeEvent, useEffect } from 'react';
 import Papa from 'papaparse';
 import ReactMarkdown from 'react-markdown';
 
@@ -200,7 +200,7 @@ export const GeneratorWorkflow = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [previewContent, setPreviewContent] = useState('');
     const [finalCsv, setFinalCsv] = useState<string | null>(null);
-    const [selectedTemplate, setSelectedTemplate] = useState<string>('');
+    const [selectedTemplates, setSelectedTemplates] = useState<string[]>([]);
     const [workflowType, setWorkflowType] = useState<'template' | 'scratch' | null>(null);
     const [manualFields, setManualFields] = useState<Record<string, string>>({});
     
@@ -221,6 +221,31 @@ export const GeneratorWorkflow = () => {
             }
         }
         return fields;
+    };
+
+    // Get all manual fields from all selected templates
+    const getAllManualFields = (): string[] => {
+        const allFields: string[] = [];
+        selectedTemplates.forEach(templateKey => {
+            const template = EMAIL_TEMPLATES[templateKey as keyof typeof EMAIL_TEMPLATES];
+            if (template) {
+                const fields = extractManualFields(template.content);
+                fields.forEach(field => {
+                    if (!allFields.includes(field)) {
+                        allFields.push(field);
+                    }
+                });
+            }
+        });
+        return allFields;
+    };
+
+    // Combine all selected templates into one
+    const combineTemplates = (): string => {
+        return selectedTemplates.map(templateKey => {
+            const template = EMAIL_TEMPLATES[templateKey as keyof typeof EMAIL_TEMPLATES];
+            return template ? template.content : '';
+        }).join('\n\n---\n\n');
     };
 
     // Replace manual fields in content
@@ -282,22 +307,63 @@ export const GeneratorWorkflow = () => {
     };
     
     // Handle template selection
-    const handleTemplateSelect = (templateKey: string) => {
-        if (templateKey && EMAIL_TEMPLATES[templateKey as keyof typeof EMAIL_TEMPLATES]) {
-            const template = EMAIL_TEMPLATES[templateKey as keyof typeof EMAIL_TEMPLATES];
-            setCoreContent(template.content);
-            setGenerationGoal(template.goal);
-            setSelectedTemplate(templateKey);
-            
-            // Extract manual fields from the template
-            const fields = extractManualFields(template.content);
-            const initialValues: Record<string, string> = {};
-            fields.forEach(field => {
-                initialValues[field] = '';
-            });
-            setManualFields(initialValues);
+    const handleTemplateToggle = (templateKey: string) => {
+        if (selectedTemplates.includes(templateKey)) {
+            // Remove template
+            setSelectedTemplates(selectedTemplates.filter(t => t !== templateKey));
+        } else {
+            // Add template
+            setSelectedTemplates([...selectedTemplates, templateKey]);
         }
+        
+        // Update manual fields for all selected templates
+        const allFields = getAllManualFieldsForTemplates(
+            selectedTemplates.includes(templateKey) 
+                ? selectedTemplates.filter(t => t !== templateKey)
+                : [...selectedTemplates, templateKey]
+        );
+        
+        const newManualFields: Record<string, string> = {};
+        allFields.forEach(field => {
+            newManualFields[field] = manualFields[field] || '';
+        });
+        setManualFields(newManualFields);
     };
+
+    // Helper function to get manual fields for specific templates
+    const getAllManualFieldsForTemplates = (templates: string[]): string[] => {
+        const allFields: string[] = [];
+        templates.forEach(templateKey => {
+            const template = EMAIL_TEMPLATES[templateKey as keyof typeof EMAIL_TEMPLATES];
+            if (template) {
+                const fields = extractManualFields(template.content);
+                fields.forEach(field => {
+                    if (!allFields.includes(field)) {
+                        allFields.push(field);
+                    }
+                });
+            }
+        });
+        return allFields;
+    };
+
+    // Update content when templates change
+    useEffect(() => {
+        if (selectedTemplates.length > 0) {
+            const combinedContent = selectedTemplates.map(templateKey => {
+                const template = EMAIL_TEMPLATES[templateKey as keyof typeof EMAIL_TEMPLATES];
+                return template ? template.content : '';
+            }).join('\n\n---\n\n');
+            setCoreContent(combinedContent);
+            
+            // Set combined goals
+            const goals = selectedTemplates.map(templateKey => {
+                const template = EMAIL_TEMPLATES[templateKey as keyof typeof EMAIL_TEMPLATES];
+                return template ? `[${template.name}]: ${template.goal}` : '';
+            }).filter(g => g).join('\n\n');
+            setGenerationGoal(goals);
+        }
+    }, [selectedTemplates]);
 
     const handleGenerate = async (isPreview: boolean) => {
         if (!csvFile || !coreContent) {
@@ -436,7 +502,6 @@ export const GeneratorWorkflow = () => {
                                 }}
                             >
                                 <Flex direction="column" gap="2" align="center" p="4">
-                                    <Text size="6">📧</Text>
                                     <Heading size="3">Use a Template</Heading>
                                     <Text size="2" color="gray" align="center">
                                         Start with pre-written emails and customize them
@@ -455,7 +520,6 @@ export const GeneratorWorkflow = () => {
                                 }}
                             >
                                 <Flex direction="column" gap="2" align="center" p="4">
-                                    <Text size="6">✍️</Text>
                                     <Heading size="3">Start from Scratch</Heading>
                                     <Text size="2" color="gray" align="center">
                                         Write your own template with full control
@@ -469,41 +533,53 @@ export const GeneratorWorkflow = () => {
                 {/* Template Workflow - Step 2: Select Template */}
                 {workflowType === 'template' && currentStep === 2 && (
                     <Box>
-                        <Heading as="h2" size="4" mb="1">Step 1: Select Email Template</Heading>
+                        <Heading as="h2" size="4" mb="1">Step 1: Select Email Templates</Heading>
                         <Text as="p" size="2" color="gray" mb="3">
-                            Choose a template to start with. You can customize it after selection.
+                            Choose one or more templates. You can combine multiple templates for different scenarios.
                         </Text>
-                        <Select.Root 
-                            value={selectedTemplate} 
-                            onValueChange={(value) => {
-                                handleTemplateSelect(value);
-                                if (value) setCurrentStep(3);
-                            }}
-                        >
-                            <Select.Trigger placeholder="Choose a template..." style={{ width: '100%' }}>
-                                <Flex justify="between" align="center" style={{ width: '100%' }}>
-                                    <Text>{selectedTemplate ? EMAIL_TEMPLATES[selectedTemplate as keyof typeof EMAIL_TEMPLATES]?.name : 'Choose a template...'}</Text>
-                                    <ChevronDownIcon />
-                                </Flex>
-                            </Select.Trigger>
-                            <Select.Content>
-                                {Object.entries(EMAIL_TEMPLATES).map(([key, template]) => (
-                                    <Select.Item key={key} value={key}>
-                                        <Text>{template.name}</Text>
-                                    </Select.Item>
-                                ))}
-                            </Select.Content>
-                        </Select.Root>
-                        <Button 
-                            variant="ghost" 
-                            onClick={() => {
-                                setCurrentStep(1);
-                                setWorkflowType(null);
-                            }}
-                            mt="3"
-                        >
-                            ← Back
-                        </Button>
+                        
+                        <Flex direction="column" gap="3">
+                            {Object.entries(EMAIL_TEMPLATES).map(([key, template]) => (
+                                <Card 
+                                    key={key}
+                                    style={{ 
+                                        cursor: 'pointer',
+                                        border: selectedTemplates.includes(key) ? '2px solid var(--accent-9)' : '1px solid var(--gray-6)',
+                                        transition: 'all 0.2s'
+                                    }}
+                                >
+                                    <Flex gap="3" align="start">
+                                        <Checkbox
+                                            checked={selectedTemplates.includes(key)}
+                                            onCheckedChange={() => handleTemplateToggle(key)}
+                                        />
+                                        <Box style={{ flex: 1 }} onClick={() => handleTemplateToggle(key)}>
+                                            <Text weight="medium" size="3">{template.name}</Text>
+                                            <Text size="2" color="gray" mt="1">{template.goal}</Text>
+                                        </Box>
+                                    </Flex>
+                                </Card>
+                            ))}
+                        </Flex>
+                        
+                        <Flex gap="3" mt="4">
+                            <Button 
+                                onClick={() => setCurrentStep(3)}
+                                disabled={selectedTemplates.length === 0}
+                            >
+                                Continue ({selectedTemplates.length} selected)
+                            </Button>
+                            <Button 
+                                variant="ghost" 
+                                onClick={() => {
+                                    setCurrentStep(1);
+                                    setWorkflowType(null);
+                                    setSelectedTemplates([]);
+                                }}
+                            >
+                                ← Back
+                            </Button>
+                        </Flex>
                     </Box>
                 )}
 
@@ -662,11 +738,26 @@ export const GeneratorWorkflow = () => {
                 {workflowType === 'template' && currentStep === 4 && csvFile && (
                     <Box>
                         <Heading as="h2" size="4" mb="1" mt="4">
-                            Step 4: Review and Customize Template
+                            Step 4: Review and Customize Templates
                         </Heading>
                         <Text as="p" size="2" color="gray" mb="3">
-                            Your template with filled manual fields. CSV fields will be auto-replaced.
+                            Your selected templates with filled manual fields. CSV fields will be auto-replaced.
                         </Text>
+                        
+                        {/* Show selected templates */}
+                        <Card mb="3">
+                            <Text size="2" weight="medium" mb="2">Selected Templates:</Text>
+                            <Flex gap="2" wrap="wrap">
+                                {selectedTemplates.map(templateKey => {
+                                    const template = EMAIL_TEMPLATES[templateKey as keyof typeof EMAIL_TEMPLATES];
+                                    return template ? (
+                                        <Badge key={templateKey} size="2" variant="soft">
+                                            {template.name}
+                                        </Badge>
+                                    ) : null;
+                                })}
+                            </Flex>
+                        </Card>
                         
                         <Card mb="3">
                             <Text size="2" weight="medium" mb="2">Available CSV Fields (click to insert):</Text>
