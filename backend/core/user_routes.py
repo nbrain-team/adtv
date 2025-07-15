@@ -206,3 +206,29 @@ async def delete_user(
     db.commit()
     
     return {"message": "User deleted successfully"} 
+
+@router.post("/fix-admin-campaigns")
+async def fix_admin_campaigns(
+    current_user: User = Depends(auth.get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Fix campaigns permission for admin users"""
+    if current_user.role == "admin":
+        # Ensure admin has campaigns permission
+        permissions = current_user.permissions or {}
+        permissions["campaigns"] = True
+        current_user.permissions = permissions
+        
+        db.commit()
+        db.refresh(current_user)
+        
+        return {
+            "message": "Campaigns permission enabled for admin",
+            "role": current_user.role,
+            "permissions": current_user.permissions
+        }
+    else:
+        raise HTTPException(
+            status_code=403, 
+            detail="Only admin users can use this endpoint"
+        ) 

@@ -14,6 +14,7 @@ interface UserProfile {
     company: string | null;
     website_url: string | null;
     role: string;
+    permissions?: Record<string, boolean>;
     created_at: string;
     last_login: string | null;
 }
@@ -46,7 +47,7 @@ const ProfilePage = () => {
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
-    const { logout } = useAuth();
+    const { logout, refreshProfile } = useAuth();
     const navigate = useNavigate();
     
     // Form fields
@@ -280,6 +281,58 @@ const ProfilePage = () => {
         }
     };
 
+    const handleRefreshProfile = async () => {
+        setIsLoading(true);
+        setError(null);
+        setSuccess(null);
+        
+        try {
+            // Refresh the auth context profile
+            await refreshProfile();
+            
+            // Refresh local profile
+            await fetchProfile();
+            
+            setSuccess('Profile refreshed successfully!');
+            
+            // Reload the page to ensure all components get updated
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } catch (err) {
+            setError('Failed to refresh profile');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleFixCampaigns = async () => {
+        setIsLoading(true);
+        setError(null);
+        setSuccess(null);
+        
+        try {
+            // Call the fix endpoint
+            const response = await api.post('/user/fix-admin-campaigns');
+            console.log('Fix campaigns response:', response.data);
+            
+            // Refresh profiles
+            await refreshProfile();
+            await fetchProfile();
+            
+            setSuccess('Campaigns permission fixed! Reloading...');
+            
+            // Reload the page
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } catch (err) {
+            setError('Failed to fix campaigns permission');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     const filteredUsers = users.filter(user =>
         user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (user.first_name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
@@ -309,6 +362,33 @@ const ProfilePage = () => {
                 </Box>
 
                 <Box style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
+                    {/* Debug info for admins */}
+                    {profile?.role === 'admin' && (
+                        <Callout.Root color="blue" mb="4">
+                            <Callout.Icon>
+                                <InfoCircledIcon />
+                            </Callout.Icon>
+                            <Callout.Text>
+                                <Flex align="center" justify="between">
+                                    <Box>
+                                        <Text weight="bold">Debug Info:</Text>
+                                        <Text size="2">Role: {profile.role} | Permissions: {JSON.stringify(profile.permissions || {})}</Text>
+                                    </Box>
+                                    <Flex gap="2">
+                                        <Button size="2" onClick={handleRefreshProfile} disabled={isLoading}>
+                                            Refresh Profile
+                                        </Button>
+                                        {!profile.permissions?.campaigns && (
+                                            <Button size="2" color="green" onClick={handleFixCampaigns} disabled={isLoading}>
+                                                Fix Campaigns Access
+                                            </Button>
+                                        )}
+                                    </Flex>
+                                </Flex>
+                            </Callout.Text>
+                        </Callout.Root>
+                    )}
+                    
                     {error && (
                         <Callout.Root color="red" mb="4">
                             <Callout.Icon>
