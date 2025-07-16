@@ -266,7 +266,25 @@ def scrape_realtor_list_with_playwright(list_url: str, max_profiles: int = 10, u
     """
     logger.info(f"Starting scrape for URL: {list_url}, max_profiles: {max_profiles}")
     
-    # Try Web Unlocker first (most reliable for anti-bot bypassing)
+    # Try Bright Data Browser API FIRST (since we have credentials)
+    if BRIGHTDATA_AVAILABLE:
+        logger.info("Using Bright Data Browser API...")
+        # Get the endpoint from environment or use default
+        brightdata_url = os.getenv('BRIGHTDATA_BROWSER_URL', 
+            'wss://brd-customer-hl_6f2331cd-zone-homes_come_scraper:j510f1n5xwty@brd.superproxy.io:9222')
+        logger.info(f"Browser URL: {brightdata_url[:50]}...")  # Log first 50 chars for security
+        try:
+            return scrape_homes_brightdata(list_url, max_profiles, batch_callback=batch_callback)
+        except Exception as e:
+            logger.error(f"Bright Data scraper failed: {str(e)}")
+            logger.error(f"Error type: {type(e).__name__}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            logger.info("Falling back to Web Unlocker...")
+    else:
+        logger.error(f"BrightData Browser not available. Import error occurred.")
+    
+    # Try Web Unlocker second
     if WEB_UNLOCKER_AVAILABLE and os.getenv('BRIGHTDATA_API_TOKEN'):
         logger.info("Using Bright Data Web Unlocker API...")
         logger.info(f"API Token present: {'Yes' if os.getenv('BRIGHTDATA_API_TOKEN') else 'No'}")
@@ -274,21 +292,9 @@ def scrape_realtor_list_with_playwright(list_url: str, max_profiles: int = 10, u
             return scrape_with_web_unlocker(list_url, max_profiles, use_google_search=use_google_search, batch_callback=batch_callback)
         except Exception as e:
             logger.error(f"Web Unlocker failed: {e}")
-            logger.info("Falling back to Browser API...")
-    else:
-        logger.info(f"Web Unlocker not available. Available: {WEB_UNLOCKER_AVAILABLE}, Token: {'Yes' if os.getenv('BRIGHTDATA_API_TOKEN') else 'No'}")
-    
-    # Try Bright Data Browser API
-    if BRIGHTDATA_AVAILABLE and os.getenv('BRIGHTDATA_BROWSER_URL'):
-        logger.info("Using Bright Data Browser API...")
-        logger.info(f"Browser URL present: {'Yes' if os.getenv('BRIGHTDATA_BROWSER_URL') else 'No'}")
-        try:
-            return scrape_homes_brightdata(list_url, max_profiles, batch_callback=batch_callback)
-        except Exception as e:
-            logger.error(f"Bright Data scraper failed: {e}")
             logger.info("Falling back to proxy scraper...")
     else:
-        logger.info(f"BrightData Browser not available. Available: {BRIGHTDATA_AVAILABLE}, URL: {'Yes' if os.getenv('BRIGHTDATA_BROWSER_URL') else 'No'}")
+        logger.info(f"Web Unlocker not available. Available: {WEB_UNLOCKER_AVAILABLE}, Token: {'Yes' if os.getenv('BRIGHTDATA_API_TOKEN') else 'No'}")
     
     # Try proxy scraper if available and configured
     if PROXY_SCRAPER_AVAILABLE and os.getenv('RESIDENTIAL_PROXY_URL'):

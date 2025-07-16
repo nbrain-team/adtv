@@ -16,27 +16,49 @@ class BrightDataScraper:
         
     async def connect_to_brightdata(self):
         """Connect to Bright Data's managed browser"""
-        playwright = await async_playwright().start()
+        import logging
+        logger = logging.getLogger(__name__)
         
-        print("Connecting to Bright Data Browser API...")
-        # Connect to the remote browser instance
-        browser = await playwright.chromium.connect_over_cdp(self.ws_endpoint)
-        
-        # Get the existing context (Bright Data manages this)
-        contexts = browser.contexts
-        if contexts:
-            context = contexts[0]
-        else:
-            context = await browser.new_context()
-        
-        # Get or create a page
-        pages = context.pages
-        if pages:
-            page = pages[0]
-        else:
-            page = await context.new_page()
+        try:
+            playwright = await async_playwright().start()
             
-        return browser, page
+            logger.info(f"Connecting to Bright Data Browser API at: {self.ws_endpoint[:50]}...")
+            print(f"Connecting to Bright Data Browser API at: {self.ws_endpoint[:50]}...")
+            
+            # Connect to the remote browser instance with timeout
+            browser = await playwright.chromium.connect_over_cdp(
+                self.ws_endpoint,
+                timeout=60000  # 60 second timeout
+            )
+            
+            logger.info("Successfully connected to Bright Data browser")
+            print("Successfully connected to Bright Data browser")
+            
+            # Get the existing context (Bright Data manages this)
+            contexts = browser.contexts
+            if contexts:
+                context = contexts[0]
+                logger.info(f"Using existing context with {len(context.pages)} pages")
+            else:
+                context = await browser.new_context()
+                logger.info("Created new browser context")
+            
+            # Get or create a page
+            pages = context.pages
+            if pages:
+                page = pages[0]
+                logger.info("Using existing page")
+            else:
+                page = await context.new_page()
+                logger.info("Created new page")
+                
+            return browser, page
+            
+        except Exception as e:
+            logger.error(f"Failed to connect to Bright Data: {str(e)}")
+            logger.error(f"Error type: {type(e).__name__}")
+            print(f"Failed to connect to Bright Data: {str(e)}")
+            raise
     
     async def human_delay(self, min_ms=500, max_ms=2000):
         """Add random human-like delays"""

@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from . import scraper
 from core.database import engine, ScrapingJob, RealtorContact, SessionLocal, ScrapingJobStatus
 from datetime import datetime
+import os
 
 # Set up logging to ensure output is visible
 logging.basicConfig(
@@ -152,17 +153,36 @@ def run_task_processor():
     Main task processor loop
     """
     logger.info("Starting Realtor importer task processor...")
+    logger.info(f"Python version: {sys.version}")
+    logger.info(f"Current working directory: {os.getcwd()}")
+    
+    # Log environment variables (without sensitive data)
+    logger.info("Environment check:")
+    logger.info(f"BRIGHTDATA_BROWSER_URL set: {'Yes' if os.getenv('BRIGHTDATA_BROWSER_URL') else 'No'}")
+    logger.info(f"BRIGHTDATA_API_TOKEN set: {'Yes' if os.getenv('BRIGHTDATA_API_TOKEN') else 'No'}")
+    logger.info(f"RESIDENTIAL_PROXY_URL set: {'Yes' if os.getenv('RESIDENTIAL_PROXY_URL') else 'No'}")
     
     while True:
-        with SessionLocal() as session:
-            # Find pending jobs
-            pending_job = session.query(ScrapingJob).filter_by(
-                status=ScrapingJobStatus.PENDING
-            ).first()
-            
-            if pending_job:
-                logger.info(f"Found pending job: {pending_job.id}")
-                process_scrape_job(pending_job.id)
-            else:
-                # No jobs, wait
-                time.sleep(5) 
+        try:
+            with SessionLocal() as session:
+                # Find pending jobs
+                pending_job = session.query(ScrapingJob).filter_by(
+                    status=ScrapingJobStatus.PENDING
+                ).first()
+                
+                if pending_job:
+                    logger.info(f"Found pending job: {pending_job.id}")
+                    logger.info(f"Job name: {pending_job.name}")
+                    logger.info(f"Job URL: {pending_job.start_url}")
+                    process_scrape_job(pending_job.id)
+                else:
+                    # No jobs, wait
+                    logger.debug("No pending jobs, waiting 5 seconds...")
+                    time.sleep(5)
+        except Exception as e:
+            logger.error(f"Error in task processor loop: {str(e)}")
+            logger.error(f"Error type: {type(e).__name__}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            # Continue running even if there's an error
+            time.sleep(5) 
