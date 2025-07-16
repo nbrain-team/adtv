@@ -3,6 +3,11 @@ import os
 from typing import List, Dict, Optional, Any
 from playwright.async_api import async_playwright, Page, Browser
 import random
+import logging
+
+# Set up logging
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 class BrightDataScraper:
     """
@@ -364,57 +369,171 @@ class BrightDataScraper:
             
             print(f"Scraping profile: {profile_url}")
             await page.goto(profile_url, wait_until='domcontentloaded', timeout=30000)
-            await self.human_delay(1000, 2000)
+            await self.human_delay(2000, 3000)
+            
+            # Log page title to verify we're on the right page
+            title = await page.title()
+            logger.info(f"Page title: {title}")
+            
+            # Check if we're on an error page or captcha
+            page_text = await page.inner_text('body')
+            if 'captcha' in page_text.lower():
+                logger.error("CAPTCHA detected on page!")
+                return None
+            elif 'access denied' in page_text.lower() or '403' in page_text:
+                logger.error("Access denied on page!")
+                return None
+            elif 'not found' in page_text.lower() or '404' in page_text:
+                logger.error("Page not found!")
+                return None
             
             data = {"profile_url": profile_url, "source": "homes.com"}
             
-            # Extract name
-            name_selectors = ['h1.agent-name', 'h1[data-testid="agent-name"]', '.agent-detail-name h1', 'h1']
+            # Try to log the page HTML structure for debugging
+            try:
+                # Get all h1, h2, h3 tags to understand the page structure
+                headings = await page.evaluate("""
+                    () => {
+                        const headings = [];
+                        document.querySelectorAll('h1, h2, h3').forEach(h => {
+                            headings.push({
+                                tag: h.tagName,
+                                text: h.innerText.substring(0, 50),
+                                classes: h.className
+                            });
+                        });
+                        return headings;
+                    }
+                """)
+                logger.info(f"Page headings found: {headings[:5]}")  # Log first 5 headings
+                
+                # Also try to find any elements with 'agent' in the class
+                agent_elements = await page.evaluate("""
+                    () => {
+                        const elements = [];
+                        document.querySelectorAll('[class*="agent" i], [class*="realtor" i], [class*="profile" i]').forEach(el => {
+                            if (elements.length < 10) {
+                                elements.push({
+                                    tag: el.tagName,
+                                    classes: el.className,
+                                    text: el.innerText ? el.innerText.substring(0, 30) : ''
+                                });
+                            }
+                        });
+                        return elements;
+                    }
+                """)
+                logger.info(f"Agent-related elements: {agent_elements[:5]}")
+            except Exception as e:
+                logger.error(f"Error getting page structure: {e}")
+            
+            # Extract name - try multiple selectors
+            name_selectors = [
+                'h1[data-testid="agent-name"]',
+                'h1.agent-name', 
+                'h1.AgentName',
+                '.agent-details h1',
+                '.agent-header h1',
+                'h1[class*="agent"]',
+                'h1[class*="name"]',
+                '[data-testid*="name"] h1',
+                '.profile-header h1',
+                'main h1'
+            ]
+            
+            name_found = False
             for selector in name_selectors:
                 try:
                     elem = await page.locator(selector).first
                     if await elem.count() > 0:
                         full_name = await elem.inner_text()
+                        logger.info(f"Found name with selector '{selector}': {full_name}")
                         parts = full_name.strip().split(' ', 1)
                         data['first_name'] = parts[0] if parts else None
                         data['last_name'] = parts[1] if len(parts) > 1 else None
+                        name_found = True
                         break
                 except:
                     continue
             
-            # Extract company
-            company_selectors = ['.brokerage-name', '[data-testid="agent-brokerage"]', '.agent-company']
+            if not name_found:
+                logger.warning(f"Could not find agent name on {profile_url}")
+            
+            # Extract company - expanded selectors
+            company_selectors = [
+                '[data-testid="agent-brokerage"]',
+                '.brokerage-name',
+                '.agent-company',
+                '.agent-brokerage',
+                '[class*="brokerage"]',
+                '[class*="company"]',
+                '.agent-details .company',
+                '.profile-company',
+                'a[href*="/brokerages/"]',
+                '.AgentBrokerage'
+            ]
+            
+            company_found = False
             for selector in company_selectors:
                 try:
                     elem = await page.locator(selector).first
                     if await elem.count() > 0:
-                        data['company'] = (await elem.inner_text()).strip()
-                        break
+                        company_text = (await elem.inner_text()).strip()
+                        if company_text:
+                            data['company'] = company_text
+                            logger.info(f"Found company with selector '{selector}': {company_text}")
+                            company_found = True
+                            break
                 except:
                     continue
             
-            # Extract location
-            location_selectors = ['.agent-location', '[data-testid="agent-location"]', '.agent-address']
+            if not company_found:
+                logger.warning(f"Could not find company on {profile_url}")
+            
+            # Extract location - expanded selectors
+            location_selectors = [
+                '[data-testid="agent-location"]',
+                '.agent-location',
+                '.agent-address',
+                '[class*="location"]',
+                '[class*="address"]',
+                '.agent-details .location',
+                '.profile-location',
+                '.AgentLocation',
+                'address'
+            ]
+            
             for selector in location_selectors:
                 try:
                     elem = await page.locator(selector).first
                     if await elem.count() > 0:
                         location_text = (await elem.inner_text()).strip()
-                        parts = location_text.split(',')
-                        data['city'] = parts[0].strip() if parts else None
-                        data['state'] = parts[1].strip() if len(parts) > 1 else None
-                        break
+                        if location_text:
+                            logger.info(f"Found location with selector '{selector}': {location_text}")
+                            # Try to parse city, state
+                            parts = location_text.split(',')
+                            data['city'] = parts[0].strip() if parts else None
+                            data['state'] = parts[1].strip() if len(parts) > 1 else None
+                            break
                 except:
                     continue
             
-            # Extract phone (might need to click to reveal)
-            phone_selectors = ['a[href^="tel:"]', 'button:has-text("Call")', '[data-testid*="phone"]']
+            # Extract phone - try multiple approaches
+            phone_selectors = [
+                'a[href^="tel:"]',
+                'button:has-text("Call")',
+                '[data-testid*="phone"]',
+                '[class*="phone"]',
+                '.agent-phone',
+                '.contact-phone'
+            ]
+            
             for selector in phone_selectors:
                 try:
                     elem = await page.locator(selector).first
                     if await elem.count() > 0:
-                        # Try to click if it's a button
-                        if 'button' in selector:
+                        # Try to click if it's a button to reveal phone
+                        if 'button' in selector.lower() or await elem.get_attribute('role') == 'button':
                             await elem.click()
                             await self.human_delay(500, 1000)
                             # Look for revealed phone
@@ -422,13 +541,20 @@ class BrightDataScraper:
                             if await phone_elem.count() > 0:
                                 href = await phone_elem.get_attribute('href')
                                 data['cell_phone'] = href.replace('tel:', '') if href else None
+                                logger.info(f"Found phone after click: {data['cell_phone']}")
+                                break
                         else:
                             href = await elem.get_attribute('href')
                             if href and href.startswith('tel:'):
                                 data['cell_phone'] = href.replace('tel:', '')
+                                logger.info(f"Found phone with selector '{selector}': {data['cell_phone']}")
+                                break
                             else:
-                                data['cell_phone'] = (await elem.inner_text()).strip()
-                        break
+                                text = await elem.inner_text()
+                                if text and any(c.isdigit() for c in text):
+                                    data['cell_phone'] = text.strip()
+                                    logger.info(f"Found phone text: {data['cell_phone']}")
+                                    break
                 except:
                     continue
             
@@ -438,32 +564,61 @@ class BrightDataScraper:
                 if await email_elem.count() > 0:
                     href = await email_elem.get_attribute('href')
                     data['email'] = href.replace('mailto:', '') if href else None
+                    logger.info(f"Found email: {data['email']}")
             except:
                 pass
             
-            # Extract experience years
-            exp_selectors = [':has-text("Years Experience")', ':has-text("years of experience")']
-            for selector in exp_selectors:
+            # Extract experience years - multiple patterns
+            exp_patterns = [
+                ':has-text("Years Experience")',
+                ':has-text("years of experience")',
+                ':has-text("Years in Business")',
+                ':has-text("Experience:")',
+                '[class*="experience"]',
+                'text=/\\d+\\s*years?/i'
+            ]
+            
+            for pattern in exp_patterns:
                 try:
-                    elem = await page.locator(selector).first
+                    elem = await page.locator(pattern).first
                     if await elem.count() > 0:
                         text = await elem.inner_text()
                         import re
                         years = re.search(r'(\d+)', text)
                         if years:
                             data['years_exp'] = int(years.group(1))
-                        break
+                            logger.info(f"Found experience: {data['years_exp']} years")
+                            break
                 except:
                     continue
             
-            # Set defaults
+            # Try to extract social links
+            try:
+                fb_elem = await page.locator('a[href*="facebook.com"]').first
+                if await fb_elem.count() > 0:
+                    data['fb_or_website'] = await fb_elem.get_attribute('href')
+                    logger.info(f"Found Facebook: {data['fb_or_website']}")
+            except:
+                pass
+            
+            # Set defaults for missing fields
             data.setdefault('dma', None)
             data.setdefault('fb_or_website', profile_url)
+            
+            # Log what we found
+            logger.info(f"Extracted data summary:")
+            logger.info(f"  Name: {data.get('first_name', 'None')} {data.get('last_name', 'None')}")
+            logger.info(f"  Company: {data.get('company', 'None')}")
+            logger.info(f"  Location: {data.get('city', 'None')}, {data.get('state', 'None')}")
+            logger.info(f"  Phone: {data.get('cell_phone', 'None')}")
+            logger.info(f"  Email: {data.get('email', 'None')}")
             
             return data
             
         except Exception as e:
-            print(f"Error scraping profile {profile_url}: {e}")
+            logger.error(f"Error scraping profile {profile_url}: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
             return None
         finally:
             if browser:
