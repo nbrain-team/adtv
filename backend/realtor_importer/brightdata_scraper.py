@@ -16,8 +16,11 @@ class BrightDataScraper:
     
     def __init__(self):
         # Get Bright Data credentials from environment
+        # First try the environment variable, then fall back to the new endpoint
         self.ws_endpoint = os.getenv('BRIGHTDATA_BROWSER_URL', 
-            'wss://brd-customer-hl_6f2331cd-zone-homes_come_scraper:j510f1n5xwty@brd.superproxy.io:9222')
+            'wss://brd-customer-hl_6f2331cd-zone-scraping_browser1:e8rrfhil917u@brd.superproxy.io:9222')
+        
+        logger.info(f"Initialized BrightDataScraper with endpoint: {self.ws_endpoint[:50]}...")
         
     async def connect_to_brightdata(self):
         """Connect to Bright Data's managed browser"""

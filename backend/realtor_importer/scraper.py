@@ -286,7 +286,7 @@ def scrape_realtor_list_with_playwright(list_url: str, max_profiles: int = 10, u
         logger.info("ATTEMPTING: Bright Data Browser API (Priority 1)")
         # Get the endpoint from environment or use default
         brightdata_url = os.getenv('BRIGHTDATA_BROWSER_URL', 
-            'wss://brd-customer-hl_6f2331cd-zone-homes_come_scraper:j510f1n5xwty@brd.superproxy.io:9222')
+            'wss://brd-customer-hl_6f2331cd-zone-scraping_browser1:e8rrfhil917u@brd.superproxy.io:9222')
         logger.info(f"  Endpoint: {brightdata_url[:50]}...")
         
         try:
