@@ -11,6 +11,7 @@ import re
 import json
 from .agent_website_scraper import AgentWebsiteScraper
 from .google_search_scraper import GoogleSearchScraper
+import random
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -381,34 +382,42 @@ def scrape_with_web_unlocker(list_url: str, max_profiles: int = 10, use_google_s
     
     # Scrape multiple pages until we have enough profiles or no more pages
     while len(all_profile_urls) < max_profiles and page_num <= max_pages:
-        logger.info(f"\nScraping page {page_num}: {current_url}")
+        logger.info(f"\n{'='*60}")
+        logger.info(f"PAGINATION: Starting page {page_num}")
+        logger.info(f"Current URL: {current_url}")
+        logger.info(f"Profiles collected so far: {len(all_profile_urls)}")
+        logger.info(f"{'='*60}")
         
         # Get the page first to check if it exists
         soup = scraper.get_page(current_url)
         if not soup:
-            logger.warning(f"Failed to fetch page {page_num}, assuming we've reached the end")
+            logger.warning(f"FAILED to fetch page {page_num}, assuming we've reached the end")
+            logger.warning(f"This could be due to rate limiting or the end of results")
             break
             
         # Get agent profile URLs from current page
         profile_urls = scraper.scrape_agent_list(current_url)
         
         if not profile_urls:
-            logger.warning(f"No profiles found on page {page_num}")
+            logger.warning(f"NO PROFILES found on page {page_num}")
             consecutive_empty_pages += 1
             if consecutive_empty_pages >= 2:
                 logger.info("Two consecutive pages with no profiles, stopping pagination")
                 break
         else:
             consecutive_empty_pages = 0  # Reset counter
+            logger.info(f"FOUND {len(profile_urls)} profile URLs on page {page_num}")
         
         # Check for duplicates before adding
         new_profiles = [url for url in profile_urls if url not in all_profile_urls]
         if not new_profiles and profile_urls:  # Has profiles but all are duplicates
-            logger.warning(f"All profiles on page {page_num} are duplicates, likely reached the end")
+            logger.warning(f"All {len(profile_urls)} profiles on page {page_num} are DUPLICATES")
+            logger.warning("This likely means we've reached the end of unique results")
             break
             
         all_profile_urls.extend(new_profiles)
-        logger.info(f"Found {len(profile_urls)} profiles on page {page_num} ({len(new_profiles)} new), total: {len(all_profile_urls)}")
+        logger.info(f"Added {len(new_profiles)} NEW profiles from page {page_num}")
+        logger.info(f"Total unique profiles collected: {len(all_profile_urls)}")
         
         # Check if we have enough profiles
         if len(all_profile_urls) >= max_profiles:
@@ -420,8 +429,8 @@ def scrape_with_web_unlocker(list_url: str, max_profiles: int = 10, use_google_s
         import re
         page_match = re.search(r'/p(\d+)/?', current_url)
         if page_match and int(page_match.group(1)) >= 13:
-            logger.info(f"Reached page {page_match.group(1)} which is typically the last page on homes.com")
-            # Still try the next page but be prepared to stop
+            logger.warning(f"⚠️  On page {page_match.group(1)} - homes.com typically ends around page 13")
+            logger.info("Will continue but may hit the end soon...")
         
         # Generate next page URL based on homes.com pattern
         # Check if current URL already has a page pattern
@@ -461,80 +470,94 @@ def scrape_with_web_unlocker(list_url: str, max_profiles: int = 10, use_google_s
         current_url = next_page_url
         page_num += 1
         
-        # Be respectful between pages
-        time.sleep(2)
+        # Longer delay between pages to avoid rate limiting
+        delay_seconds = random.uniform(5, 10)
+        logger.info(f"Waiting {delay_seconds:.1f} seconds before next page to avoid rate limiting...")
+        time.sleep(delay_seconds)
     
     # Log pagination summary
+    logger.info(f"\n{'='*60}")
+    logger.info("PAGINATION SUMMARY:")
     if page_num > max_pages:
-        logger.warning(f"Stopped pagination at max_pages limit ({max_pages})")
+        logger.warning(f"Stopped at max_pages limit ({max_pages})")
     elif len(all_profile_urls) >= max_profiles:
-        logger.info(f"Stopped pagination after reaching {max_profiles} profiles")
+        logger.info(f"Stopped after reaching {max_profiles} profiles")
     else:
-        logger.info(f"Pagination completed successfully after {page_num - 1} pages")
+        logger.info(f"Stopped after {page_num - 1} pages")
+    logger.info(f"Total unique profile URLs collected: {len(all_profile_urls)}")
+    logger.info(f"{'='*60}\n")
     
     logger.info(f"\nTotal profiles to scrape: {len(all_profile_urls)}")
     
-    # Scrape individual profiles
+    # Scrape individual profiles with detailed logging
     results = []
     batch_data = []
     BATCH_SIZE = 50
     
     for i, url in enumerate(all_profile_urls):
-        logger.info(f"\nScraping profile {i+1}/{len(all_profile_urls)}: {url}")
+        logger.info(f"\n--- Scraping profile {i+1}/{len(all_profile_urls)} ---")
+        logger.info(f"URL: {url}")
         
-        profile_data = scraper.scrape_agent_profile(url)
-        if profile_data and (profile_data.get('first_name') or profile_data.get('last_name')):
-            
-            # Step 2 Option 1: Use Google Search (if enabled)
-            if use_google_search:
-                try:
-                    logger.info(f"\nStep 2: Using Google search for additional contact info...")
-                    google_results = google_scraper.search_agent_contact(profile_data)
+        try:
+            profile_data = scraper.scrape_agent_profile(url)
+            if profile_data and (profile_data.get('first_name') or profile_data.get('last_name')):
+                
+                # Step 2 Option 1: Use Google Search (if enabled)
+                if use_google_search:
+                    try:
+                        logger.info(f"\nStep 2: Using Google search for additional contact info...")
+                        google_results = google_scraper.search_agent_contact(profile_data)
+                        
+                        # Update with Google results if found
+                        if google_results.get('google_email'):
+                            profile_data['personal_email'] = google_results['google_email']
+                        if google_results.get('google_phone'):
+                            profile_data['phone2'] = google_results['google_phone']
+                    except Exception as e:
+                        logger.error(f"  ✗ Google search failed: {str(e)}")
+                        logger.info(f"  Continuing without Google search results...")
+                
+                # Step 2 Option 2: If agent website was found and Google didn't find everything
+                if profile_data.get('agent_website') and (
+                    not profile_data.get('personal_email') or 
+                    not profile_data.get('phone2') or 
+                    not profile_data.get('facebook_profile')
+                ):
+                    logger.info(f"\nStep 2b: Scraping agent website for additional data...")
+                    step2_data = agent_scraper.scrape_agent_website(profile_data['agent_website'])
                     
-                    # Update with Google results if found
-                    if google_results.get('google_email'):
-                        profile_data['personal_email'] = google_results['google_email']
-                    if google_results.get('google_phone'):
-                        profile_data['phone2'] = google_results['google_phone']
-                except Exception as e:
-                    logger.error(f"  ✗ Google search failed: {str(e)}")
-                    logger.info(f"  Continuing without Google search results...")
-            
-            # Step 2 Option 2: If agent website was found and Google didn't find everything
-            if profile_data.get('agent_website') and (
-                not profile_data.get('personal_email') or 
-                not profile_data.get('phone2') or 
-                not profile_data.get('facebook_profile')
-            ):
-                logger.info(f"\nStep 2b: Scraping agent website for additional data...")
-                step2_data = agent_scraper.scrape_agent_website(profile_data['agent_website'])
+                    # Merge Step 2 data into profile data (only if not already found)
+                    if not profile_data.get('facebook_profile') and step2_data.get('facebook_profile'):
+                        profile_data['facebook_profile'] = step2_data['facebook_profile']
+                        logger.info(f"  ✓ Found Facebook profile on agent website: {step2_data['facebook_profile']}")
+                    
+                    # Only update if Google didn't find these
+                    if not profile_data.get('phone2') and step2_data.get('phone2'):
+                        profile_data['phone2'] = step2_data.get('phone2')
+                    if not profile_data.get('personal_email') and step2_data.get('personal_email'):
+                        profile_data['personal_email'] = step2_data.get('personal_email')
                 
-                # Merge Step 2 data into profile data (only if not already found)
-                if not profile_data.get('facebook_profile') and step2_data.get('facebook_profile'):
-                    profile_data['facebook_profile'] = step2_data['facebook_profile']
-                    logger.info(f"  ✓ Found Facebook profile on agent website: {step2_data['facebook_profile']}")
+                results.append(profile_data)
+                batch_data.append(profile_data)
                 
-                # Only update if Google didn't find these
-                if not profile_data.get('phone2') and step2_data.get('phone2'):
-                    profile_data['phone2'] = step2_data.get('phone2')
-                if not profile_data.get('personal_email') and step2_data.get('personal_email'):
-                    profile_data['personal_email'] = step2_data.get('personal_email')
-            
-            results.append(profile_data)
-            batch_data.append(profile_data)
-            logger.info(f"  ✓ Scraped: {profile_data.get('first_name')} {profile_data.get('last_name')}")
-            
-            # Call batch callback when we have BATCH_SIZE profiles
-            if batch_callback and len(batch_data) >= BATCH_SIZE:
-                batch_callback(batch_data)
-                batch_data = []
-                logger.info(f"  ✓ Batch of {BATCH_SIZE} profiles saved")
-        else:
-            logger.warning(f"  ✗ Failed to extract data")
+                # Call batch callback when we have BATCH_SIZE profiles
+                if batch_callback and len(batch_data) >= BATCH_SIZE:
+                    logger.info(f"Saving batch of {BATCH_SIZE} profiles...")
+                    batch_callback(batch_data)
+                    batch_data = []
+                    logger.info(f"✓ Batch saved successfully")
+            else:
+                logger.warning(f"✗ Failed to extract data from profile")
+        except Exception as e:
+            logger.error(f"✗ ERROR scraping profile: {str(e)}")
+            logger.error(f"Error type: {type(e).__name__}")
+            continue
         
-        # Be respectful with delays
+        # Longer delay between profiles
         if i < len(all_profile_urls) - 1:
-            time.sleep(2)
+            delay = random.uniform(3, 6)
+            logger.info(f"Waiting {delay:.1f} seconds before next profile...")
+            time.sleep(delay)
     
     # Don't forget remaining batch data
     if batch_callback and batch_data:

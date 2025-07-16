@@ -8,6 +8,7 @@ from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
 from . import scraper
 from core.database import engine, ScrapingJob, RealtorContact, SessionLocal, ScrapingJobStatus
+from datetime import datetime
 
 # Set up logging to ensure output is visible
 logging.basicConfig(
@@ -98,8 +99,12 @@ def process_scrape_job(job_id: str):
 
 def save_batch(session: Session, job_id: str, batch: List[Dict[str, Any]]):
     """Save a batch of scraped data"""
-    logger.info(f"Saving batch of {len(batch)} profiles...")
+    logger.info(f"\n{'='*50}")
+    logger.info(f"SAVING BATCH: {len(batch)} profiles")
+    logger.info(f"Job ID: {job_id}")
+    logger.info(f"{'='*50}")
     
+    saved_count = 0
     for i, data in enumerate(batch):
         try:
             # Log the data being saved for debugging
@@ -115,6 +120,7 @@ def save_batch(session: Session, job_id: str, batch: List[Dict[str, Any]]):
                 **data
             )
             session.add(contact)
+            saved_count += 1
         except Exception as e:
             logger.error(f"  ERROR saving profile {i+1}: {str(e)}")
             logger.error(f"  Data: {data}")
@@ -123,7 +129,18 @@ def save_batch(session: Session, job_id: str, batch: List[Dict[str, Any]]):
     
     try:
         session.commit()
-        logger.info(f"Batch saved successfully")
+        logger.info(f"✓ Batch saved successfully: {saved_count}/{len(batch)} profiles")
+        
+        # Get total count for this job
+        total_count = session.query(RealtorContact).filter_by(job_id=job_id).count()
+        logger.info(f"Total profiles saved for this job: {total_count}")
+        
+        # Update job's updated_at to show activity
+        job = session.query(ScrapingJob).filter_by(id=job_id).first()
+        if job:
+            job.updated_at = datetime.utcnow()
+            session.commit()
+            
     except Exception as e:
         logger.error(f"ERROR committing batch: {str(e)}")
         session.rollback()

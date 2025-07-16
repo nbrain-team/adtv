@@ -126,12 +126,17 @@ class BrightDataScraper:
     
     async def scrape_homes_list_with_pagination(self, list_url: str, max_profiles: int = 700) -> List[str]:
         """Scrape homes.com list pages with pagination support"""
-        all_profile_links = []
+        all_profile_urls = []
         current_url = list_url
         page_num = 1
         
-        while len(all_profile_links) < max_profiles:
-            print(f"\nScraping page {page_num}: {current_url}")
+        while len(all_profile_urls) < max_profiles:
+            print(f"\n{'='*60}")
+            print(f"PAGINATION: Starting page {page_num}")
+            print(f"Current URL: {current_url}")
+            print(f"Profiles collected so far: {len(all_profile_urls)}")
+            print(f"{'='*60}")
+            
             browser = None
             
             try:
@@ -155,47 +160,45 @@ class BrightDataScraper:
                     await page.evaluate(f"window.scrollTo(0, document.body.scrollHeight * {(i+1)/4})")
                     await self.human_delay(1000, 2000)
                 
-                # Extract agent profile links
-                profile_links = set()
-                selectors = [
-                    'a[href*="/real-estate-agents/"]',
-                    '.agent-card a[href*="/profile/"]',
-                    '.agent-list-item a[href*="/real-estate-agents/"]',
-                    'a.agent-name',
-                    '.realtor-card a',
-                    '[class*="agent"] a[href*="/"]',
-                    'div[class*="card"] a[href*="/real-estate-agents/"]'
-                ]
+                # Get agent profiles from current page
+                page_profile_links = await page.evaluate("""
+                    () => {
+                        const links = [];
+                        const selectors = [
+                            'a[href*="/real-estate-agents/"]',
+                            'a[href*="/agent/"]',
+                            '.agent-card a',
+                            '.agent-name'
+                        ];
+                        
+                        selectors.forEach(selector => {
+                            document.querySelectorAll(selector).forEach(link => {
+                                const href = link.href || link.getAttribute('href');
+                                if (href && href.includes('/real-estate-agents/') || href.includes('/agent/')) {
+                                    links.push(href.startsWith('http') ? href : 'https://www.homes.com' + href);
+                                }
+                            });
+                        });
+                        
+                        return [...new Set(links)];
+                    }
+                """)
                 
-                for selector in selectors:
-                    try:
-                        elements = await page.locator(selector).all()
-                        for element in elements:
-                            try:
-                                href = await element.get_attribute('href')
-                                if href and ('/real-estate-agents/' in href or '/profile/' in href):
-                                    if not href.startswith('http'):
-                                        href = f"https://www.homes.com{href}"
-                                    if not any(skip in href for skip in ['/search/', '/office/', '/company/', '/listings/']):
-                                        profile_links.add(href)
-                            except:
-                                continue
-                    except Exception as e:
-                        print(f"Error with selector {selector}: {e}")
-                        continue
-                
-                page_profile_links = list(profile_links)
-                print(f"Found {len(page_profile_links)} agent profiles on page {page_num}")
+                print(f"FOUND {len(page_profile_links)} agent profiles on page {page_num}")
                 
                 if not page_profile_links:
-                    print("No profiles found on this page, stopping pagination")
+                    print("NO PROFILES found on this page, stopping pagination")
                     break
                 
-                all_profile_links.extend(page_profile_links)
-                
+                # Filter out duplicates
+                new_profiles = [url for url in page_profile_links if url not in all_profile_urls]
+                all_profile_urls.extend(new_profiles)
+                print(f"Added {len(new_profiles)} NEW profiles from page {page_num}")
+                print(f"Total unique profiles collected: {len(all_profile_urls)}")
+
                 # Check if we have enough profiles
-                if len(all_profile_links) >= max_profiles:
-                    all_profile_links = all_profile_links[:max_profiles]
+                if len(all_profile_urls) >= max_profiles:
+                    all_profile_urls = all_profile_urls[:max_profiles]
                     break
                 
                 # Look for next page link
@@ -243,12 +246,13 @@ class BrightDataScraper:
                 if browser:
                     await browser.close()
             
-            # Small delay between pages
-            if len(all_profile_links) < max_profiles:
-                await asyncio.sleep(2)
+            # Longer delay between pages
+            delay = random.uniform(5, 10)
+            print(f"Waiting {delay:.1f} seconds before next page to avoid rate limiting...")
+            await asyncio.sleep(delay)
         
-        print(f"\nTotal profiles found across all pages: {len(all_profile_links)}")
-        return all_profile_links
+        print(f"\nTotal profiles found across all pages: {len(all_profile_urls)}")
+        return all_profile_urls
     
     async def scrape_agent_profile(self, profile_url: str) -> Optional[Dict[str, Any]]:
         """Scrape individual agent profile"""
@@ -381,21 +385,33 @@ async def scrape_with_brightdata(list_url: str, max_profiles: int = 10, batch_ca
     BATCH_SIZE = 50
     
     for i, url in enumerate(profile_urls):
-        print(f"\nScraping profile {i+1}/{len(profile_urls)}")
-        profile_data = await scraper.scrape_agent_profile(url)
-        if profile_data:
-            results.append(profile_data)
-            batch_data.append(profile_data)
-            
-            # Call batch callback when we have BATCH_SIZE profiles
-            if batch_callback and len(batch_data) >= BATCH_SIZE:
-                batch_callback(batch_data)
-                batch_data = []
-                print(f"  ✓ Batch of {BATCH_SIZE} profiles saved")
+        print(f"\n--- Scraping profile {i+1}/{len(profile_urls)} ---")
+        print(f"URL: {url}")
         
-        # Add delay between profiles
+        try:
+            profile_data = await scraper.scrape_agent_profile(url)
+            if profile_data:
+                print(f"✓ Successfully scraped: {profile_data.get('first_name', 'Unknown')} {profile_data.get('last_name', 'Unknown')}")
+                results.append(profile_data)
+                batch_data.append(profile_data)
+                
+                # Call batch callback when we have BATCH_SIZE profiles
+                if batch_callback and len(batch_data) >= BATCH_SIZE:
+                    print(f"Saving batch of {BATCH_SIZE} profiles...")
+                    batch_callback(batch_data)
+                    batch_data = []
+                    print(f"✓ Batch saved successfully")
+            else:
+                print(f"✗ Failed to extract data from profile")
+        except Exception as e:
+            print(f"✗ ERROR scraping profile: {str(e)}")
+            continue
+        
+        # Longer delay between profiles
         if i < len(profile_urls) - 1:
-            await asyncio.sleep(random.uniform(2, 4))
+            delay = random.uniform(3, 6)
+            print(f"Waiting {delay:.1f} seconds before next profile...")
+            await asyncio.sleep(delay)
     
     # Don't forget remaining batch data
     if batch_callback and batch_data:

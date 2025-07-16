@@ -72,7 +72,9 @@ class ScrapingJob(Base):
     start_url = Column(String, nullable=False)
     status = Column(SAEnum(ScrapingJobStatus), default=ScrapingJobStatus.PENDING, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     completed_at = Column(DateTime(timezone=True), nullable=True)
+    error_message = Column(String, nullable=True)  # Store error messages
 
     user_id = Column(String, ForeignKey("users.id"), nullable=False)
     user = relationship("User")
