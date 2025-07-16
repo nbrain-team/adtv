@@ -19,7 +19,14 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7 # One week
 
 # --- Password Hashing ---
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Fix for bcrypt __about__ attribute error
+try:
+    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+except AttributeError:
+    # Fallback if bcrypt has issues
+    import logging
+    logging.warning("bcrypt module has compatibility issues, trying alternative configuration")
+    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=12)
 
 # This remains for the /login endpoint which uses a form
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
