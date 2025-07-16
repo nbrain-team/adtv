@@ -35,18 +35,19 @@ interface ScrapingJob {
   id: string;
   name?: string | null;
   start_url: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
   created_at: string;
   contact_count: number;
   error_message?: string | null;
   realtor_contacts?: RealtorContact[];
 }
 
-const statusColors: { [key in ScrapingJob['status']]: 'gray' | 'blue' | 'green' | 'red' } = {
+const statusColors: { [key in ScrapingJob['status']]: 'gray' | 'blue' | 'green' | 'red' | 'orange' } = {
     pending: 'gray',
     processing: 'blue',
     completed: 'green',
     failed: 'red',
+    cancelled: 'orange',
 };
 
 const statusLabels: { [key in ScrapingJob['status']]: string } = {
@@ -54,6 +55,7 @@ const statusLabels: { [key in ScrapingJob['status']]: string } = {
     processing: 'Processing',
     completed: 'Completed',
     failed: 'Failed',
+    cancelled: 'Cancelled',
 };
 
 export const RealtorImporterWorkflow = () => {
@@ -149,6 +151,19 @@ export const RealtorImporterWorkflow = () => {
     }
   };
 
+  const handleStopJob = async (jobId: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent selecting the job
+    if (window.confirm('Are you sure you want to stop this job? Already scraped data will be kept.')) {
+      try {
+        await api.post(`/realtor-importer/${jobId}/stop`);
+        fetchJobs();
+        fetchJobDetails(jobId); // Refresh the details to show cancelled status
+      } catch (err) {
+        setError('Failed to stop job.');
+      }
+    }
+  };
+
   const activeJob = useMemo(() => jobs.find(j => j.status === 'processing' || j.status === 'pending'), [jobs]);
 
   return (
@@ -235,6 +250,17 @@ export const RealtorImporterWorkflow = () => {
                           <Text size="1" color="blue" mt="1">
                               Scraping profiles... {job.contact_count > 0 && `(${job.contact_count} so far)`}
                           </Text>
+                      )}
+                      {(job.status === 'pending' || job.status === 'processing') && (
+                        <Button 
+                          size="1" 
+                          color="orange" 
+                          variant="ghost"
+                          onClick={(e) => handleStopJob(job.id, e)}
+                          style={{position: 'absolute', top: '36px', right: '8px'}}
+                        >
+                          Stop
+                        </Button>
                       )}
                       <Button 
                         size="1" 

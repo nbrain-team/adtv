@@ -62,6 +62,7 @@ class ScrapingJobStatus(enum.Enum):
     IN_PROGRESS = "IN_PROGRESS"
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
 
 class ScrapingJob(Base):
     __tablename__ = "scraping_jobs"

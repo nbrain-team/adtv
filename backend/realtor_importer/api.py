@@ -198,4 +198,37 @@ def delete_job(
     db.delete(job)
     db.commit()
     
-    return {"message": "Job deleted successfully"} 
+    return {"message": "Job deleted successfully"}
+
+@router.post("/{job_id}/stop")
+def stop_job(
+    job_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(auth.get_current_active_user),
+):
+    """
+    Stop a running scraping job without deleting the data.
+    """
+    job = db.query(ScrapingJob).filter(
+        ScrapingJob.id == job_id,
+        ScrapingJob.user_id == current_user.id
+    ).first()
+
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    # Only allow stopping jobs that are pending or in progress
+    if job.status not in ["PENDING", "IN_PROGRESS"]:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Cannot stop job with status: {job.status}"
+        )
+    
+    # Update job status to CANCELLED
+    job.status = "CANCELLED"
+    job.updated_at = datetime.utcnow()
+    db.commit()
+    
+    logger.info(f"Job {job_id} has been cancelled by user {current_user.email}")
+    
+    return {"message": "Job stopped successfully", "status": "CANCELLED"} 

@@ -46,12 +46,23 @@ def process_scrape_job(job_id: str):
         session.commit()
         
         try:
+            # Create a callback that also checks for cancellation
+            def save_batch_with_cancel_check(batch: List[Dict[str, Any]]):
+                # Check if job has been cancelled
+                session.refresh(job)
+                if job.status == "CANCELLED":
+                    logger.warning(f"Job {job_id} has been cancelled, stopping scrape")
+                    raise Exception("Job cancelled by user")
+                
+                # Save the batch
+                save_batch(session, job_id, batch)
+            
             # Use the new Playwright scraper for better bot detection evasion
             # This will automatically fall back to Selenium if Playwright is not available
             scraped_data = scraper.scrape_realtor_list_with_playwright(
                 job.start_url, 
                 max_profiles=MAX_PROFILES_PER_JOB,
-                batch_callback=lambda batch: save_batch(session, job_id, batch)
+                batch_callback=save_batch_with_cancel_check
             )
             
             logger.info(f"\n{'='*60}")
@@ -64,21 +75,25 @@ def process_scrape_job(job_id: str):
                 remaining_count = len(scraped_data) % BATCH_SIZE
                 if remaining_count > 0:
                     remaining_batch = scraped_data[-remaining_count:]
-                    save_batch(session, job_id, remaining_batch)
+                    save_batch_with_cancel_check(remaining_batch)
             
-            job.status = ScrapingJobStatus.COMPLETED
+            # Final check for cancellation
+            session.refresh(job)
+            if job.status == "CANCELLED":
+                logger.warning(f"Job {job_id} was cancelled")
+            else:
+                job.status = ScrapingJobStatus.COMPLETED
+                session.commit()
+                logger.info(f"Job {job_id} completed successfully")
             
         except Exception as e:
-            logger.error(f"\n{'='*60}")
-            logger.error(f"ERROR processing job {job_id}: {str(e)}")
-            logger.error(f"Error type: {type(e).__name__}")
-            import traceback
-            logger.error(traceback.format_exc())
-            logger.error(f"{'='*60}\n")
-            job.status = ScrapingJobStatus.FAILED
-            # Note: The existing model doesn't have error_message field
-        
-        session.commit()
+            logger.error(f"Error in job {job_id}: {str(e)}")
+            session.refresh(job)
+            if job.status != "CANCELLED":
+                job.status = ScrapingJobStatus.FAILED
+                job.error_message = str(e)
+                session.commit()
+            logger.error(f"Job {job_id} failed with error: {str(e)}")
 
 
 def save_batch(session: Session, job_id: str, batch: List[Dict[str, Any]]):
