@@ -18,7 +18,7 @@ class BrightDataScraper:
         # Get Bright Data credentials from environment
         # First try the environment variable, then fall back to the new endpoint
         self.ws_endpoint = os.getenv('BRIGHTDATA_BROWSER_URL', 
-            'wss://brd-customer-hl_6f2331cd-zone-scraping_browser1:e8rrfhil917u@brd.superproxy.io:9222')
+            'wss://brd-customer-hl_6f2331cd-zone-homes_scraper:o47ipk4as8nq@brd.superproxy.io:9222')
         
         logger.info(f"Initialized BrightDataScraper with endpoint: {self.ws_endpoint[:50]}...")
         
@@ -429,6 +429,7 @@ class BrightDataScraper:
             
             # Extract name - try multiple selectors
             name_selectors = [
+                'h1',  # Simple H1 - based on the test showing H1 contains "Elissa Jarke"
                 'h1[data-testid="agent-name"]',
                 'h1.agent-name', 
                 'h1.AgentName',
@@ -438,22 +439,33 @@ class BrightDataScraper:
                 'h1[class*="name"]',
                 '[data-testid*="name"] h1',
                 '.profile-header h1',
-                'main h1'
+                'main h1',
+                '.agent-info-name-and-icons'  # Found in test
             ]
             
             name_found = False
             for selector in name_selectors:
                 try:
-                    elem = await page.locator(selector).first
-                    if await elem.count() > 0:
-                        full_name = await elem.inner_text()
-                        logger.info(f"Found name with selector '{selector}': {full_name}")
-                        parts = full_name.strip().split(' ', 1)
-                        data['first_name'] = parts[0] if parts else None
-                        data['last_name'] = parts[1] if len(parts) > 1 else None
-                        name_found = True
+                    elements = await page.locator(selector).all()
+                    logger.info(f"Trying selector '{selector}' - found {len(elements)} elements")
+                    
+                    for elem in elements:
+                        try:
+                            full_name = (await elem.inner_text()).strip()
+                            if full_name and not full_name.startswith('About') and not full_name.startswith('Transaction'):
+                                logger.info(f"Found name with selector '{selector}': {full_name}")
+                                parts = full_name.strip().split(' ', 1)
+                                data['first_name'] = parts[0] if parts else None
+                                data['last_name'] = parts[1] if len(parts) > 1 else None
+                                name_found = True
+                                break
+                        except:
+                            continue
+                    
+                    if name_found:
                         break
-                except:
+                except Exception as e:
+                    logger.error(f"Error with selector {selector}: {e}")
                     continue
             
             if not name_found:
@@ -461,6 +473,7 @@ class BrightDataScraper:
             
             # Extract company - expanded selectors
             company_selectors = [
+                '.profile-column-left',  # This contained "Century" in the test
                 '[data-testid="agent-brokerage"]',
                 '.brokerage-name',
                 '.agent-company',
@@ -480,10 +493,17 @@ class BrightDataScraper:
                     if await elem.count() > 0:
                         company_text = (await elem.inner_text()).strip()
                         if company_text:
-                            data['company'] = company_text
-                            logger.info(f"Found company with selector '{selector}': {company_text}")
-                            company_found = True
-                            break
+                            # Extract company name from text that might include other info
+                            lines = company_text.split('\n')
+                            # Look for the line that's likely the company (often contains real estate keywords)
+                            for line in lines:
+                                if any(keyword in line.lower() for keyword in ['century', 'remax', 'coldwell', 'realty', 'real estate', 'properties', 'group', 'llc', 'inc']):
+                                    data['company'] = line.strip()
+                                    logger.info(f"Found company with selector '{selector}': {line.strip()}")
+                                    company_found = True
+                                    break
+                            if company_found:
+                                break
                 except:
                     continue
             
@@ -492,6 +512,7 @@ class BrightDataScraper:
             
             # Extract location - expanded selectors
             location_selectors = [
+                '.profile-column-left',  # This contained "DeKalb IL" in the test
                 '[data-testid="agent-location"]',
                 '.agent-location',
                 '.agent-address',
@@ -507,14 +528,21 @@ class BrightDataScraper:
                 try:
                     elem = await page.locator(selector).first
                     if await elem.count() > 0:
-                        location_text = (await elem.inner_text()).strip()
-                        if location_text:
-                            logger.info(f"Found location with selector '{selector}': {location_text}")
-                            # Try to parse city, state
-                            parts = location_text.split(',')
-                            data['city'] = parts[0].strip() if parts else None
-                            data['state'] = parts[1].strip() if len(parts) > 1 else None
-                            break
+                        text = (await elem.inner_text()).strip()
+                        if text:
+                            # Look for city/state pattern in the text
+                            lines = text.split('\n')
+                            for line in lines:
+                                # Check if line matches "City ST" pattern
+                                import re
+                                city_state_match = re.search(r'([A-Za-z\s]+)\s+([A-Z]{2})(?:\s|$)', line)
+                                if city_state_match:
+                                    data['city'] = city_state_match.group(1).strip()
+                                    data['state'] = city_state_match.group(2).strip()
+                                    logger.info(f"Found location with selector '{selector}': {data['city']}, {data['state']}")
+                                    break
+                            if data.get('city'):
+                                break
                 except:
                     continue
             
