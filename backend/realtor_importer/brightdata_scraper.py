@@ -274,36 +274,33 @@ class BrightDataScraper:
                         const links = [];
                         const debugInfo = {found: 0, checked: 0};
                         
-                        // Try multiple selectors
-                        const selectors = [
-                            'a[href*="/real-estate-agents/"]',
-                            'a[href*="/agent/"]',
-                            '.agent-card a',
-                            '.realtor-card a',
-                            'a.agent-name',
-                            '[class*="agent"] a'
-                        ];
-                        
-                        selectors.forEach(selector => {
-                            const elements = document.querySelectorAll(selector);
-                            debugInfo.checked += elements.length;
+                        // Get all links
+                        document.querySelectorAll('a').forEach(link => {
+                            debugInfo.checked++;
+                            const href = link.href || link.getAttribute('href');
                             
-                            elements.forEach(link => {
-                                const href = link.href || link.getAttribute('href');
-                                if (href && (href.includes('/real-estate-agents/') || href.includes('/agent/'))) {
-                                    // Skip non-profile URLs
-                                    if (!href.includes('/search/') && !href.includes('/office/') && 
-                                        !href.includes('/company/') && !href.includes('/listings/')) {
+                            // Check if it's an agent profile link
+                            if (href && href.includes('/real-estate-agents/')) {
+                                // Make sure it's a profile, not a directory page
+                                const parts = href.split('/');
+                                const agentIndex = parts.indexOf('real-estate-agents');
+                                
+                                // Profile URLs have a name after 'real-estate-agents'
+                                if (agentIndex >= 0 && parts.length > agentIndex + 1 && parts[agentIndex + 1]) {
+                                    // Skip if it's just a location page (ends with state code)
+                                    const lastPart = parts[parts.length - 1] || parts[parts.length - 2];
+                                    if (lastPart && !lastPart.match(/^[a-z]{2}$/i) && lastPart !== 'real-estate-agents') {
                                         const fullUrl = href.startsWith('http') ? href : 'https://www.homes.com' + href;
                                         links.push(fullUrl);
                                         debugInfo.found++;
                                     }
                                 }
-                            });
+                            }
                         });
                         
                         console.log('Debug info:', debugInfo);
-                        return [...new Set(links)];
+                        console.log('Sample URLs found:', links.slice(0, 3));
+                        return [...new Set(links)]; // Remove duplicates
                     }
                 """)
                 
@@ -380,14 +377,14 @@ class BrightDataScraper:
             
             # Check if we're on an error page or captcha
             page_text = await page.inner_text('body')
-            if 'captcha' in page_text.lower():
+            if 'captcha' in page_text.lower() and ('solve' in page_text.lower() or 'verify' in page_text.lower()):
                 logger.error("CAPTCHA detected on page!")
                 return None
-            elif 'access denied' in page_text.lower() or '403' in page_text:
+            elif 'access denied' in page_text.lower() and len(page_text) < 500:
                 logger.error("Access denied on page!")
                 return None
-            elif 'not found' in page_text.lower() or '404' in page_text:
-                logger.error("Page not found!")
+            elif '404' in await page.title() or 'not found' in await page.title():
+                logger.error("Page not found (404)!")
                 return None
             
             data = {"profile_url": profile_url, "source": "homes.com"}
