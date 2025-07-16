@@ -264,77 +264,110 @@ def scrape_realtor_list_with_playwright(list_url: str, max_profiles: int = 10, u
         use_google_search: Whether to use Google search for additional info
         batch_callback: Optional callback function to call with batches of results
     """
-    logger.info(f"Starting scrape for URL: {list_url}, max_profiles: {max_profiles}")
+    logger.info(f"\n{'='*80}")
+    logger.info(f"REALTOR SCRAPER - STARTING")
+    logger.info(f"URL: {list_url}")
+    logger.info(f"Max profiles: {max_profiles}")
+    logger.info(f"Timestamp: {time.strftime('%Y-%m-%d %H:%M:%S')}")
+    logger.info(f"{'='*80}\n")
+    
+    # Log environment status
+    logger.info("ENVIRONMENT CHECK:")
+    logger.info(f"  Bright Data Browser Available: {BRIGHTDATA_AVAILABLE}")
+    logger.info(f"  Bright Data Browser URL: {'Yes' if os.getenv('BRIGHTDATA_BROWSER_URL') else 'No'}")
+    logger.info(f"  Web Unlocker Available: {WEB_UNLOCKER_AVAILABLE}")
+    logger.info(f"  API Token: {'Yes' if os.getenv('BRIGHTDATA_API_TOKEN') else 'No'}")
+    logger.info(f"  Proxy Available: {PROXY_SCRAPER_AVAILABLE}")
+    logger.info(f"  Residential Proxy URL: {'Yes' if os.getenv('RESIDENTIAL_PROXY_URL') else 'No'}")
+    logger.info("")
     
     # Try Bright Data Browser API FIRST (since we have credentials)
     if BRIGHTDATA_AVAILABLE:
-        logger.info("Using Bright Data Browser API...")
+        logger.info("ATTEMPTING: Bright Data Browser API (Priority 1)")
         # Get the endpoint from environment or use default
         brightdata_url = os.getenv('BRIGHTDATA_BROWSER_URL', 
             'wss://brd-customer-hl_6f2331cd-zone-homes_come_scraper:j510f1n5xwty@brd.superproxy.io:9222')
-        logger.info(f"Browser URL: {brightdata_url[:50]}...")  # Log first 50 chars for security
+        logger.info(f"  Endpoint: {brightdata_url[:50]}...")
+        
         try:
-            return scrape_homes_brightdata(list_url, max_profiles, batch_callback=batch_callback)
+            logger.info("  Calling scrape_homes_brightdata...")
+            result = scrape_homes_brightdata(list_url, max_profiles, batch_callback=batch_callback)
+            logger.info(f"  ✓ SUCCESS: Scraped {len(result)} profiles")
+            return result
         except Exception as e:
-            logger.error(f"Bright Data scraper failed: {str(e)}")
-            logger.error(f"Error type: {type(e).__name__}")
+            logger.error(f"  ✗ FAILED: {str(e)}")
+            logger.error(f"  Error type: {type(e).__name__}")
             import traceback
-            logger.error(f"Traceback: {traceback.format_exc()}")
-            logger.info("Falling back to Web Unlocker...")
+            logger.error(f"  Traceback:\n{traceback.format_exc()}")
+            logger.info("  Moving to next scraper...")
     else:
-        logger.error(f"BrightData Browser not available. Import error occurred.")
+        logger.error("  ✗ Bright Data Browser not available - Import failed")
     
     # Try Web Unlocker second
     if WEB_UNLOCKER_AVAILABLE and os.getenv('BRIGHTDATA_API_TOKEN'):
-        logger.info("Using Bright Data Web Unlocker API...")
-        logger.info(f"API Token present: {'Yes' if os.getenv('BRIGHTDATA_API_TOKEN') else 'No'}")
+        logger.info("\nATTEMPTING: Bright Data Web Unlocker API (Priority 2)")
+        logger.info(f"  API Token present: Yes")
         try:
-            return scrape_with_web_unlocker(list_url, max_profiles, use_google_search=use_google_search, batch_callback=batch_callback)
+            logger.info("  Calling scrape_with_web_unlocker...")
+            result = scrape_with_web_unlocker(list_url, max_profiles, use_google_search=use_google_search, batch_callback=batch_callback)
+            logger.info(f"  ✓ SUCCESS: Scraped {len(result)} profiles")
+            return result
         except Exception as e:
-            logger.error(f"Web Unlocker failed: {e}")
-            logger.info("Falling back to proxy scraper...")
+            logger.error(f"  ✗ FAILED: {e}")
+            logger.info("  Moving to next scraper...")
     else:
-        logger.info(f"Web Unlocker not available. Available: {WEB_UNLOCKER_AVAILABLE}, Token: {'Yes' if os.getenv('BRIGHTDATA_API_TOKEN') else 'No'}")
+        logger.info("\n  ✗ Web Unlocker not available or no API token")
     
     # Try proxy scraper if available and configured
     if PROXY_SCRAPER_AVAILABLE and os.getenv('RESIDENTIAL_PROXY_URL'):
-        logger.info("Using proxy scraper (residential proxy configured)...")
+        logger.info("\nATTEMPTING: Proxy scraper (Priority 3)")
         try:
-            return scrape_with_proxy(list_url, max_profiles, batch_callback=batch_callback)
+            logger.info("  Calling scrape_with_proxy...")
+            result = scrape_with_proxy(list_url, max_profiles, batch_callback=batch_callback)
+            logger.info(f"  ✓ SUCCESS: Scraped {len(result)} profiles")
+            return result
         except Exception as e:
-            logger.error(f"Proxy scraper failed: {e}")
-            logger.info("Falling back to indirect navigation...")
+            logger.error(f"  ✗ FAILED: {e}")
+            logger.info("  Moving to next scraper...")
     else:
-        logger.info(f"Proxy scraper not available. Available: {PROXY_SCRAPER_AVAILABLE}, URL: {'Yes' if os.getenv('RESIDENTIAL_PROXY_URL') else 'No'}")
+        logger.info("\n  ✗ Proxy scraper not available or not configured")
+    
+    # Log failure state
+    logger.error("\n" + "="*80)
+    logger.error("ALL PRIORITY SCRAPERS FAILED!")
+    logger.error("Falling back to less reliable methods...")
+    logger.error("="*80 + "\n")
     
     # Try indirect navigation (most likely to succeed without proxy)
     if INDIRECT_SCRAPER_AVAILABLE:
-        logger.info("Using indirect navigation scraper (navigating from homepage)...")
+        logger.info("ATTEMPTING: Indirect navigation scraper (Fallback 1)")
         try:
-            return scrape_indirect(list_url, max_profiles, batch_callback=batch_callback)
+            result = scrape_indirect(list_url, max_profiles, batch_callback=batch_callback)
+            logger.info(f"  ✓ SUCCESS: Scraped {len(result)} profiles")
+            return result
         except Exception as e:
-            logger.error(f"Indirect navigation scraper failed: {e}")
-            logger.info("Falling back to direct Playwright scraper...")
+            logger.error(f"  ✗ FAILED: {e}")
     
     # Try direct Playwright scraper
     if PLAYWRIGHT_AVAILABLE:
-        logger.info("Using Playwright scraper for better bot detection evasion...")
+        logger.info("\nATTEMPTING: Direct Playwright scraper (Fallback 2)")
         try:
-            return scrape_with_playwright(list_url, max_profiles, batch_callback=batch_callback)
+            result = scrape_with_playwright(list_url, max_profiles, batch_callback=batch_callback)
+            logger.info(f"  ✓ SUCCESS: Scraped {len(result)} profiles")
+            return result
         except Exception as e:
-            logger.error(f"Playwright scraper failed: {e}")
-            logger.info("Falling back to Selenium...")
+            logger.error(f"  ✗ FAILED: {e}")
     
     # Try Selenium
+    logger.info("\nATTEMPTING: Selenium scraper (Fallback 3)")
     try:
-        logger.info("Using Selenium scraper...")
         profile_links = scrape_realtor_list_page(list_url)
         scraped_data = []
         batch_data = []
         BATCH_SIZE = 50
         
         for i, profile_url in enumerate(profile_links[:max_profiles]):
-            logger.info(f"Scraping profile {i+1}/{min(len(profile_links), max_profiles)}: {profile_url}")
+            logger.info(f"  Scraping profile {i+1}/{min(len(profile_links), max_profiles)}: {profile_url}")
             profile_data = scrape_realtor_profile_page(profile_url)
             if profile_data:
                 scraped_data.append(profile_data)
@@ -353,14 +386,27 @@ def scrape_realtor_list_with_playwright(list_url: str, max_profiles: int = 10, u
         if batch_callback and batch_data:
             batch_callback(batch_data)
         
+        logger.info(f"  ✓ SUCCESS: Scraped {len(scraped_data)} profiles")
         return scraped_data
     except Exception as e:
-        logger.error(f"Selenium scraper failed: {e}")
+        logger.error(f"  ✗ FAILED: {e}")
         
         # Final fallback to simple scraper
         if SIMPLE_SCRAPER_AVAILABLE:
-            logger.info("Falling back to simple requests-based scraper...")
-            return scrape_with_simple(list_url, max_profiles, batch_callback=batch_callback)
-        else:
-            logger.error("All scraping methods failed. Please ensure Chrome/ChromeDriver or requests/beautifulsoup4 are installed.")
-            return [] 
+            logger.info("\nATTEMPTING: Simple requests-based scraper (Last resort)")
+            try:
+                result = scrape_with_simple(list_url, max_profiles, batch_callback=batch_callback)
+                logger.info(f"  ✓ SUCCESS: Scraped {len(result)} profiles")
+                return result
+            except Exception as e:
+                logger.error(f"  ✗ FAILED: {e}")
+        
+    logger.error("\n" + "="*80)
+    logger.error("CRITICAL: ALL SCRAPING METHODS FAILED")
+    logger.error("Please check:")
+    logger.error("  1. Bright Data credentials are correct")
+    logger.error("  2. Network connectivity")
+    logger.error("  3. Target website is accessible")
+    logger.error("="*80 + "\n")
+    
+    return [] 

@@ -207,28 +207,104 @@ def stop_job(
     current_user: User = Depends(auth.get_current_active_user),
 ):
     """
-    Stop a running scraping job without deleting the data.
+    Stop a running scraping job
     """
     job = db.query(ScrapingJob).filter(
         ScrapingJob.id == job_id,
         ScrapingJob.user_id == current_user.id
     ).first()
-
+    
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     
-    # Only allow stopping jobs that are pending or in progress
     if job.status not in ["PENDING", "IN_PROGRESS"]:
-        raise HTTPException(
-            status_code=400, 
-            detail=f"Cannot stop job with status: {job.status}"
-        )
+        raise HTTPException(status_code=400, detail="Job is not running")
     
-    # Update job status to CANCELLED
     job.status = "CANCELLED"
-    job.updated_at = datetime.utcnow()
     db.commit()
     
-    logger.info(f"Job {job_id} has been cancelled by user {current_user.email}")
+    return {"message": "Job stopped successfully"}
+
+@router.get("/{job_id}/export/csv")
+def export_job_csv(
+    job_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(auth.get_current_active_user),
+):
+    """
+    Export job results as CSV file
+    """
+    import csv
+    import io
+    from fastapi.responses import StreamingResponse
     
-    return {"message": "Job stopped successfully", "status": "CANCELLED"} 
+    # Get the job
+    job = db.query(ScrapingJob).filter(
+        ScrapingJob.id == job_id,
+        ScrapingJob.user_id == current_user.id
+    ).first()
+    
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    # Get all contacts for this job
+    contacts = db.query(RealtorContact).filter(
+        RealtorContact.job_id == job.id
+    ).all()
+    
+    if not contacts:
+        raise HTTPException(status_code=404, detail="No contacts found for this job")
+    
+    # Create CSV in memory
+    output = io.StringIO()
+    writer = csv.DictWriter(output, fieldnames=[
+        'first_name', 'last_name', 'company', 'city', 'state', 'dma',
+        'cell_phone', 'phone2', 'email', 'personal_email',
+        'agent_website', 'facebook_profile', 'fb_or_website',
+        'years_exp', 'seller_deals_total_deals', 'seller_deals_total_value',
+        'seller_deals_avg_price', 'buyer_deals_total_deals', 
+        'buyer_deals_total_value', 'buyer_deals_avg_price',
+        'profile_url', 'source'
+    ])
+    
+    writer.writeheader()
+    
+    for contact in contacts:
+        writer.writerow({
+            'first_name': contact.first_name,
+            'last_name': contact.last_name,
+            'company': contact.company,
+            'city': contact.city,
+            'state': contact.state,
+            'dma': contact.dma,
+            'cell_phone': contact.cell_phone,
+            'phone2': contact.phone2,
+            'email': contact.email,
+            'personal_email': contact.personal_email,
+            'agent_website': contact.agent_website,
+            'facebook_profile': contact.facebook_profile,
+            'fb_or_website': contact.fb_or_website,
+            'years_exp': contact.years_exp,
+            'seller_deals_total_deals': contact.seller_deals_total_deals,
+            'seller_deals_total_value': contact.seller_deals_total_value,
+            'seller_deals_avg_price': contact.seller_deals_avg_price,
+            'buyer_deals_total_deals': contact.buyer_deals_total_deals,
+            'buyer_deals_total_value': contact.buyer_deals_total_value,
+            'buyer_deals_avg_price': contact.buyer_deals_avg_price,
+            'profile_url': contact.profile_url,
+            'source': contact.source
+        })
+    
+    output.seek(0)
+    
+    # Generate filename
+    filename = f"realtor_export_{job.name or job_id}_{len(contacts)}_contacts.csv"
+    filename = filename.replace(' ', '_').replace('/', '_')
+    
+    return StreamingResponse(
+        io.BytesIO(output.getvalue().encode('utf-8')),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f"attachment; filename={filename}"
+        }
+    ) 

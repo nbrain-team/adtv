@@ -304,11 +304,24 @@ export const RealtorImporterWorkflow = () => {
                             {selectedJob.realtor_contacts.length} contacts
                             {selectedJob.realtor_contacts.length === 700 && ' (limit reached)'}
                         </Text>
-                        {selectedJob.status === 'processing' && (
-                            <Text size="1" color="blue">
-                                Results are displayed as they're scraped...
-                            </Text>
-                        )}
+                        <Flex gap="2" align="center">
+                            {selectedJob.status === 'processing' && (
+                                <Text size="1" color="blue">
+                                    Results are displayed as they're scraped...
+                                </Text>
+                            )}
+                            {selectedJob.status === 'completed' && selectedJob.realtor_contacts.length > 0 && (
+                                <Button 
+                                    size="2" 
+                                    variant="soft"
+                                    onClick={() => {
+                                        window.location.href = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/realtor-importer/${selectedJob.id}/export/csv`;
+                                    }}
+                                >
+                                    Download CSV
+                                </Button>
+                            )}
+                        </Flex>
                     </Flex>
                 )}
                 <Box style={{ overflowX: 'auto' }}>

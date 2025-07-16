@@ -20,10 +20,14 @@ class BrightDataScraper:
         logger = logging.getLogger(__name__)
         
         try:
-            playwright = await async_playwright().start()
+            logger.info(f"\n[BRIGHTDATA CONNECTION] Starting connection process...")
+            logger.info(f"[BRIGHTDATA CONNECTION] Endpoint: {self.ws_endpoint[:50]}...")
             
-            logger.info(f"Connecting to Bright Data Browser API at: {self.ws_endpoint[:50]}...")
-            print(f"Connecting to Bright Data Browser API at: {self.ws_endpoint[:50]}...")
+            playwright = await async_playwright().start()
+            logger.info("[BRIGHTDATA CONNECTION] Playwright started successfully")
+            
+            logger.info(f"[BRIGHTDATA CONNECTION] Connecting to Bright Data Browser API...")
+            print(f"[BRIGHTDATA CONNECTION] Connecting to: {self.ws_endpoint[:50]}...")
             
             # Connect to the remote browser instance with timeout
             browser = await playwright.chromium.connect_over_cdp(
@@ -31,33 +35,42 @@ class BrightDataScraper:
                 timeout=60000  # 60 second timeout
             )
             
-            logger.info("Successfully connected to Bright Data browser")
-            print("Successfully connected to Bright Data browser")
+            logger.info("[BRIGHTDATA CONNECTION] ✓ Successfully connected to Bright Data browser")
+            print("[BRIGHTDATA CONNECTION] ✓ Successfully connected")
             
             # Get the existing context (Bright Data manages this)
             contexts = browser.contexts
             if contexts:
                 context = contexts[0]
-                logger.info(f"Using existing context with {len(context.pages)} pages")
+                logger.info(f"[BRIGHTDATA CONNECTION] Using existing context with {len(context.pages)} pages")
             else:
                 context = await browser.new_context()
-                logger.info("Created new browser context")
+                logger.info("[BRIGHTDATA CONNECTION] Created new browser context")
             
             # Get or create a page
             pages = context.pages
             if pages:
                 page = pages[0]
-                logger.info("Using existing page")
+                logger.info("[BRIGHTDATA CONNECTION] Using existing page")
             else:
                 page = await context.new_page()
-                logger.info("Created new page")
+                logger.info("[BRIGHTDATA CONNECTION] Created new page")
                 
+            logger.info("[BRIGHTDATA CONNECTION] ✓ Connection complete")
             return browser, page
             
         except Exception as e:
-            logger.error(f"Failed to connect to Bright Data: {str(e)}")
-            logger.error(f"Error type: {type(e).__name__}")
-            print(f"Failed to connect to Bright Data: {str(e)}")
+            logger.error(f"[BRIGHTDATA CONNECTION] ✗ Failed to connect: {str(e)}")
+            logger.error(f"[BRIGHTDATA CONNECTION] Error type: {type(e).__name__}")
+            logger.error(f"[BRIGHTDATA CONNECTION] Full endpoint: {self.ws_endpoint}")
+            
+            # Check if it's an authentication error
+            if "401" in str(e) or "unauthorized" in str(e).lower():
+                logger.error("[BRIGHTDATA CONNECTION] Authentication failed - check credentials")
+            elif "timeout" in str(e).lower():
+                logger.error("[BRIGHTDATA CONNECTION] Connection timed out - check network/proxy")
+            
+            print(f"[BRIGHTDATA CONNECTION] ✗ Failed: {str(e)}")
             raise
     
     async def human_delay(self, min_ms=500, max_ms=2000):
@@ -148,133 +161,200 @@ class BrightDataScraper:
     
     async def scrape_homes_list_with_pagination(self, list_url: str, max_profiles: int = 700) -> List[str]:
         """Scrape homes.com list pages with pagination support"""
+        import logging
+        logger = logging.getLogger(__name__)
+        
         all_profile_urls = []
         current_url = list_url
-        page_num = 1
         
-        while len(all_profile_urls) < max_profiles:
-            print(f"\n{'='*60}")
-            print(f"PAGINATION: Starting page {page_num}")
-            print(f"Current URL: {current_url}")
-            print(f"Profiles collected so far: {len(all_profile_urls)}")
-            print(f"{'='*60}")
+        # Parse the starting URL to determine pagination pattern
+        import re
+        from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+        
+        parsed_url = urlparse(list_url)
+        query_params = parse_qs(parsed_url.query)
+        
+        # Check if URL already has page number (e.g., /p2/)
+        page_match = re.search(r'/p(\d+)/', list_url)
+        if page_match:
+            start_page = int(page_match.group(1))
+        else:
+            start_page = 1
+            
+        logger.info(f"\n{'='*80}")
+        logger.info(f"STARTING PAGINATION SCRAPER")
+        logger.info(f"Initial URL: {list_url}")
+        logger.info(f"Starting from page: {start_page}")
+        logger.info(f"Max profiles to collect: {max_profiles}")
+        logger.info(f"{'='*80}\n")
+        
+        # Scrape up to 13 pages
+        MAX_PAGES = 13
+        
+        for page_num in range(start_page, start_page + MAX_PAGES):
+            if len(all_profile_urls) >= max_profiles:
+                logger.info(f"Reached max profiles limit ({max_profiles}), stopping pagination")
+                break
+                
+            # Construct page URL
+            if page_num == 1 and start_page == 1:
+                # First page might not have /p1/
+                current_url = list_url
+            else:
+                # Replace or add page number in URL
+                if '/p' in parsed_url.path:
+                    # Replace existing page number
+                    new_path = re.sub(r'/p\d+/', f'/p{page_num}/', parsed_url.path)
+                else:
+                    # Add page number before query string
+                    path_parts = parsed_url.path.rstrip('/').split('/')
+                    path_parts.append(f'p{page_num}')
+                    new_path = '/'.join(path_parts) + '/'
+                
+                # Reconstruct URL with new path
+                current_url = urlunparse((
+                    parsed_url.scheme,
+                    parsed_url.netloc,
+                    new_path,
+                    parsed_url.params,
+                    parsed_url.query,
+                    parsed_url.fragment
+                ))
+            
+            logger.info(f"\n{'='*80}")
+            logger.info(f"SCRAPING PAGE {page_num} of {start_page + MAX_PAGES - 1}")
+            logger.info(f"URL: {current_url}")
+            logger.info(f"Profiles collected so far: {len(all_profile_urls)}")
+            logger.info(f"{'='*80}")
             
             browser = None
             
             try:
                 browser, page = await self.connect_to_brightdata()
                 
-                print(f"Navigating to: {current_url}")
-                await page.goto(current_url, wait_until='domcontentloaded', timeout=30000)
+                logger.info(f"[Page {page_num}] Navigating to URL...")
+                await page.goto(current_url, wait_until='domcontentloaded', timeout=60000)
                 
-                # Wait for agent cards to appear
-                print("Waiting for page to load...")
+                # Wait for content
+                logger.info(f"[Page {page_num}] Waiting for page to load...")
                 try:
-                    await page.wait_for_selector('.agent-card, .realtor-card, a[href*="/real-estate-agents/"]', timeout=10000)
+                    await page.wait_for_selector('.agent-card, .realtor-card, a[href*="/real-estate-agents/"]', timeout=15000)
+                    logger.info(f"[Page {page_num}] Found agent elements")
                 except:
-                    print("Warning: Could not find expected agent selectors, continuing anyway...")
+                    logger.warning(f"[Page {page_num}] Could not find expected agent selectors, continuing anyway...")
                 
-                await self.human_delay(2000, 4000)
+                # Human-like delay
+                delay = random.uniform(2, 4)
+                logger.info(f"[Page {page_num}] Waiting {delay:.1f} seconds...")
+                await asyncio.sleep(delay)
                 
-                # Scroll to load more results
-                print("Scrolling to load more results...")
+                # Scroll to load all content
+                logger.info(f"[Page {page_num}] Scrolling to load more results...")
                 for i in range(3):
                     await page.evaluate(f"window.scrollTo(0, document.body.scrollHeight * {(i+1)/4})")
-                    await self.human_delay(1000, 2000)
+                    await asyncio.sleep(random.uniform(1, 2))
                 
-                # Get agent profiles from current page
+                # Debug info
+                title = await page.title()
+                final_url = page.url
+                logger.info(f"[Page {page_num}] Page loaded - Title: {title}")
+                logger.info(f"[Page {page_num}] Final URL: {final_url}")
+                
+                # Extract agent profile links with extensive logging
                 page_profile_links = await page.evaluate("""
                     () => {
                         const links = [];
+                        const debugInfo = {found: 0, checked: 0};
+                        
+                        // Try multiple selectors
                         const selectors = [
                             'a[href*="/real-estate-agents/"]',
                             'a[href*="/agent/"]',
                             '.agent-card a',
-                            '.agent-name'
+                            '.realtor-card a',
+                            'a.agent-name',
+                            '[class*="agent"] a'
                         ];
                         
                         selectors.forEach(selector => {
-                            document.querySelectorAll(selector).forEach(link => {
+                            const elements = document.querySelectorAll(selector);
+                            debugInfo.checked += elements.length;
+                            
+                            elements.forEach(link => {
                                 const href = link.href || link.getAttribute('href');
-                                if (href && href.includes('/real-estate-agents/') || href.includes('/agent/')) {
-                                    links.push(href.startsWith('http') ? href : 'https://www.homes.com' + href);
+                                if (href && (href.includes('/real-estate-agents/') || href.includes('/agent/'))) {
+                                    // Skip non-profile URLs
+                                    if (!href.includes('/search/') && !href.includes('/office/') && 
+                                        !href.includes('/company/') && !href.includes('/listings/')) {
+                                        const fullUrl = href.startsWith('http') ? href : 'https://www.homes.com' + href;
+                                        links.push(fullUrl);
+                                        debugInfo.found++;
+                                    }
                                 }
                             });
                         });
                         
+                        console.log('Debug info:', debugInfo);
                         return [...new Set(links)];
                     }
                 """)
                 
-                print(f"FOUND {len(page_profile_links)} agent profiles on page {page_num}")
+                logger.info(f"[Page {page_num}] Found {len(page_profile_links)} agent profiles")
                 
                 if not page_profile_links:
-                    print("NO PROFILES found on this page, stopping pagination")
-                    break
+                    logger.warning(f"[Page {page_num}] NO PROFILES found on this page!")
+                    
+                    # Check for captcha or access issues
+                    page_content = await page.content()
+                    if "captcha" in page_content.lower():
+                        logger.error(f"[Page {page_num}] CAPTCHA detected!")
+                    elif "access denied" in page_content.lower():
+                        logger.error(f"[Page {page_num}] ACCESS DENIED!")
+                    
+                    # Log a snippet of the page content for debugging
+                    logger.debug(f"[Page {page_num}] Page content snippet: {page_content[:500]}...")
                 
-                # Filter out duplicates
+                # Filter out duplicates and add to collection
                 new_profiles = [url for url in page_profile_links if url not in all_profile_urls]
                 all_profile_urls.extend(new_profiles)
-                print(f"Added {len(new_profiles)} NEW profiles from page {page_num}")
-                print(f"Total unique profiles collected: {len(all_profile_urls)}")
-
-                # Check if we have enough profiles
-                if len(all_profile_urls) >= max_profiles:
-                    all_profile_urls = all_profile_urls[:max_profiles]
-                    break
                 
-                # Look for next page link
-                next_page_url = None
-                pagination_selectors = [
-                    'a[aria-label="Next page"]',
-                    'a.next-page',
-                    'a[rel="next"]',
-                    '.pagination a:has-text("Next")',
-                    '.pagination a:has-text(">")',
-                    'a[title="Next"]',
-                    'nav[aria-label="pagination"] a[aria-label*="next"]',
-                    '.page-numbers a.next',
-                    'a:has-text("Next")',
-                    '[class*="pagination"] a[href*="page="]'
-                ]
+                logger.info(f"[Page {page_num}] Added {len(new_profiles)} NEW profiles")
+                logger.info(f"[Page {page_num}] Total unique profiles: {len(all_profile_urls)}")
                 
-                for selector in pagination_selectors:
-                    try:
-                        next_elem = await page.locator(selector).first
-                        if await next_elem.count() > 0:
-                            href = await next_elem.get_attribute('href')
-                            if href:
-                                if not href.startswith('http'):
-                                    # Make absolute URL
-                                    base_url = page.url.split('?')[0].rsplit('/', 1)[0]
-                                    next_page_url = f"{base_url}/{href}" if not href.startswith('/') else f"https://www.homes.com{href}"
-                                else:
-                                    next_page_url = href
-                                break
-                    except:
-                        continue
+                # Log some sample URLs for verification
+                if new_profiles:
+                    logger.info(f"[Page {page_num}] Sample profile URLs:")
+                    for i, url in enumerate(new_profiles[:3]):
+                        logger.info(f"  {i+1}. {url}")
                 
-                if next_page_url and next_page_url != current_url:
-                    current_url = next_page_url
-                    page_num += 1
-                else:
-                    print("No next page found or same URL, stopping pagination")
-                    break
-                    
             except Exception as e:
-                print(f"Error during list scraping: {e}")
-                break
+                logger.error(f"[Page {page_num}] ERROR during scraping: {str(e)}")
+                logger.error(f"[Page {page_num}] Error type: {type(e).__name__}")
+                import traceback
+                logger.error(f"[Page {page_num}] Traceback: {traceback.format_exc()}")
+                
+                # Continue to next page even if this one failed
+                if page_num < start_page + MAX_PAGES - 1:
+                    logger.info(f"[Page {page_num}] Continuing to next page despite error...")
+                
             finally:
                 if browser:
                     await browser.close()
             
-            # Longer delay between pages
-            delay = random.uniform(5, 10)
-            print(f"Waiting {delay:.1f} seconds before next page to avoid rate limiting...")
-            await asyncio.sleep(delay)
+            # Wait 20 seconds between pages as requested
+            if page_num < start_page + MAX_PAGES - 1 and len(all_profile_urls) < max_profiles:
+                wait_time = 20
+                logger.info(f"\n[PAGINATION] Waiting {wait_time} seconds before next page...")
+                logger.info(f"[PAGINATION] Next page will be: {page_num + 1}")
+                await asyncio.sleep(wait_time)
         
-        print(f"\nTotal profiles found across all pages: {len(all_profile_urls)}")
-        return all_profile_urls
+        logger.info(f"\n{'='*80}")
+        logger.info(f"PAGINATION COMPLETE")
+        logger.info(f"Total pages scraped: {page_num - start_page + 1}")
+        logger.info(f"Total profiles found: {len(all_profile_urls)}")
+        logger.info(f"{'='*80}\n")
+        
+        return all_profile_urls[:max_profiles]  # Ensure we don't exceed max
     
     async def scrape_agent_profile(self, profile_url: str) -> Optional[Dict[str, Any]]:
         """Scrape individual agent profile"""
@@ -392,14 +472,29 @@ class BrightDataScraper:
 
 async def scrape_with_brightdata(list_url: str, max_profiles: int = 10, batch_callback=None) -> List[Dict[str, Any]]:
     """Main entry point for Bright Data scraping with pagination and batch support"""
+    import logging
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    logger = logging.getLogger(__name__)
+    
+    logger.info(f"\n{'='*80}")
+    logger.info(f"BRIGHT DATA SCRAPER STARTED")
+    logger.info(f"Target URL: {list_url}")
+    logger.info(f"Max profiles: {max_profiles}")
+    logger.info(f"Batch callback: {'Yes' if batch_callback else 'No'}")
+    logger.info(f"{'='*80}\n")
+    
     scraper = BrightDataScraper()
     
     # Get profile URLs from all pages
+    logger.info("PHASE 1: Collecting profile URLs from list pages...")
     profile_urls = await scraper.scrape_homes_list_with_pagination(list_url, max_profiles)
     
     if not profile_urls:
-        print("No profiles found on list page")
+        logger.error("No profiles found on list pages!")
         return []
+    
+    logger.info(f"\nPHASE 2: Scraping individual profiles...")
+    logger.info(f"Total profiles to scrape: {len(profile_urls)}")
     
     # Scrape individual profiles
     results = []
@@ -407,38 +502,64 @@ async def scrape_with_brightdata(list_url: str, max_profiles: int = 10, batch_ca
     BATCH_SIZE = 50
     
     for i, url in enumerate(profile_urls):
-        print(f"\n--- Scraping profile {i+1}/{len(profile_urls)} ---")
-        print(f"URL: {url}")
+        logger.info(f"\n{'='*60}")
+        logger.info(f"PROFILE {i+1} of {len(profile_urls)}")
+        logger.info(f"URL: {url}")
+        logger.info(f"Progress: {((i+1)/len(profile_urls)*100):.1f}%")
+        logger.info(f"{'='*60}")
         
         try:
             profile_data = await scraper.scrape_agent_profile(url)
             if profile_data:
-                print(f"✓ Successfully scraped: {profile_data.get('first_name', 'Unknown')} {profile_data.get('last_name', 'Unknown')}")
+                logger.info(f"✓ Successfully scraped profile:")
+                logger.info(f"  Name: {profile_data.get('first_name', 'Unknown')} {profile_data.get('last_name', 'Unknown')}")
+                logger.info(f"  Company: {profile_data.get('company', 'N/A')}")
+                logger.info(f"  Location: {profile_data.get('city', 'N/A')}, {profile_data.get('state', 'N/A')}")
+                logger.info(f"  Phone: {profile_data.get('cell_phone', 'N/A')}")
+                
                 results.append(profile_data)
                 batch_data.append(profile_data)
                 
                 # Call batch callback when we have BATCH_SIZE profiles
                 if batch_callback and len(batch_data) >= BATCH_SIZE:
-                    print(f"Saving batch of {BATCH_SIZE} profiles...")
-                    batch_callback(batch_data)
+                    logger.info(f"\n[BATCH] Saving batch of {BATCH_SIZE} profiles...")
+                    try:
+                        batch_callback(batch_data)
+                        logger.info(f"[BATCH] ✓ Batch saved successfully")
+                    except Exception as e:
+                        logger.error(f"[BATCH] ✗ Error saving batch: {str(e)}")
                     batch_data = []
-                    print(f"✓ Batch saved successfully")
             else:
-                print(f"✗ Failed to extract data from profile")
+                logger.warning(f"✗ Failed to extract data from profile")
         except Exception as e:
-            print(f"✗ ERROR scraping profile: {str(e)}")
+            logger.error(f"✗ ERROR scraping profile: {str(e)}")
+            logger.error(f"  Error type: {type(e).__name__}")
+            import traceback
+            logger.error(f"  Traceback: {traceback.format_exc()}")
             continue
         
-        # Longer delay between profiles
+        # Wait 10 seconds between profiles as requested
         if i < len(profile_urls) - 1:
-            delay = random.uniform(3, 6)
-            print(f"Waiting {delay:.1f} seconds before next profile...")
-            await asyncio.sleep(delay)
+            wait_time = 10
+            logger.info(f"\n[DELAY] Waiting {wait_time} seconds before next profile...")
+            logger.info(f"[DELAY] Scraped so far: {len(results)} profiles")
+            logger.info(f"[DELAY] Remaining: {len(profile_urls) - i - 1} profiles")
+            await asyncio.sleep(wait_time)
     
     # Don't forget remaining batch data
     if batch_callback and batch_data:
-        batch_callback(batch_data)
-        print(f"  ✓ Final batch of {len(batch_data)} profiles saved")
+        logger.info(f"\n[BATCH] Saving final batch of {len(batch_data)} profiles...")
+        try:
+            batch_callback(batch_data)
+            logger.info(f"[BATCH] ✓ Final batch saved successfully")
+        except Exception as e:
+            logger.error(f"[BATCH] ✗ Error saving final batch: {str(e)}")
+    
+    logger.info(f"\n{'='*80}")
+    logger.info(f"SCRAPING COMPLETE")
+    logger.info(f"Total profiles scraped: {len(results)}")
+    logger.info(f"Success rate: {(len(results)/len(profile_urls)*100):.1f}%")
+    logger.info(f"{'='*80}\n")
     
     return results
 
