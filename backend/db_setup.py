@@ -50,11 +50,11 @@ def update_db_schema(db):
             
         if 'created_at' not in users_columns:
             logger.info("Adding 'created_at' column to 'users' table.")
-            db.execute(text('ALTER TABLE users ADD COLUMN created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP'))
+            db.execute(text('ALTER TABLE users ADD COLUMN created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP'))
             
         if 'last_login' not in users_columns:
             logger.info("Adding 'last_login' column to 'users' table.")
-            db.execute(text('ALTER TABLE users ADD COLUMN last_login TIMESTAMP WITH TIME ZONE'))
+            db.execute(text('ALTER TABLE users ADD COLUMN last_login TIMESTAMPTZ'))
             
         # Update danny@nbrain.ai to be admin
         logger.info("Checking admin user...")
@@ -73,19 +73,27 @@ def update_db_schema(db):
     except Exception as e:
         logger.info(f"Could not add user management fields. Details: {e}")
     
-    # Add name column to scraping_jobs table
+    # Add scraping_jobs fields
     try:
-        if inspector.has_table('scraping_jobs'):
-            scraping_jobs_columns = [c['name'] for c in inspector.get_columns('scraping_jobs')]
+        scraping_jobs_columns = [c['name'] for c in inspector.get_columns('scraping_jobs')]
+        
+        if 'name' not in scraping_jobs_columns:
+            logger.info("Adding 'name' column to 'scraping_jobs' table.")
+            db.execute(text('ALTER TABLE scraping_jobs ADD COLUMN name VARCHAR(255)'))
             
-            if 'name' not in scraping_jobs_columns:
-                logger.info("Adding 'name' column to 'scraping_jobs' table.")
-                db.execute(text('ALTER TABLE scraping_jobs ADD COLUMN name VARCHAR(255)'))
-                logger.info("Successfully added 'name' column to 'scraping_jobs' table.")
-        else:
-            logger.info("'scraping_jobs' table doesn't exist yet, will be created with name column.")
+        if 'updated_at' not in scraping_jobs_columns:
+            logger.info("Adding 'updated_at' column to 'scraping_jobs' table.")
+            db.execute(text('ALTER TABLE scraping_jobs ADD COLUMN updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP'))
+            # Update existing rows
+            db.execute(text('UPDATE scraping_jobs SET updated_at = created_at WHERE updated_at IS NULL'))
+            
+        if 'error_message' not in scraping_jobs_columns:
+            logger.info("Adding 'error_message' column to 'scraping_jobs' table.")
+            db.execute(text('ALTER TABLE scraping_jobs ADD COLUMN error_message TEXT'))
+            
+        logger.info("Scraping jobs fields checked/added successfully.")
     except Exception as e:
-        logger.info(f"Error updating scraping_jobs table: {e}")
+        logger.info(f"Could not check 'scraping_jobs' table, likely doesn't exist yet. Details: {e}")
 
 def migrate_data(db):
     logger.info("Checking for legacy 'chat_conversations' table...")
