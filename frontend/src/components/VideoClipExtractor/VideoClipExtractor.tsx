@@ -65,7 +65,7 @@ export const VideoClipExtractor: React.FC = () => {
 
     try {
       // Upload video
-      const uploadResponse = await api.post('/video-processor/upload', formData, {
+      const uploadResponse = await api.post('/api/video-processor/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
         onUploadProgress: (progressEvent: any) => {
           const progress = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 1));
@@ -98,7 +98,7 @@ export const VideoClipExtractor: React.FC = () => {
   const pollJobStatus = async (localJobId: string, serverJobId: string) => {
     const checkStatus = async () => {
       try {
-        const response = await api.get(`/video-processor/status/${serverJobId}`);
+        const response = await api.get(`/api/video-processor/status/${serverJobId}`);
         const { status, progress, clips } = response.data;
 
         if (status === 'complete') {
@@ -122,7 +122,7 @@ export const VideoClipExtractor: React.FC = () => {
 
   const downloadClip = async (clip: VideoClip) => {
     try {
-      const response = await api.get(`/video-processor/download/${clip.id}`, {
+      const response = await api.get(`/api/video-processor/download/${clip.id}`, {
         responseType: 'blob'
       });
       
