@@ -27,7 +27,8 @@ from campaign_api.campaign_routes import router as campaign_router
 from core.email_template_routes import router as email_template_router
 from db_setup import update_db_schema, migrate_data
 from video_processor.api import router as video_processor_router
-from ad_traffic.api import router as ad_traffic_router
+# Temporarily disable ad_traffic router to fix login issue
+# from ad_traffic.api import router as ad_traffic_router
 
 
 load_dotenv()
@@ -116,18 +117,30 @@ def on_startup():
         # Continue anyway as tables might already exist
     
     # Run ad traffic tables migration
-    try:
-        from scripts.add_ad_traffic_tables import add_ad_traffic_tables
-        logger.info("Running ad traffic tables migration...")
-        add_ad_traffic_tables()
-        logger.info("Ad traffic tables migration completed.")
-    except Exception as e:
-        logger.warning(f"Ad traffic tables migration failed: {e}")
-        # Continue anyway as tables might already exist
+    # Temporarily disabled to fix login issue
+    # try:
+    #     from scripts.add_ad_traffic_tables import add_ad_traffic_tables
+    #     logger.info("Running ad traffic tables migration...")
+    #     add_ad_traffic_tables()
+    #     logger.info("Ad traffic tables migration completed.")
+    # except Exception as e:
+    #     logger.warning(f"Ad traffic tables migration failed: {e}")
+    #     # Continue anyway as tables might already exist
     
-    # Create all tables
-    Base.metadata.create_all(bind=engine)
-    logger.info("Application startup: Database tables checked/created.")
+    # Create all tables with error handling
+    try:
+        Base.metadata.create_all(bind=engine)
+        logger.info("Application startup: Database tables checked/created.")
+    except Exception as e:
+        logger.error(f"Error creating tables: {e}")
+        # Try to create tables individually to isolate the problem
+        logger.info("Attempting to create tables individually...")
+        for table in Base.metadata.sorted_tables:
+            try:
+                table.create(bind=engine, checkfirst=True)
+                logger.info(f"Created table: {table.name}")
+            except Exception as table_error:
+                logger.warning(f"Failed to create table {table.name}: {table_error}")
     
     # Run database migrations
     try:
@@ -159,7 +172,8 @@ app.include_router(user_router, prefix="/user", tags=["user"])
 app.include_router(campaign_router, prefix="/campaigns", tags=["campaigns"])
 app.include_router(email_template_router, prefix="/api/email-templates", tags=["email-templates"])
 app.include_router(video_processor_router, prefix="/api/video-processor", tags=["video-processor"])
-app.include_router(ad_traffic_router, prefix="/api/ad-traffic", tags=["ad-traffic"])
+# Temporarily disable ad_traffic router to fix login issue
+# app.include_router(ad_traffic_router, prefix="/api/ad-traffic", tags=["ad-traffic"])
 
 @app.get("/")
 def read_root():
