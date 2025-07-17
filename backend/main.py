@@ -27,7 +27,8 @@ from core.user_routes import router as user_router
 # from campaign_api.campaign_routes import router as campaign_router
 from core.email_template_routes import router as email_template_router
 from db_setup import update_db_schema, migrate_data
-from video_processor.api import router as video_processor_router
+# Temporarily disable video processor router to fix login
+# from video_processor.api import router as video_processor_router
 # Temporarily disable ad_traffic router to fix login
 # from ad_traffic.api import router as ad_traffic_router
 
@@ -173,7 +174,8 @@ app.include_router(user_router, prefix="/user", tags=["user"])
 # Temporarily disable campaign router to fix login
 # app.include_router(campaign_router, prefix="/campaigns", tags=["campaigns"])
 app.include_router(email_template_router, prefix="/api/email-templates", tags=["email-templates"])
-app.include_router(video_processor_router, prefix="/api/video-processor", tags=["video-processor"])
+# Temporarily disable video processor router to fix login
+# app.include_router(video_processor_router, prefix="/api/video-processor", tags=["video-processor"])
 # Temporarily disable ad_traffic router to fix login
 # app.include_router(ad_traffic_router, prefix="/api/ad-traffic", tags=["ad-traffic"])
 
