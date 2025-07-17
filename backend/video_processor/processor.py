@@ -115,7 +115,7 @@ def analyze_frames_with_vision(frames: List[Tuple[float, str]]) -> List[Dict]:
     
     try:
         response = client.chat.completions.create(
-            model="gpt-4-vision-preview",  # Updated to use the correct vision model
+            model="gpt-4o",  # Latest multimodal model - faster and more accurate
             messages=messages,
             max_tokens=2000,
             temperature=0.7
