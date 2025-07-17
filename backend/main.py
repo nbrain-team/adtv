@@ -240,8 +240,8 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     # Log current state before update
     logger.info(f"Login attempt for {user.email} - Current role: {user.role}, Current permissions: {user.permissions}")
     
-    # Temporary fix: Ensure danny@nbrain.ai has admin permissions
-    if user.email == "danny@nbrain.ai":
+    # Temporary fix: Ensure danny@nbrain.ai and danny@nbrain.com have admin permissions
+    if user.email in ["danny@nbrain.ai", "danny@nbrain.com"]:
         logger.info(f"Setting admin permissions for {user.email}")
         user.role = "admin"
         user.permissions = {
