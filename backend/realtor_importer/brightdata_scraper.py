@@ -441,7 +441,12 @@ class BrightDataScraper:
             
             # Extract name - try multiple selectors
             name_selectors = [
-                'h1',  # Simple H1 - based on the test showing H1 contains "Elissa Jarke"
+                'h1',  # Simple H1 - based on the test showing H1 contains name
+                '.agent-info-name-and-icons',  # Found in analysis
+                '.name-container',  # Found in analysis
+                '.js-agent-name',  # Found in analysis
+                'span.agent-name',  # Found in analysis
+                '.agent-footer-name',  # Found in analysis
                 'h1[data-testid="agent-name"]',
                 'h1.agent-name', 
                 'h1.AgentName',
@@ -451,8 +456,7 @@ class BrightDataScraper:
                 'h1[class*="name"]',
                 '[data-testid*="name"] h1',
                 '.profile-header h1',
-                'main h1',
-                '.agent-info-name-and-icons'  # Found in test
+                'main h1'
             ]
             
             name_found = False
@@ -485,6 +489,7 @@ class BrightDataScraper:
             
             # Extract company - expanded selectors
             company_selectors = [
+                '.agency-name',  # Found in analysis: "Ornate Inc"
                 '.profile-column-left',  # This contained "Century" in the test
                 '[data-testid="agent-brokerage"]',
                 '.brokerage-name',
@@ -501,22 +506,32 @@ class BrightDataScraper:
             company_found = False
             for selector in company_selectors:
                 try:
-                    elem = await page.locator(selector).first
-                    if await elem.count() > 0:
-                        company_text = (await elem.inner_text()).strip()
-                        if company_text:
-                            # Extract company name from text that might include other info
-                            lines = company_text.split('\n')
-                            # Look for the line that's likely the company (often contains real estate keywords)
-                            for line in lines:
-                                if any(keyword in line.lower() for keyword in ['century', 'remax', 'coldwell', 'realty', 'real estate', 'properties', 'group', 'llc', 'inc']):
-                                    data['company'] = line.strip()
-                                    logger.info(f"Found company with selector '{selector}': {line.strip()}")
+                    elements = await page.locator(selector).all()
+                    logger.info(f"Trying company selector '{selector}' - found {len(elements)} elements")
+                    
+                    for elem in elements:
+                        try:
+                            company_text = (await elem.inner_text()).strip()
+                            if company_text and len(company_text) > 2:
+                                # If selector is .agency-name, take it directly
+                                if selector == '.agency-name':
+                                    data['company'] = company_text
+                                    logger.info(f"Found company with selector '{selector}': {company_text}")
                                     company_found = True
                                     break
-                            if company_found:
-                                break
-                except:
+                                # Otherwise, look for company keywords
+                                elif any(keyword in company_text.lower() for keyword in ['century', 'remax', 'coldwell', 'realty', 'real estate', 'properties', 'group', 'llc', 'inc', 'corp', 'agency', 'brokers']):
+                                    data['company'] = company_text
+                                    logger.info(f"Found company with selector '{selector}': {company_text}")
+                                    company_found = True
+                                    break
+                        except:
+                            continue
+                    
+                    if company_found:
+                        break
+                except Exception as e:
+                    logger.debug(f"Error with company selector {selector}: {e}")
                     continue
             
             if not company_found:
@@ -524,6 +539,8 @@ class BrightDataScraper:
             
             # Extract location - expanded selectors
             location_selectors = [
+                '.location',  # Found in analysis: "Sacramento CA"
+                'span.city',  # Found in analysis: "Sacramento"
                 '.profile-column-left',  # This contained "DeKalb IL" in the test
                 '[data-testid="agent-location"]',
                 '.agent-location',
@@ -560,7 +577,10 @@ class BrightDataScraper:
             
             # Extract phone - try multiple approaches
             phone_selectors = [
+                'a.adp-phone-link',  # Found in analysis with tel: link
                 'a[href^="tel:"]',
+                '.cta-tablet-phone',  # Found in analysis
+                '.agent-footer-phone',  # Found in analysis
                 'button:has-text("Call")',
                 '[data-testid*="phone"]',
                 '[class*="phone"]',
