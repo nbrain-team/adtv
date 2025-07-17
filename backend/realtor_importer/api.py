@@ -4,6 +4,7 @@ from typing import List, Optional
 from datetime import datetime
 import threading
 import logging
+from sqlalchemy import text
 
 from core import auth
 from core.database import get_db, User, engine, ScrapingJob, RealtorContact
@@ -29,6 +30,47 @@ def ensure_task_processor_running():
         logger.info("Background task processor thread started")
     else:
         logger.info("Background task processor thread is already running")
+
+@router.post("/migrate-sales-columns")
+def migrate_sales_columns(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(auth.get_current_active_user),
+):
+    """
+    Add missing sales statistics columns to realtor_contacts table
+    """
+    try:
+        with engine.connect() as conn:
+            # Check if columns already exist
+            result = conn.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'realtor_contacts' 
+                AND column_name IN ('closed_sales', 'total_value', 'price_range', 'average_price')
+            """))
+            existing_columns = [row[0] for row in result]
+            
+            if len(existing_columns) == 4:
+                return {"message": "All sales columns already exist", "status": "no_change"}
+            
+            # Add missing columns
+            conn.execute(text("""
+                ALTER TABLE realtor_contacts 
+                ADD COLUMN IF NOT EXISTS closed_sales VARCHAR,
+                ADD COLUMN IF NOT EXISTS total_value VARCHAR,
+                ADD COLUMN IF NOT EXISTS price_range VARCHAR,
+                ADD COLUMN IF NOT EXISTS average_price VARCHAR;
+            """))
+            conn.commit()
+            
+            return {
+                "message": "Successfully added sales statistics columns", 
+                "status": "success",
+                "columns_added": ["closed_sales", "total_value", "price_range", "average_price"]
+            }
+    except Exception as e:
+        logger.error(f"Migration error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Migration failed: {str(e)}")
 
 @router.post("/", response_model=schemas.ScrapingJobResponse, status_code=202)
 def create_scraping_job(
