@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import os
 
 from .core.database import init_db
-from .api import campaign_routes
+from .api import campaign_routes, client_routes
 
 # Create FastAPI app
 app = FastAPI(
@@ -30,6 +30,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(campaign_routes.router, prefix="/api")
+app.include_router(client_routes.router, prefix="/api")
 
 @app.on_event("startup")
 async def startup_event():
