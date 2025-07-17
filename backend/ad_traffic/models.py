@@ -1,5 +1,5 @@
 from sqlalchemy import Column, String, DateTime, ForeignKey, Text, JSON, Integer, Float, Enum as SQLEnum
-from sqlalchemy.dialects.postgresql import UUID, ARRAY
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import uuid
@@ -30,8 +30,8 @@ class CampaignStatus(str, enum.Enum):
 class AdTrafficClient(Base):
     __tablename__ = "ad_traffic_clients"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, ForeignKey("users.id"), nullable=False)
     name = Column(String, nullable=False)
     company_name = Column(String)
     email = Column(String)
@@ -56,8 +56,8 @@ class AdTrafficClient(Base):
 class Campaign(Base):
     __tablename__ = "campaigns"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    client_id = Column(UUID(as_uuid=True), ForeignKey("ad_traffic_clients.id"), nullable=False)
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    client_id = Column(String, ForeignKey("ad_traffic_clients.id"), nullable=False)
     name = Column(String, nullable=False)
     original_video_url = Column(String, nullable=False)
     duration_weeks = Column(Integer, nullable=False)
@@ -77,8 +77,8 @@ class Campaign(Base):
 class VideoClip(Base):
     __tablename__ = "video_clips"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    campaign_id = Column(UUID(as_uuid=True), ForeignKey("campaigns.id"), nullable=False)
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    campaign_id = Column(String, ForeignKey("campaigns.id"), nullable=False)
     title = Column(String, nullable=False)
     description = Column(Text)
     duration = Column(Float, nullable=False)
@@ -99,10 +99,10 @@ class VideoClip(Base):
 class SocialPost(Base):
     __tablename__ = "social_posts"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    client_id = Column(UUID(as_uuid=True), ForeignKey("ad_traffic_clients.id"), nullable=False)
-    campaign_id = Column(UUID(as_uuid=True), ForeignKey("campaigns.id"))
-    video_clip_id = Column(UUID(as_uuid=True), ForeignKey("video_clips.id"))
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    client_id = Column(String, ForeignKey("ad_traffic_clients.id"), nullable=False)
+    campaign_id = Column(String, ForeignKey("campaigns.id"))
+    video_clip_id = Column(String, ForeignKey("video_clips.id"))
     content = Column(Text, nullable=False)
     platforms = Column(ARRAY(String), nullable=False)
     media_urls = Column(ARRAY(String), default=[])

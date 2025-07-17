@@ -9,14 +9,14 @@ from core.database import User
 
 
 # Client services
-def get_user_clients(db: Session, user_id: uuid.UUID) -> List[models.AdTrafficClient]:
+def get_user_clients(db: Session, user_id: str) -> List[models.AdTrafficClient]:
     """Get all clients for a user"""
     return db.query(models.AdTrafficClient).filter(
         models.AdTrafficClient.user_id == user_id
     ).order_by(models.AdTrafficClient.created_at.desc()).all()
 
 
-def get_client(db: Session, client_id: uuid.UUID, user_id: uuid.UUID) -> Optional[models.AdTrafficClient]:
+def get_client(db: Session, client_id: str, user_id: str) -> Optional[models.AdTrafficClient]:
     """Get a specific client by ID and user"""
     return db.query(models.AdTrafficClient).filter(
         models.AdTrafficClient.id == client_id,
@@ -24,7 +24,7 @@ def get_client(db: Session, client_id: uuid.UUID, user_id: uuid.UUID) -> Optiona
     ).first()
 
 
-def create_client(db: Session, client_data: schemas.ClientCreate, user_id: uuid.UUID) -> models.AdTrafficClient:
+def create_client(db: Session, client_data: schemas.ClientCreate, user_id: str) -> models.AdTrafficClient:
     """Create a new client"""
     client = models.AdTrafficClient(
         **client_data.dict(),
@@ -38,9 +38,9 @@ def create_client(db: Session, client_data: schemas.ClientCreate, user_id: uuid.
 
 def update_client(
     db: Session, 
-    client_id: uuid.UUID, 
+    client_id: str, 
     client_data: schemas.ClientUpdate, 
-    user_id: uuid.UUID
+    user_id: str
 ) -> Optional[models.AdTrafficClient]:
     """Update a client"""
     client = get_client(db, client_id, user_id)
@@ -57,7 +57,7 @@ def update_client(
     return client
 
 
-def delete_client(db: Session, client_id: uuid.UUID, user_id: uuid.UUID) -> bool:
+def delete_client(db: Session, client_id: str, user_id: str) -> bool:
     """Delete a client"""
     client = get_client(db, client_id, user_id)
     if not client:
@@ -71,7 +71,7 @@ def delete_client(db: Session, client_id: uuid.UUID, user_id: uuid.UUID) -> bool
 # Post services
 def get_client_posts(
     db: Session, 
-    client_id: uuid.UUID, 
+    client_id: str, 
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None
 ) -> List[models.SocialPost]:
@@ -89,7 +89,7 @@ def get_client_posts(
     return query.order_by(models.SocialPost.scheduled_time).all()
 
 
-def create_post(db: Session, post_data: schemas.PostCreate, client_id: uuid.UUID) -> models.SocialPost:
+def create_post(db: Session, post_data: schemas.PostCreate, client_id: str) -> models.SocialPost:
     """Create a new post"""
     post = models.SocialPost(
         **post_data.dict(),
@@ -108,9 +108,9 @@ def create_post(db: Session, post_data: schemas.PostCreate, client_id: uuid.UUID
 
 def update_post(
     db: Session, 
-    post_id: uuid.UUID, 
+    post_id: str, 
     post_data: schemas.PostUpdate,
-    user_id: uuid.UUID
+    user_id: str
 ) -> Optional[models.SocialPost]:
     """Update a post"""
     post = db.query(models.SocialPost).join(
@@ -133,7 +133,7 @@ def update_post(
     return post
 
 
-def delete_post(db: Session, post_id: uuid.UUID, user_id: uuid.UUID) -> bool:
+def delete_post(db: Session, post_id: str, user_id: str) -> bool:
     """Delete a post"""
     post = db.query(models.SocialPost).join(
         models.AdTrafficClient
@@ -154,7 +154,7 @@ def delete_post(db: Session, post_id: uuid.UUID, user_id: uuid.UUID) -> bool:
 def create_campaign(
     db: Session, 
     campaign_data: schemas.CampaignCreate,
-    client_id: uuid.UUID,
+    client_id: str,
     video_path: str
 ) -> models.Campaign:
     """Create a new campaign"""
@@ -171,8 +171,8 @@ def create_campaign(
 
 def get_campaign_with_clips(
     db: Session, 
-    campaign_id: uuid.UUID, 
-    user_id: uuid.UUID
+    campaign_id: str, 
+    user_id: str
 ) -> Optional[models.Campaign]:
     """Get campaign with video clips"""
     campaign = db.query(models.Campaign).join(
@@ -190,7 +190,7 @@ def get_campaign_with_clips(
 # Background processing
 async def process_campaign_video(
     db: Session,
-    campaign_id: uuid.UUID,
+    campaign_id: str,
     video_path: str,
     client: models.AdTrafficClient
 ):

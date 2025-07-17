@@ -35,7 +35,7 @@ async def create_client(
 
 @router.get("/clients/{client_id}", response_model=schemas.Client)
 async def get_client(
-    client_id: uuid.UUID,
+    client_id: str,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
@@ -48,7 +48,7 @@ async def get_client(
 
 @router.put("/clients/{client_id}", response_model=schemas.Client)
 async def update_client(
-    client_id: uuid.UUID,
+    client_id: str,
     client_update: schemas.ClientUpdate,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
@@ -62,7 +62,7 @@ async def update_client(
 
 @router.delete("/clients/{client_id}")
 async def delete_client(
-    client_id: uuid.UUID,
+    client_id: str,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
@@ -75,7 +75,7 @@ async def delete_client(
 # Post endpoints
 @router.get("/clients/{client_id}/calendar", response_model=List[schemas.SocialPost])
 async def get_client_posts(
-    client_id: uuid.UUID,
+    client_id: str,
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
     current_user: User = Depends(get_current_active_user),
@@ -101,7 +101,7 @@ async def get_client_posts(
 
 @router.post("/clients/{client_id}/posts", response_model=schemas.SocialPost)
 async def create_post(
-    client_id: uuid.UUID,
+    client_id: str,
     post: schemas.PostCreate,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
@@ -117,7 +117,7 @@ async def create_post(
 
 @router.put("/posts/{post_id}", response_model=schemas.SocialPost)
 async def update_post(
-    post_id: uuid.UUID,
+    post_id: str,
     post_update: schemas.PostUpdate,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
@@ -131,7 +131,7 @@ async def update_post(
 
 @router.delete("/posts/{post_id}")
 async def delete_post(
-    post_id: uuid.UUID,
+    post_id: str,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
@@ -144,7 +144,7 @@ async def delete_post(
 # Campaign endpoints
 @router.post("/clients/{client_id}/campaigns")
 async def create_campaign(
-    client_id: uuid.UUID,
+    client_id: str,
     background_tasks: BackgroundTasks,
     name: str = Form(...),
     duration_weeks: int = Form(...),
@@ -197,7 +197,7 @@ async def create_campaign(
 
 @router.get("/campaigns/{campaign_id}", response_model=schemas.CampaignWithClips)
 async def get_campaign(
-    campaign_id: uuid.UUID,
+    campaign_id: str,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):

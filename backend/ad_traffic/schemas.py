@@ -1,4 +1,4 @@
-from pydantic import BaseModel, UUID4, HttpUrl
+from pydantic import BaseModel, HttpUrl
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 from enum import Enum
@@ -47,8 +47,8 @@ class ClientUpdate(ClientBase):
 
 
 class Client(ClientBase):
-    id: UUID4
-    user_id: UUID4
+    id: str
+    user_id: str
     social_accounts: Dict[str, Any] = {}
     created_at: datetime
     updated_at: Optional[datetime] = None
@@ -70,8 +70,8 @@ class VideoClipBase(BaseModel):
 
 
 class VideoClip(VideoClipBase):
-    id: UUID4
-    campaign_id: UUID4
+    id: str
+    campaign_id: str
     video_url: str
     thumbnail_url: Optional[str] = None
     platform_versions: Dict[str, Any] = {}
@@ -87,7 +87,7 @@ class PostBase(BaseModel):
     platforms: List[Platform]
     scheduled_time: datetime
     media_urls: Optional[List[str]] = []
-    video_clip_id: Optional[UUID4] = None
+    video_clip_id: Optional[str] = None
 
 
 class PostCreate(PostBase):
@@ -102,9 +102,9 @@ class PostUpdate(PostBase):
 
 
 class SocialPost(PostBase):
-    id: UUID4
-    client_id: UUID4
-    campaign_id: Optional[UUID4] = None
+    id: str
+    client_id: str
+    campaign_id: Optional[str] = None
     video_clip: Optional[VideoClip] = None
     status: PostStatus
     published_at: Optional[datetime] = None
@@ -129,8 +129,8 @@ class CampaignCreate(CampaignBase):
 
 
 class Campaign(CampaignBase):
-    id: UUID4
-    client_id: UUID4
+    id: str
+    client_id: str
     original_video_url: str
     status: CampaignStatus
     progress: int = 0
