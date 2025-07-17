@@ -41,6 +41,7 @@ class User(Base):
 
     conversations = relationship("ChatSession", back_populates="user")
     template_agents = relationship("TemplateAgent", back_populates="creator", cascade="all, delete-orphan")
+    ad_traffic_clients = relationship("AdTrafficClient", back_populates="user", cascade="all, delete-orphan")
 
 
 class ChatSession(Base):

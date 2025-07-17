@@ -1,144 +1,119 @@
-from sqlalchemy import Column, String, Text, DateTime, ForeignKey, JSON, Boolean, Integer, Float, Enum as SAEnum
+from sqlalchemy import Column, String, DateTime, ForeignKey, Text, JSON, Integer, Float, Enum as SQLEnum
+from sqlalchemy.dialects.postgresql import UUID, ARRAY
 from sqlalchemy.orm import relationship
-from core.database import Base
+from sqlalchemy.sql import func
 import uuid
-from datetime import datetime
 import enum
 
-class PlatformType(enum.Enum):
+from backend.core.database import Base, User
+
+
+class Platform(str, enum.Enum):
     FACEBOOK = "facebook"
-    INSTAGRAM = "instagram"
+    INSTAGRAM = "instagram" 
     TIKTOK = "tiktok"
 
-class PostStatus(enum.Enum):
+
+class PostStatus(str, enum.Enum):
     DRAFT = "draft"
     SCHEDULED = "scheduled"
     PUBLISHED = "published"
     FAILED = "failed"
 
-class CampaignStatus(enum.Enum):
+
+class CampaignStatus(str, enum.Enum):
     PROCESSING = "processing"
     READY = "ready"
     FAILED = "failed"
 
+
 class AdTrafficClient(Base):
     __tablename__ = "ad_traffic_clients"
     
-    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    user_id = Column(String, ForeignKey("users.id"), nullable=False)
-    
-    # Basic Information
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     name = Column(String, nullable=False)
     company_name = Column(String)
     email = Column(String)
     phone = Column(String)
     website = Column(String)
-    
-    # Social Media Accounts (store connection details later)
-    social_accounts = Column(JSON, default=dict)  # {platform: account_info}
-    
-    # Additional Info
     industry = Column(String)
     description = Column(Text)
     brand_voice = Column(Text)
     target_audience = Column(Text)
-    brand_colors = Column(JSON)  # Array of hex colors
+    brand_colors = Column(ARRAY(String))
     logo_url = Column(String)
-    
-    # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    # Relationships
-    posts = relationship("SocialMediaPost", back_populates="client", cascade="all, delete-orphan")
-    campaigns = relationship("VideoClipCampaign", back_populates="client", cascade="all, delete-orphan")
-
-class SocialMediaPost(Base):
-    __tablename__ = "social_media_posts"
-    
-    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    client_id = Column(String, ForeignKey("ad_traffic_clients.id"), nullable=False)
-    campaign_id = Column(String, ForeignKey("video_clip_campaigns.id"), nullable=True)
-    
-    # Post Content
-    content = Column(Text, nullable=False)
-    platforms = Column(JSON, nullable=False)  # List of platforms ["facebook", "instagram", "tiktok"]
-    
-    # Media
-    media_urls = Column(JSON, default=list)  # List of image/video URLs
-    video_clip_id = Column(String, ForeignKey("video_clips.id"), nullable=True)
-    
-    # Scheduling
-    scheduled_time = Column(DateTime, nullable=False)
-    status = Column(SAEnum(PostStatus), default=PostStatus.DRAFT)
-    published_at = Column(DateTime, nullable=True)
-    
-    # Platform-specific data
-    platform_data = Column(JSON, default=dict)  # Store platform-specific modifications
-    
-    # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    social_accounts = Column(JSON, default={})
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
     # Relationships
-    client = relationship("AdTrafficClient", back_populates="posts")
-    campaign = relationship("VideoClipCampaign", back_populates="posts")
-    video_clip = relationship("VideoClip", back_populates="posts")
+    user = relationship("User", back_populates="ad_traffic_clients")
+    posts = relationship("SocialPost", back_populates="client", cascade="all, delete-orphan")
+    campaigns = relationship("Campaign", back_populates="client", cascade="all, delete-orphan")
 
-class VideoClipCampaign(Base):
-    __tablename__ = "video_clip_campaigns"
+
+class Campaign(Base):
+    __tablename__ = "campaigns"
     
-    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    client_id = Column(String, ForeignKey("ad_traffic_clients.id"), nullable=False)
-    
-    # Campaign Info
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    client_id = Column(UUID(as_uuid=True), ForeignKey("ad_traffic_clients.id"), nullable=False)
     name = Column(String, nullable=False)
     original_video_url = Column(String, nullable=False)
-    duration_weeks = Column(Integer, nullable=False)  # 1-8 weeks
-    platforms = Column(JSON, nullable=False)  # Selected platforms
-    
-    # Processing Status
-    status = Column(SAEnum(CampaignStatus), default=CampaignStatus.PROCESSING)
+    duration_weeks = Column(Integer, nullable=False)
+    platforms = Column(ARRAY(String), nullable=False)
+    status = Column(SQLEnum(CampaignStatus), default=CampaignStatus.PROCESSING)
     progress = Column(Integer, default=0)
-    error_message = Column(Text, nullable=True)
-    
-    # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    error_message = Column(Text)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
     # Relationships
     client = relationship("AdTrafficClient", back_populates="campaigns")
-    clips = relationship("VideoClip", back_populates="campaign", cascade="all, delete-orphan")
-    posts = relationship("SocialMediaPost", back_populates="campaign")
+    video_clips = relationship("VideoClip", back_populates="campaign", cascade="all, delete-orphan")
+    posts = relationship("SocialPost", back_populates="campaign")
+
 
 class VideoClip(Base):
     __tablename__ = "video_clips"
     
-    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    campaign_id = Column(String, ForeignKey("video_clip_campaigns.id"), nullable=False)
-    
-    # Clip Info
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    campaign_id = Column(UUID(as_uuid=True), ForeignKey("campaigns.id"), nullable=False)
     title = Column(String, nullable=False)
     description = Column(Text)
-    duration = Column(Float, nullable=False)  # seconds
-    start_time = Column(Float, nullable=False)  # seconds from original
-    end_time = Column(Float, nullable=False)  # seconds from original
-    
-    # File paths
+    duration = Column(Float, nullable=False)
+    start_time = Column(Float, nullable=False)
+    end_time = Column(Float, nullable=False)
     video_url = Column(String, nullable=False)
     thumbnail_url = Column(String)
-    
-    # Platform optimization
-    platform_versions = Column(JSON, default=dict)  # {platform: {url, aspect_ratio, etc}}
-    
-    # AI-generated content
+    platform_versions = Column(JSON, default={})
     suggested_caption = Column(Text)
-    suggested_hashtags = Column(JSON, default=list)
-    content_type = Column(String)  # testimonial, showcase, process, etc
-    
-    # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow)
+    suggested_hashtags = Column(ARRAY(String), default=[])
+    content_type = Column(String)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     # Relationships
-    campaign = relationship("VideoClipCampaign", back_populates="clips")
-    posts = relationship("SocialMediaPost", back_populates="video_clip") 
+    campaign = relationship("Campaign", back_populates="video_clips")
+
+
+class SocialPost(Base):
+    __tablename__ = "social_posts"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    client_id = Column(UUID(as_uuid=True), ForeignKey("ad_traffic_clients.id"), nullable=False)
+    campaign_id = Column(UUID(as_uuid=True), ForeignKey("campaigns.id"))
+    video_clip_id = Column(UUID(as_uuid=True), ForeignKey("video_clips.id"))
+    content = Column(Text, nullable=False)
+    platforms = Column(ARRAY(String), nullable=False)
+    media_urls = Column(ARRAY(String), default=[])
+    scheduled_time = Column(DateTime(timezone=True), nullable=False)
+    status = Column(SQLEnum(PostStatus), default=PostStatus.DRAFT)
+    published_at = Column(DateTime(timezone=True))
+    platform_data = Column(JSON, default={})
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Relationships
+    client = relationship("AdTrafficClient", back_populates="posts")
+    campaign = relationship("Campaign", back_populates="posts")
+    video_clip = relationship("VideoClip") 

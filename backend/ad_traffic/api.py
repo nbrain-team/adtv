@@ -1,317 +1,208 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks, Form
-from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import and_, or_
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks
+from sqlalchemy.orm import Session
 from typing import List, Optional
-from datetime import datetime, timedelta
-import os
+from datetime import datetime
 import uuid
+import os
 import shutil
 
-from core import auth
-from core.database import get_db, User
-from . import schemas
-from . import models
-from . import video_processor
+from backend.core.database import get_db, User
+from backend.core.auth import get_current_user
+from . import models, schemas, services
 
-router = APIRouter()
+router = APIRouter(prefix="/api/ad-traffic", tags=["ad-traffic"])
 
-# Ensure upload directory exists
-UPLOAD_DIR = "uploads/ad_traffic"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # Client endpoints
-@router.get("/clients", response_model=List[schemas.ClientResponse])
+@router.get("/clients", response_model=List[schemas.Client])
 async def get_clients(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     """Get all clients for the current user"""
-    clients = db.query(models.AdTrafficClient).filter(
-        models.AdTrafficClient.user_id == current_user.id
-    ).order_by(models.AdTrafficClient.created_at.desc()).all()
-    
-    return clients
+    return services.get_user_clients(db, current_user.id)
 
-@router.post("/clients", response_model=schemas.ClientResponse)
+
+@router.post("/clients", response_model=schemas.Client)
 async def create_client(
-    client_data: schemas.ClientCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user),
+    client: schemas.ClientCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     """Create a new client"""
-    client = models.AdTrafficClient(
-        **client_data.dict(),
-        user_id=current_user.id
-    )
-    db.add(client)
-    db.commit()
-    db.refresh(client)
-    return client
+    return services.create_client(db, client, current_user.id)
 
-@router.put("/clients/{client_id}", response_model=schemas.ClientResponse)
-async def update_client(
-    client_id: str,
-    client_data: schemas.ClientUpdate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user),
+
+@router.get("/clients/{client_id}", response_model=schemas.Client)
+async def get_client(
+    client_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
-    """Update a client"""
-    client = db.query(models.AdTrafficClient).filter(
-        models.AdTrafficClient.id == client_id,
-        models.AdTrafficClient.user_id == current_user.id
-    ).first()
-    
+    """Get a specific client"""
+    client = services.get_client(db, client_id, current_user.id)
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
-    
-    update_data = client_data.dict(exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(client, field, value)
-    
-    client.updated_at = datetime.utcnow()
-    db.commit()
-    db.refresh(client)
     return client
+
+
+@router.put("/clients/{client_id}", response_model=schemas.Client)
+async def update_client(
+    client_id: uuid.UUID,
+    client_update: schemas.ClientUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Update a client"""
+    client = services.update_client(db, client_id, client_update, current_user.id)
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+    return client
+
 
 @router.delete("/clients/{client_id}")
 async def delete_client(
-    client_id: str,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user),
+    client_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     """Delete a client"""
-    client = db.query(models.AdTrafficClient).filter(
-        models.AdTrafficClient.id == client_id,
-        models.AdTrafficClient.user_id == current_user.id
-    ).first()
-    
-    if not client:
+    if not services.delete_client(db, client_id, current_user.id):
         raise HTTPException(status_code=404, detail="Client not found")
-    
-    db.delete(client)
-    db.commit()
     return {"message": "Client deleted successfully"}
 
-# Calendar/Posts endpoints
-@router.get("/clients/{client_id}/calendar", response_model=List[schemas.CalendarPostResponse])
-async def get_client_calendar(
-    client_id: str,
+
+# Post endpoints
+@router.get("/clients/{client_id}/calendar", response_model=List[schemas.SocialPost])
+async def get_client_posts(
+    client_id: uuid.UUID,
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
-    """Get calendar posts for a client"""
+    """Get all posts for a client within date range"""
     # Verify client ownership
-    client = db.query(models.AdTrafficClient).filter(
-        models.AdTrafficClient.id == client_id,
-        models.AdTrafficClient.user_id == current_user.id
-    ).first()
-    
+    client = services.get_client(db, client_id, current_user.id)
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
     
-    # Build query
-    query = db.query(models.SocialMediaPost).options(
-        joinedload(models.SocialMediaPost.video_clip),
-        joinedload(models.SocialMediaPost.campaign)
-    ).filter(models.SocialMediaPost.client_id == client_id)
+    posts = services.get_client_posts(db, client_id, start_date, end_date)
     
-    if start_date:
-        query = query.filter(models.SocialMediaPost.scheduled_time >= start_date)
-    if end_date:
-        query = query.filter(models.SocialMediaPost.scheduled_time <= end_date)
-    
-    posts = query.order_by(models.SocialMediaPost.scheduled_time).all()
-    
-    # Format response
-    calendar_posts = []
+    # Add campaign names to posts
     for post in posts:
-        calendar_post = schemas.CalendarPostResponse(
-            id=post.id,
-            content=post.content,
-            platforms=post.platforms,
-            scheduled_time=post.scheduled_time,
-            status=post.status.value,
-            media_urls=post.media_urls or [],
-            video_clip=post.video_clip,
-            campaign_name=post.campaign.name if post.campaign else None
-        )
-        calendar_posts.append(calendar_post)
+        if post.campaign_id:
+            campaign = db.query(models.Campaign).filter_by(id=post.campaign_id).first()
+            if campaign:
+                post.campaign_name = campaign.name
     
-    return calendar_posts
+    return posts
 
-@router.post("/clients/{client_id}/posts", response_model=schemas.PostResponse)
+
+@router.post("/clients/{client_id}/posts", response_model=schemas.SocialPost)
 async def create_post(
-    client_id: str,
-    post_data: schemas.PostCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user),
+    client_id: uuid.UUID,
+    post: schemas.PostCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
-    """Create a single social media post"""
+    """Create a new post for a client"""
     # Verify client ownership
-    client = db.query(models.AdTrafficClient).filter(
-        models.AdTrafficClient.id == client_id,
-        models.AdTrafficClient.user_id == current_user.id
-    ).first()
-    
+    client = services.get_client(db, client_id, current_user.id)
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
     
-    post = models.SocialMediaPost(
-        **post_data.dict(),
-        client_id=client_id
-    )
-    db.add(post)
-    db.commit()
-    db.refresh(post)
-    return post
+    return services.create_post(db, post, client_id)
 
-@router.put("/posts/{post_id}", response_model=schemas.PostResponse)
+
+@router.put("/posts/{post_id}", response_model=schemas.SocialPost)
 async def update_post(
-    post_id: str,
-    post_data: schemas.PostUpdate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user),
+    post_id: uuid.UUID,
+    post_update: schemas.PostUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
-    """Update a social media post"""
-    # Get post and verify ownership through client
-    post = db.query(models.SocialMediaPost).join(
-        models.AdTrafficClient
-    ).filter(
-        models.SocialMediaPost.id == post_id,
-        models.AdTrafficClient.user_id == current_user.id
-    ).first()
-    
+    """Update a post"""
+    post = services.update_post(db, post_id, post_update, current_user.id)
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
-    
-    update_data = post_data.dict(exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(post, field, value)
-    
-    post.updated_at = datetime.utcnow()
-    db.commit()
-    db.refresh(post)
     return post
+
 
 @router.delete("/posts/{post_id}")
 async def delete_post(
-    post_id: str,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user),
+    post_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
-    """Delete a social media post"""
-    # Get post and verify ownership through client
-    post = db.query(models.SocialMediaPost).join(
-        models.AdTrafficClient
-    ).filter(
-        models.SocialMediaPost.id == post_id,
-        models.AdTrafficClient.user_id == current_user.id
-    ).first()
-    
-    if not post:
+    """Delete a post"""
+    if not services.delete_post(db, post_id, current_user.id):
         raise HTTPException(status_code=404, detail="Post not found")
-    
-    db.delete(post)
-    db.commit()
     return {"message": "Post deleted successfully"}
 
+
 # Campaign endpoints
-@router.post("/clients/{client_id}/campaigns", response_model=schemas.CampaignResponse)
+@router.post("/clients/{client_id}/campaigns")
 async def create_campaign(
-    client_id: str,
+    client_id: uuid.UUID,
     background_tasks: BackgroundTasks,
-    campaign_data: schemas.CampaignCreate = Depends(),
+    name: str = Form(...),
+    duration_weeks: int = Form(...),
+    platforms: List[str] = Form(...),
     video: UploadFile = File(...),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
-    """Create a video clip campaign"""
+    """Create a new video campaign"""
     # Verify client ownership
-    client = db.query(models.AdTrafficClient).filter(
-        models.AdTrafficClient.id == client_id,
-        models.AdTrafficClient.user_id == current_user.id
-    ).first()
-    
+    client = services.get_client(db, client_id, current_user.id)
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
     
     # Validate video file
     if not video.content_type.startswith("video/"):
-        raise HTTPException(status_code=400, detail="Invalid file type. Please upload a video file.")
+        raise HTTPException(status_code=400, detail="Invalid video file")
     
     # Save video file
-    campaign_id = str(uuid.uuid4())
+    upload_dir = f"uploads/campaigns/{client_id}"
+    os.makedirs(upload_dir, exist_ok=True)
+    
     file_extension = os.path.splitext(video.filename)[1]
-    video_path = os.path.join(UPLOAD_DIR, f"campaign_{campaign_id}{file_extension}")
+    video_filename = f"{uuid.uuid4()}{file_extension}"
+    video_path = os.path.join(upload_dir, video_filename)
     
     with open(video_path, "wb") as buffer:
         shutil.copyfileobj(video.file, buffer)
     
     # Create campaign
-    campaign = models.VideoClipCampaign(
-        id=campaign_id,
-        client_id=client_id,
-        name=campaign_data.name,
-        original_video_url=video_path,
-        duration_weeks=campaign_data.duration_weeks,
-        platforms=[p.value for p in campaign_data.platforms]
+    campaign_data = schemas.CampaignCreate(
+        name=name,
+        duration_weeks=duration_weeks,
+        platforms=[schemas.Platform(p) for p in platforms]
     )
-    db.add(campaign)
-    db.commit()
-    db.refresh(campaign)
+    
+    campaign = services.create_campaign(db, campaign_data, client_id, video_path)
     
     # Start background processing
     background_tasks.add_task(
-        video_processor.process_campaign,
-        campaign_id=campaign_id,
-        video_path=video_path,
-        platforms=campaign_data.platforms,
-        duration_weeks=campaign_data.duration_weeks
+        services.process_campaign_video,
+        db,
+        campaign.id,
+        video_path,
+        client
     )
     
     return campaign
 
-@router.get("/campaigns/{campaign_id}", response_model=schemas.CampaignResponse)
-async def get_campaign(
-    campaign_id: str,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user),
-):
-    """Get campaign details"""
-    campaign = db.query(models.VideoClipCampaign).join(
-        models.AdTrafficClient
-    ).filter(
-        models.VideoClipCampaign.id == campaign_id,
-        models.AdTrafficClient.user_id == current_user.id
-    ).first()
-    
-    if not campaign:
-        raise HTTPException(status_code=404, detail="Campaign not found")
-    
-    return campaign
 
-@router.get("/campaigns/{campaign_id}/clips", response_model=List[schemas.VideoClipResponse])
-async def get_campaign_clips(
-    campaign_id: str,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user),
+@router.get("/campaigns/{campaign_id}", response_model=schemas.CampaignWithClips)
+async def get_campaign(
+    campaign_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
-    """Get all clips from a campaign"""
-    # Verify ownership
-    campaign = db.query(models.VideoClipCampaign).join(
-        models.AdTrafficClient
-    ).filter(
-        models.VideoClipCampaign.id == campaign_id,
-        models.AdTrafficClient.user_id == current_user.id
-    ).first()
-    
+    """Get campaign with its video clips"""
+    campaign = services.get_campaign_with_clips(db, campaign_id, current_user.id)
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
-    
-    clips = db.query(models.VideoClip).filter(
-        models.VideoClip.campaign_id == campaign_id
-    ).all()
-    
-    return clips 
+    return campaign 

@@ -75,6 +75,11 @@ export const Sidebar = ({ onNewChat }: { onNewChat: () => void }) => {
                         <img src="/new-icons/15.png" alt="Realtor" />
                     </button>
                 )}
+                {hasPermission('ad-traffic') && (
+                    <button className="sidebar-icon" title="Ad Traffic" onClick={() => navigate('/ad-traffic')}>
+                        <img src="/new-icons/5.png" alt="Ad Traffic" />
+                    </button>
+                )}
                 {userProfile?.role === 'admin' && (
                     <button className="sidebar-icon" title="Email Templates" onClick={() => navigate('/template-manager')}>
                         <img src="/new-icons/9.png" alt="Email Templates" />
