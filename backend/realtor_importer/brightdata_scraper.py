@@ -506,30 +506,47 @@ class BrightDataScraper:
             company_found = False
             for selector in company_selectors:
                 try:
-                    elements = await page.locator(selector).all()
-                    logger.info(f"Trying company selector '{selector}' - found {len(elements)} elements")
-                    
-                    for elem in elements:
-                        try:
+                    if selector == '.agency-name':
+                        # For agency-name, just get the first one
+                        elem = page.locator(selector).first
+                        if await elem.count() > 0:
                             company_text = (await elem.inner_text()).strip()
-                            if company_text and len(company_text) > 2:
-                                # If selector is .agency-name, take it directly
-                                if selector == '.agency-name':
+                            if company_text:
+                                data['company'] = company_text
+                                logger.info(f"Found company with selector '{selector}': {company_text}")
+                                company_found = True
+                                break
+                    elif selector == '.profile-column-left':
+                        # For profile-column-left, we need to extract just the company from the structure
+                        elem = await page.locator(selector).first
+                        if await elem.count() > 0:
+                            # Look for agency-name within this element
+                            agency_elem = await elem.locator('.agency-name').first
+                            if await agency_elem.count() > 0:
+                                company_text = (await agency_elem.inner_text()).strip()
+                                if company_text:
                                     data['company'] = company_text
-                                    logger.info(f"Found company with selector '{selector}': {company_text}")
+                                    logger.info(f"Found company within profile-column-left: {company_text}")
                                     company_found = True
                                     break
-                                # Otherwise, look for company keywords
-                                elif any(keyword in company_text.lower() for keyword in ['century', 'remax', 'coldwell', 'realty', 'real estate', 'properties', 'group', 'llc', 'inc', 'corp', 'agency', 'brokers']):
-                                    data['company'] = company_text
-                                    logger.info(f"Found company with selector '{selector}': {company_text}")
-                                    company_found = True
-                                    break
-                        except:
-                            continue
-                    
-                    if company_found:
-                        break
+                    else:
+                        # For other selectors, use the original logic
+                        elements = await page.locator(selector).all()
+                        for elem in elements:
+                            try:
+                                company_text = (await elem.inner_text()).strip()
+                                if company_text and len(company_text) > 2:
+                                    # Look for company keywords
+                                    if any(keyword in company_text.lower() for keyword in ['century', 'remax', 'coldwell', 'realty', 'real estate', 'properties', 'group', 'llc', 'inc', 'corp', 'agency', 'brokers']):
+                                        data['company'] = company_text
+                                        logger.info(f"Found company with selector '{selector}': {company_text}")
+                                        company_found = True
+                                        break
+                            except:
+                                continue
+                        
+                        if company_found:
+                            break
                 except Exception as e:
                     logger.debug(f"Error with company selector {selector}: {e}")
                     continue
@@ -537,57 +554,71 @@ class BrightDataScraper:
             if not company_found:
                 logger.warning(f"Could not find company on {profile_url}")
             
-            # Extract location - expanded selectors
-            location_selectors = [
-                '.location',  # Found in analysis: "Sacramento CA"
-                'span.city',  # Found in analysis: "Sacramento"
-                '.profile-column-left',  # This contained "DeKalb IL" in the test
-                '[data-testid="agent-location"]',
-                '.agent-location',
-                '.agent-address',
-                '[class*="location"]',
-                '[class*="address"]',
-                '.agent-details .location',
-                '.profile-location',
-                '.AgentLocation',
-                'address'
-            ]
-            
+            # Extract location - handle the specific div.location structure
             location_found = False
-            for selector in location_selectors:
-                try:
-                    elem = await page.locator(selector).first
-                    if await elem.count() > 0:
-                        text = (await elem.inner_text()).strip()
-                        if text and len(text) > 2:
-                            logger.info(f"Found location text with selector '{selector}': {text}")
-                            
-                            # For .location selector, text is like "Sacramento CA"
-                            if selector == '.location' and ' ' in text:
-                                parts = text.rsplit(' ', 1)  # Split from right to get state
-                                if len(parts) == 2:
-                                    data['city'] = parts[0].strip()
-                                    data['state'] = parts[1].strip()
-                                    location_found = True
-                                    logger.info(f"Extracted city: {data['city']}, state: {data['state']}")
-                                    break
-                            # For city selector
-                            elif selector == 'span.city':
-                                data['city'] = text
-                                # Try to find state in parent or sibling
-                                try:
-                                    parent = await elem.locator('..').first
-                                    parent_text = await parent.inner_text()
-                                    # Extract state code (2 uppercase letters)
-                                    import re
-                                    state_match = re.search(r'\b([A-Z]{2})\b', parent_text)
-                                    if state_match:
-                                        data['state'] = state_match.group(1)
-                                        location_found = True
-                                        break
-                                except:
-                                    pass
-                            else:
+            
+            # First try the specific structure with div.location containing city and state spans
+            try:
+                # Use wait_for to ensure element is ready
+                location_elem = page.locator('div.location').first
+                if await location_elem.count() > 0:
+                    # Get the full text first
+                    location_text = (await location_elem.inner_text()).strip()
+                    logger.info(f"Found location div with text: {location_text}")
+                    
+                    # Try to get city from span.city
+                    try:
+                        city_elem = location_elem.locator('span.city').first
+                        if await city_elem.count() > 0:
+                            data['city'] = (await city_elem.inner_text()).strip()
+                            logger.info(f"Found city: {data['city']}")
+                    except:
+                        pass
+                    
+                    # Try to get state from span.state
+                    try:
+                        state_elem = location_elem.locator('span.state').first
+                        if await state_elem.count() > 0:
+                            data['state'] = (await state_elem.inner_text()).strip()
+                            logger.info(f"Found state: {data['state']}")
+                    except:
+                        pass
+                    
+                    # If spans didn't work, try parsing the text
+                    if not data.get('city') and not data.get('state') and location_text:
+                        # Text is like "Sacramento CA"
+                        parts = location_text.rsplit(' ', 1)
+                        if len(parts) == 2:
+                            data['city'] = parts[0].strip()
+                            data['state'] = parts[1].strip()
+                            logger.info(f"Parsed location from text: {data['city']}, {data['state']}")
+                    
+                    if data.get('city') or data.get('state'):
+                        location_found = True
+            except Exception as e:
+                logger.debug(f"Error extracting location from div.location: {e}")
+            
+            # If not found, try other selectors
+            if not location_found:
+                location_selectors = [
+                    '.profile-column-left',
+                    '[data-testid="agent-location"]',
+                    '.agent-location',
+                    '.agent-address',
+                    '[class*="location"]',
+                    '[class*="address"]',
+                    '.agent-details .location',
+                    '.profile-location',
+                    '.AgentLocation',
+                    'address'
+                ]
+                
+                for selector in location_selectors:
+                    try:
+                        elem = await page.locator(selector).first
+                        if await elem.count() > 0:
+                            text = (await elem.inner_text()).strip()
+                            if text and len(text) > 2:
                                 # Look for city/state pattern in the text
                                 import re
                                 city_state_match = re.search(r'([A-Za-z\s]+?)\s+([A-Z]{2})(?:\s|$)', text)
@@ -597,9 +628,9 @@ class BrightDataScraper:
                                     logger.info(f"Found location with selector '{selector}': {data['city']}, {data['state']}")
                                     location_found = True
                                     break
-                except Exception as e:
-                    logger.debug(f"Error with location selector {selector}: {e}")
-                    continue
+                    except Exception as e:
+                        logger.debug(f"Error with location selector {selector}: {e}")
+                        continue
             
             if not location_found:
                 logger.warning(f"Could not find location on {profile_url}")
@@ -657,48 +688,81 @@ class BrightDataScraper:
             if not phone_found:
                 logger.warning(f"Could not find phone on {profile_url}")
             
-            # Extract email
+            # Extract agent website
+            website_found = False
+            
             try:
-                email_elem = await page.locator('a[href^="mailto:"]').first
-                if await email_elem.count() > 0:
-                    href = await email_elem.get_attribute('href')
-                    data['email'] = href.replace('mailto:', '') if href else None
-                    logger.info(f"Found email: {data['email']}")
-            except:
-                pass
+                # Look for the specific website-link class
+                website_elem = page.locator('a.website-link[href]').first
+                if await website_elem.count() > 0:
+                    website_url = await website_elem.get_attribute('href')
+                    if website_url:
+                        data['fb_or_website'] = website_url
+                        website_found = True
+                        logger.info(f"Found agent website: {website_url}")
+                
+                # If not found, try other website selectors
+                if not website_found:
+                    website_selectors = [
+                        'a:has-text("Agent Website")',
+                        'a[aria-label*="Website"]',
+                        'a[title*="Website"]',
+                        'a[href*="metrolistpro.com"]',  # Specific to some agents
+                        'a[target="_blank"][rel*="noopener"]'
+                    ]
+                    
+                    for selector in website_selectors:
+                        try:
+                            elem = await page.locator(selector).first
+                            if await elem.count() > 0:
+                                href = await elem.get_attribute('href')
+                                # Make sure it's not a social media link or the homes.com profile
+                                if href and not any(social in href for social in ['facebook.com', 'twitter.com', 'linkedin.com', 'instagram.com', 'homes.com']):
+                                    data['fb_or_website'] = href
+                                    website_found = True
+                                    logger.info(f"Found agent website with selector '{selector}': {href}")
+                                    break
+                        except:
+                            continue
+            except Exception as e:
+                logger.debug(f"Error extracting website: {e}")
             
-            # Extract experience years - multiple patterns
-            exp_patterns = [
-                ':has-text("Years Experience")',
-                ':has-text("years of experience")',
-                ':has-text("Years in Business")',
-                ':has-text("Experience:")',
-                '[class*="experience"]',
-                'text=/\\d+\\s*years?/i'
-            ]
-            
-            for pattern in exp_patterns:
-                try:
-                    elem = await page.locator(pattern).first
-                    if await elem.count() > 0:
-                        text = await elem.inner_text()
-                        import re
-                        years = re.search(r'(\d+)', text)
-                        if years:
-                            data['years_exp'] = int(years.group(1))
-                            logger.info(f"Found experience: {data['years_exp']} years")
-                            break
-                except:
-                    continue
-            
-            # Try to extract social links
+            # Extract sales statistics
             try:
-                fb_elem = await page.locator('a[href*="facebook.com"]').first
-                if await fb_elem.count() > 0:
-                    data['fb_or_website'] = await fb_elem.get_attribute('href')
-                    logger.info(f"Found Facebook: {data['fb_or_website']}")
-            except:
-                pass
+                stats_container = page.locator('div.stats-container').first
+                if await stats_container.count() > 0:
+                    # Extract all stat items
+                    stat_items = await stats_container.locator('.stat-item').all()
+                    
+                    for item in stat_items:
+                        try:
+                            # Get the value (info-bold) and label (info-light)
+                            value_elem = item.locator('.info-bold').first
+                            label_elem = item.locator('.info-light').first
+                            
+                            if await value_elem.count() > 0 and await label_elem.count() > 0:
+                                value = (await value_elem.inner_text()).strip()
+                                label = (await label_elem.inner_text()).strip().lower()
+                                
+                                # Map the stats to data fields
+                                if 'closed sales' in label:
+                                    data['closed_sales'] = value
+                                    logger.info(f"Found closed sales: {value}")
+                                elif 'total value' in label:
+                                    data['total_value'] = value
+                                    logger.info(f"Found total value: {value}")
+                                elif 'price range' in label:
+                                    data['price_range'] = value
+                                    logger.info(f"Found price range: {value}")
+                                elif 'average price' in label:
+                                    data['average_price'] = value
+                                    logger.info(f"Found average price: {value}")
+                        except:
+                            continue
+                            
+                    logger.info(f"Successfully extracted sales statistics - closed_sales: {data.get('closed_sales')}, total_value: {data.get('total_value')}, price_range: {data.get('price_range')}, average_price: {data.get('average_price')}")
+            except Exception as e:
+                logger.debug(f"Error extracting sales statistics: {e}")
             
             # Set defaults for missing fields
             data.setdefault('dma', None)
@@ -710,7 +774,7 @@ class BrightDataScraper:
             logger.info(f"  Company: {data.get('company', 'None')}")
             logger.info(f"  Location: {data.get('city', 'None')}, {data.get('state', 'None')}")
             logger.info(f"  Phone: {data.get('cell_phone', 'None')}")
-            logger.info(f"  Email: {data.get('email', 'None')}")
+            logger.info(f"  Website: {data.get('fb_or_website', 'N/A')}")
             
             return data
             
@@ -770,6 +834,12 @@ async def scrape_with_brightdata(list_url: str, max_profiles: int = 10, batch_ca
                 logger.info(f"  Company: {profile_data.get('company', 'N/A')}")
                 logger.info(f"  Location: {profile_data.get('city', 'N/A')}, {profile_data.get('state', 'N/A')}")
                 logger.info(f"  Phone: {profile_data.get('cell_phone', 'N/A')}")
+                logger.info(f"  Website: {profile_data.get('fb_or_website', 'N/A')}")
+                logger.info(f"  Sales Stats:")
+                logger.info(f"    - Closed Sales: {profile_data.get('closed_sales', 'None')}")
+                logger.info(f"    - Total Value: {profile_data.get('total_value', 'None')}")
+                logger.info(f"    - Price Range: {profile_data.get('price_range', 'None')}")
+                logger.info(f"    - Average Price: {profile_data.get('average_price', 'None')}")
                 
                 results.append(profile_data)
                 batch_data.append(profile_data)

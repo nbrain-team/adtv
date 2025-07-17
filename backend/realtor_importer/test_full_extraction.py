@@ -26,9 +26,28 @@ async def test_full_extraction():
     print("="*80)
     
     if result:
+        # Display key fields first
+        key_fields = ['first_name', 'last_name', 'company', 'city', 'state', 'cell_phone', 'fb_or_website']
+        print("\nKEY INFORMATION:")
+        for key in key_fields:
+            if key in result:
+                status = "✓" if result.get(key) else "✗"
+                print(f"{status} {key}: {result.get(key)}")
+        
+        # Display sales stats
+        print("\nSALES STATISTICS:")
+        sales_fields = ['closed_sales', 'total_value', 'price_range', 'average_price']
+        for key in sales_fields:
+            if key in result:
+                status = "✓" if result.get(key) else "✗"
+                print(f"{status} {key}: {result.get(key)}")
+        
+        # Display other fields
+        print("\nOTHER FIELDS:")
         for key, value in result.items():
-            status = "✓" if value else "✗"
-            print(f"{status} {key}: {value}")
+            if key not in key_fields and key not in sales_fields:
+                status = "✓" if value else "✗"
+                print(f"{status} {key}: {value}")
     else:
         print("✗ Failed to extract any data")
     
@@ -50,9 +69,28 @@ async def test_full_extraction():
         result2 = await scraper.scrape_agent_profile(profile_urls[1])
         if result2:
             print("\nEXTRACTION RESULTS:")
+            # Display key fields first
+            key_fields = ['first_name', 'last_name', 'company', 'city', 'state', 'cell_phone', 'fb_or_website']
+            print("\nKEY INFORMATION:")
+            for key in key_fields:
+                if key in result2:
+                    status = "✓" if result2.get(key) else "✗"
+                    print(f"{status} {key}: {result2.get(key)}")
+            
+            # Display sales stats
+            print("\nSALES STATISTICS:")
+            sales_fields = ['closed_sales', 'total_value', 'price_range', 'average_price']
+            for key in sales_fields:
+                if key in result2:
+                    status = "✓" if result2.get(key) else "✗"
+                    print(f"{status} {key}: {result2.get(key)}")
+            
+            # Display other fields
+            print("\nOTHER FIELDS:")
             for key, value in result2.items():
-                status = "✓" if value else "✗"
-                print(f"{status} {key}: {value}")
+                if key not in key_fields and key not in sales_fields:
+                    status = "✓" if value else "✗"
+                    print(f"{status} {key}: {value}")
 
 if __name__ == "__main__":
     asyncio.run(test_full_extraction()) 
