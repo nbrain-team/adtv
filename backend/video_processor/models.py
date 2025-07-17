@@ -9,6 +9,7 @@ class VideoProcessingJob(Base):
     
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    client_id = Column(String, ForeignKey("ad_traffic_clients.id"), nullable=True)  # Link to client
     filename = Column(String, nullable=False)
     file_path = Column(String, nullable=False)
     status = Column(String, default="pending")  # pending, analyzing, extracting, complete, failed
@@ -26,6 +27,7 @@ class VideoClip(Base):
     
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     job_id = Column(String, ForeignKey("video_processing_jobs.id"), nullable=False)
+    client_id = Column(String, ForeignKey("ad_traffic_clients.id"), nullable=True)  # Link to client
     title = Column(String, nullable=False)
     description = Column(Text)
     duration = Column(Float, nullable=False)
@@ -38,4 +40,5 @@ class VideoClip(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relationships
-    job = relationship("VideoProcessingJob", back_populates="clips") 
+    job = relationship("VideoProcessingJob", back_populates="clips")
+    client = relationship("AdTrafficClient", back_populates="video_clips") 

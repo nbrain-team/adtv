@@ -5,6 +5,7 @@ import { GeneratorWorkflow } from '../components/GeneratorWorkflow';
 import { RealtorImporterWorkflow } from '../components/RealtorImporter/RealtorImporterWorkflow';
 import { TemplateAgentCreator } from '../components/TemplateAgentCreator';
 import { VideoClipExtractorWorkflow } from '../components/VideoClipExtractor/VideoClipExtractorWorkflow';
+import { AdTrafficPage } from '../components/AdTraffic/AdTrafficPage';
 import { MainLayout } from '../components/MainLayout';
 import { useNavigate } from 'react-router-dom';
 
@@ -18,6 +19,12 @@ interface Agent {
 
 // Array of available agents
 const agents: Agent[] = [
+  {
+    id: 'ad-traffic',
+    name: 'Ad Traffic Manager',
+    description: 'Manage clients and their social media campaigns with AI-powered video clips.',
+    component: <AdTrafficPage />,
+  },
   {
     id: 'email-personalizer',
     name: '1-2-1 Email Personalizer',

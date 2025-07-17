@@ -23,6 +23,7 @@ async def upload_video(
     background_tasks: BackgroundTasks,
     video: UploadFile = File(...),
     platforms: str = "instagram,youtube,facebook",
+    client_id: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(auth.get_current_active_user),
 ):
@@ -48,6 +49,7 @@ async def upload_video(
     job = models.VideoProcessingJob(
         id=job_id,
         user_id=current_user.id,
+        client_id=client_id,  # Link to client if provided
         filename=video.filename,
         file_path=video_path,
         status="analyzing",
@@ -62,7 +64,8 @@ async def upload_video(
         processor.process_video,
         job_id=job_id,
         video_path=video_path,
-        platforms=platforms.split(",")
+        platforms=platforms.split(","),
+        client_id=client_id  # Pass client_id to processor
     )
     
     return schemas.VideoJobResponse(
