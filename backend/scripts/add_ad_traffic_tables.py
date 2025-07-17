@@ -50,7 +50,7 @@ def add_ad_traffic_tables():
             CREATE TABLE IF NOT EXISTS scheduled_posts (
                 id VARCHAR PRIMARY KEY,
                 client_id VARCHAR NOT NULL REFERENCES ad_traffic_clients(id) ON DELETE CASCADE,
-                campaign_id VARCHAR REFERENCES campaigns(id),
+                campaign_id VARCHAR,
                 content TEXT NOT NULL,
                 media_urls JSON,
                 video_clip_ids JSON,
@@ -71,18 +71,16 @@ def add_ad_traffic_tables():
         # Add client_id columns to existing tables
         conn.execute(text("""
             ALTER TABLE video_processing_jobs 
-            ADD COLUMN IF NOT EXISTS client_id VARCHAR REFERENCES ad_traffic_clients(id);
+            ADD COLUMN IF NOT EXISTS client_id VARCHAR;
         """))
         
         conn.execute(text("""
             ALTER TABLE video_clips 
-            ADD COLUMN IF NOT EXISTS client_id VARCHAR REFERENCES ad_traffic_clients(id);
+            ADD COLUMN IF NOT EXISTS client_id VARCHAR;
         """))
         
-        conn.execute(text("""
-            ALTER TABLE campaigns 
-            ADD COLUMN IF NOT EXISTS client_id VARCHAR REFERENCES ad_traffic_clients(id);
-        """))
+        # Note: Not adding client_id to campaigns table since it might not exist
+        # This can be added later when campaigns module is integrated
         
         # Create indexes
         conn.execute(text("CREATE INDEX IF NOT EXISTS idx_ad_traffic_clients_user ON ad_traffic_clients(user_id);"))
