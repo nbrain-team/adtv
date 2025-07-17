@@ -7,7 +7,7 @@ import os
 import shutil
 
 from core.database import get_db, User
-from core.auth import get_current_user
+from core.auth import get_current_active_user
 from . import models, schemas, services
 
 router = APIRouter(prefix="/api/ad-traffic", tags=["ad-traffic"])
@@ -16,7 +16,7 @@ router = APIRouter(prefix="/api/ad-traffic", tags=["ad-traffic"])
 # Client endpoints
 @router.get("/clients", response_model=List[schemas.Client])
 async def get_clients(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """Get all clients for the current user"""
@@ -26,7 +26,7 @@ async def get_clients(
 @router.post("/clients", response_model=schemas.Client)
 async def create_client(
     client: schemas.ClientCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """Create a new client"""
@@ -36,7 +36,7 @@ async def create_client(
 @router.get("/clients/{client_id}", response_model=schemas.Client)
 async def get_client(
     client_id: uuid.UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """Get a specific client"""
@@ -50,7 +50,7 @@ async def get_client(
 async def update_client(
     client_id: uuid.UUID,
     client_update: schemas.ClientUpdate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """Update a client"""
@@ -63,7 +63,7 @@ async def update_client(
 @router.delete("/clients/{client_id}")
 async def delete_client(
     client_id: uuid.UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """Delete a client"""
@@ -78,7 +78,7 @@ async def get_client_posts(
     client_id: uuid.UUID,
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """Get all posts for a client within date range"""
@@ -103,7 +103,7 @@ async def get_client_posts(
 async def create_post(
     client_id: uuid.UUID,
     post: schemas.PostCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """Create a new post for a client"""
@@ -119,7 +119,7 @@ async def create_post(
 async def update_post(
     post_id: uuid.UUID,
     post_update: schemas.PostUpdate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """Update a post"""
@@ -132,7 +132,7 @@ async def update_post(
 @router.delete("/posts/{post_id}")
 async def delete_post(
     post_id: uuid.UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """Delete a post"""
@@ -150,7 +150,7 @@ async def create_campaign(
     duration_weeks: int = Form(...),
     platforms: List[str] = Form(...),
     video: UploadFile = File(...),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """Create a new video campaign"""
@@ -198,7 +198,7 @@ async def create_campaign(
 @router.get("/campaigns/{campaign_id}", response_model=schemas.CampaignWithClips)
 async def get_campaign(
     campaign_id: uuid.UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """Get campaign with its video clips"""
