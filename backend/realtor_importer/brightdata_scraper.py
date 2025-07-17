@@ -249,7 +249,7 @@ class BrightDataScraper:
                     await page.wait_for_selector('.agent-card, .realtor-card, a[href*="/real-estate-agents/"]', timeout=15000)
                     logger.info(f"[Page {page_num}] Found agent elements")
                 except:
-                    logger.warning(f"[Page {page_num}] Could not find expected agent selectors, continuing anyway...")
+                    logger.info(f"[Page {page_num}] Page loaded, extracting links...")
                 
                 # Human-like delay
                 delay = random.uniform(2, 4)
@@ -553,27 +553,56 @@ class BrightDataScraper:
                 'address'
             ]
             
+            location_found = False
             for selector in location_selectors:
                 try:
                     elem = await page.locator(selector).first
                     if await elem.count() > 0:
                         text = (await elem.inner_text()).strip()
-                        if text:
-                            # Look for city/state pattern in the text
-                            lines = text.split('\n')
-                            for line in lines:
-                                # Check if line matches "City ST" pattern
+                        if text and len(text) > 2:
+                            logger.info(f"Found location text with selector '{selector}': {text}")
+                            
+                            # For .location selector, text is like "Sacramento CA"
+                            if selector == '.location' and ' ' in text:
+                                parts = text.rsplit(' ', 1)  # Split from right to get state
+                                if len(parts) == 2:
+                                    data['city'] = parts[0].strip()
+                                    data['state'] = parts[1].strip()
+                                    location_found = True
+                                    logger.info(f"Extracted city: {data['city']}, state: {data['state']}")
+                                    break
+                            # For city selector
+                            elif selector == 'span.city':
+                                data['city'] = text
+                                # Try to find state in parent or sibling
+                                try:
+                                    parent = await elem.locator('..').first
+                                    parent_text = await parent.inner_text()
+                                    # Extract state code (2 uppercase letters)
+                                    import re
+                                    state_match = re.search(r'\b([A-Z]{2})\b', parent_text)
+                                    if state_match:
+                                        data['state'] = state_match.group(1)
+                                        location_found = True
+                                        break
+                                except:
+                                    pass
+                            else:
+                                # Look for city/state pattern in the text
                                 import re
-                                city_state_match = re.search(r'([A-Za-z\s]+)\s+([A-Z]{2})(?:\s|$)', line)
+                                city_state_match = re.search(r'([A-Za-z\s]+?)\s+([A-Z]{2})(?:\s|$)', text)
                                 if city_state_match:
                                     data['city'] = city_state_match.group(1).strip()
                                     data['state'] = city_state_match.group(2).strip()
                                     logger.info(f"Found location with selector '{selector}': {data['city']}, {data['state']}")
+                                    location_found = True
                                     break
-                            if data.get('city'):
-                                break
-                except:
+                except Exception as e:
+                    logger.debug(f"Error with location selector {selector}: {e}")
                     continue
+            
+            if not location_found:
+                logger.warning(f"Could not find location on {profile_url}")
             
             # Extract phone - try multiple approaches
             phone_selectors = [
@@ -588,35 +617,45 @@ class BrightDataScraper:
                 '.contact-phone'
             ]
             
+            phone_found = False
             for selector in phone_selectors:
                 try:
-                    elem = await page.locator(selector).first
-                    if await elem.count() > 0:
-                        # Try to click if it's a button to reveal phone
-                        if 'button' in selector.lower() or await elem.get_attribute('role') == 'button':
-                            await elem.click()
-                            await self.human_delay(500, 1000)
-                            # Look for revealed phone
-                            phone_elem = await page.locator('a[href^="tel:"]').first
-                            if await phone_elem.count() > 0:
-                                href = await phone_elem.get_attribute('href')
-                                data['cell_phone'] = href.replace('tel:', '') if href else None
-                                logger.info(f"Found phone after click: {data['cell_phone']}")
-                                break
-                        else:
+                    elements = await page.locator(selector).all()
+                    for elem in elements:
+                        try:
+                            # Check if it's a link with tel:
                             href = await elem.get_attribute('href')
                             if href and href.startswith('tel:'):
-                                data['cell_phone'] = href.replace('tel:', '')
-                                logger.info(f"Found phone with selector '{selector}': {data['cell_phone']}")
-                                break
-                            else:
-                                text = await elem.inner_text()
-                                if text and any(c.isdigit() for c in text):
-                                    data['cell_phone'] = text.strip()
-                                    logger.info(f"Found phone text: {data['cell_phone']}")
+                                phone_number = href.replace('tel:', '').strip()
+                                if phone_number:
+                                    data['cell_phone'] = phone_number
+                                    logger.info(f"Found phone with selector '{selector}': {phone_number}")
+                                    phone_found = True
                                     break
-                except:
+                            
+                            # If not a tel: link, check the text
+                            text = await elem.inner_text()
+                            if text and any(c.isdigit() for c in text):
+                                # Check if it looks like a phone number
+                                import re
+                                phone_match = re.search(r'[\(\[]?(\d{3})[\)\]]?[-.\s]?(\d{3})[-.\s]?(\d{4})', text)
+                                if phone_match:
+                                    phone_number = f"({phone_match.group(1)}) {phone_match.group(2)}-{phone_match.group(3)}"
+                                    data['cell_phone'] = phone_number
+                                    logger.info(f"Found phone text with selector '{selector}': {phone_number}")
+                                    phone_found = True
+                                    break
+                        except:
+                            continue
+                    
+                    if phone_found:
+                        break
+                except Exception as e:
+                    logger.debug(f"Error with phone selector {selector}: {e}")
                     continue
+            
+            if not phone_found:
+                logger.warning(f"Could not find phone on {profile_url}")
             
             # Extract email
             try:
