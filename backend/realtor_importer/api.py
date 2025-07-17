@@ -31,6 +31,48 @@ def ensure_task_processor_running():
     else:
         logger.info("Background task processor thread is already running")
 
+@router.post("/migrate-sales-columns-temp-public")
+def migrate_sales_columns_public(
+    db: Session = Depends(get_db)
+):
+    """
+    TEMPORARY PUBLIC ENDPOINT - Add missing sales statistics columns to realtor_contacts table
+    This endpoint should be removed after migration is complete
+    """
+    try:
+        with engine.connect() as conn:
+            # Check if columns already exist
+            result = conn.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'realtor_contacts' 
+                AND column_name IN ('closed_sales', 'total_value', 'price_range', 'average_price')
+            """))
+            existing_columns = [row[0] for row in result]
+            
+            if len(existing_columns) == 4:
+                return {"message": "All sales columns already exist", "status": "no_change"}
+            
+            # Add missing columns
+            conn.execute(text("""
+                ALTER TABLE realtor_contacts 
+                ADD COLUMN IF NOT EXISTS closed_sales VARCHAR,
+                ADD COLUMN IF NOT EXISTS total_value VARCHAR,
+                ADD COLUMN IF NOT EXISTS price_range VARCHAR,
+                ADD COLUMN IF NOT EXISTS average_price VARCHAR;
+            """))
+            conn.commit()
+            
+            return {
+                "message": "Successfully added sales statistics columns", 
+                "status": "success",
+                "columns_added": ["closed_sales", "total_value", "price_range", "average_price"],
+                "warning": "This is a temporary endpoint - please remove after migration"
+            }
+    except Exception as e:
+        logger.error(f"Migration error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Migration failed: {str(e)}")
+
 @router.post("/migrate-sales-columns")
 def migrate_sales_columns(
     db: Session = Depends(get_db),
