@@ -34,7 +34,7 @@ class VideoClip(Base):
     platform = Column(String, nullable=False)  # instagram, youtube, facebook
     file_path = Column(String)
     thumbnail_path = Column(String)
-    metadata = Column(JSON)  # Store platform-specific settings
+    clip_metadata = Column(JSON)  # Store platform-specific settings
     created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relationships

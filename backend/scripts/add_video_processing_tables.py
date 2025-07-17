@@ -45,7 +45,7 @@ def add_video_processing_tables():
                 platform VARCHAR NOT NULL,
                 file_path VARCHAR,
                 thumbnail_path VARCHAR,
-                metadata JSON,
+                clip_metadata JSON,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """))

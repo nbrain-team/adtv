@@ -263,7 +263,7 @@ def process_video(job_id: str, video_path: str, platforms: List[str]):
                         platform=platform,
                         file_path=clip_path,
                         thumbnail_path=thumb_path,
-                        metadata={
+                        clip_metadata={
                             "type": segment.get("type"),
                             "speaker": segment.get("speaker")
                         }
