@@ -27,7 +27,8 @@ from campaign_api.campaign_routes import router as campaign_router
 from core.email_template_routes import router as email_template_router
 from db_setup import update_db_schema, migrate_data
 from video_processor.api import router as video_processor_router
-from ad_traffic.api import router as ad_traffic_router
+# Temporarily disable ad_traffic due to circular dependency
+# from ad_traffic.api import router as ad_traffic_router
 
 
 load_dotenv()
@@ -116,14 +117,14 @@ def on_startup():
         # Continue anyway as tables might already exist
     
     # Run ad traffic tables migration
-    try:
-        from scripts.add_ad_traffic_tables import add_ad_traffic_tables
-        logger.info("Running ad traffic tables migration...")
-        add_ad_traffic_tables()
-        logger.info("Ad traffic tables migration completed.")
-    except Exception as e:
-        logger.warning(f"Ad traffic tables migration failed: {e}")
-        # Continue anyway as tables might already exist
+    # try:
+    #     from scripts.add_ad_traffic_tables import add_ad_traffic_tables
+    #     logger.info("Running ad traffic tables migration...")
+    #     add_ad_traffic_tables()
+    #     logger.info("Ad traffic tables migration completed.")
+    # except Exception as e:
+    #     logger.warning(f"Ad traffic tables migration failed: {e}")
+    #     # Continue anyway as tables might already exist
     
     # Create all tables with error handling
     try:
@@ -151,6 +152,10 @@ def on_startup():
     except Exception as e:
         logger.error(f"Error running migrations: {e}")
 
+    # Import ad_traffic_router after startup
+    # from ad_traffic.api import router as ad_traffic_router
+    # app.include_router(ad_traffic_router, prefix="/api/ad-traffic", tags=["ad-traffic"])
+
 # --- CORS Middleware ---
 app.add_middleware(
     CORSMiddleware,
@@ -170,7 +175,9 @@ app.include_router(user_router, prefix="/user", tags=["user"])
 app.include_router(campaign_router, prefix="/campaigns", tags=["campaigns"])
 app.include_router(email_template_router, prefix="/api/email-templates", tags=["email-templates"])
 app.include_router(video_processor_router, prefix="/api/video-processor", tags=["video-processor"])
-app.include_router(ad_traffic_router, prefix="/api/ad-traffic", tags=["ad-traffic"])
+# Temporarily disable ad_traffic due to circular dependency
+# app.include_router(ad_traffic_router, prefix="/api/ad-traffic", tags=["ad-traffic"])
+
 
 @app.get("/")
 def read_root():
