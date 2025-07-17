@@ -289,10 +289,22 @@ class BrightDataScraper:
                                 if (agentIndex >= 0 && parts.length > agentIndex + 1 && parts[agentIndex + 1]) {
                                     // Skip if it's just a location page (ends with state code)
                                     const lastPart = parts[parts.length - 1] || parts[parts.length - 2];
-                                    if (lastPart && !lastPart.match(/^[a-z]{2}$/i) && lastPart !== 'real-estate-agents') {
+                                    // Check if it has an agent ID (usually alphanumeric)
+                                    if (lastPart && 
+                                        !lastPart.match(/^[a-z]{2}$/i) && 
+                                        lastPart !== 'real-estate-agents' &&
+                                        !lastPart.includes('-ca') &&
+                                        !lastPart.includes('-il') &&
+                                        !lastPart.includes('-ny') &&
+                                        !lastPart.includes('-tx') &&
+                                        !lastPart.includes('-fl') &&
+                                        lastPart.length > 3) {
                                         const fullUrl = href.startsWith('http') ? href : 'https://www.homes.com' + href;
-                                        links.push(fullUrl);
-                                        debugInfo.found++;
+                                        // Double check it's not the same as the current page
+                                        if (fullUrl !== window.location.href && !fullUrl.endsWith('/real-estate-agents/')) {
+                                            links.push(fullUrl);
+                                            debugInfo.found++;
+                                        }
                                     }
                                 }
                             }
