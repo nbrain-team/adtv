@@ -105,6 +105,26 @@ app = FastAPI(
 
 @app.on_event("startup")
 def on_startup():
+    # Run campaign tables migration first
+    try:
+        from scripts.add_campaign_tables import add_campaign_tables
+        logger.info("Running campaign tables migration...")
+        add_campaign_tables()
+        logger.info("Campaign tables migration completed.")
+    except Exception as e:
+        logger.warning(f"Campaign tables migration failed: {e}")
+        # Continue anyway as tables might already exist
+    
+    # Run ad traffic tables migration
+    try:
+        from scripts.add_ad_traffic_tables import add_ad_traffic_tables
+        logger.info("Running ad traffic tables migration...")
+        add_ad_traffic_tables()
+        logger.info("Ad traffic tables migration completed.")
+    except Exception as e:
+        logger.warning(f"Ad traffic tables migration failed: {e}")
+        # Continue anyway as tables might already exist
+    
     # Create all tables
     Base.metadata.create_all(bind=engine)
     logger.info("Application startup: Database tables checked/created.")
