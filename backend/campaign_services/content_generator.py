@@ -7,8 +7,7 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
 import json
 
-from langchain_google_genai import ChatGoogleGenerativeAI
-from sentence_transformers import SentenceTransformer
+from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from langchain_pinecone import Pinecone
 from langchain_core.prompts import PromptTemplate
 from langchain_core.documents import Document
@@ -27,21 +26,15 @@ class ContentGeneratorService:
             environment=os.getenv("PINECONE_ENV", "us-east-1")
         )
         
-        # Initialize embeddings - using SentenceTransformer directly
-        self.embeddings_model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')
-        
-        # Create a wrapper for langchain compatibility
-        class EmbeddingsWrapper:
-            def __init__(self, model):
-                self.model = model
+        # Initialize embeddings using Google Generative AI
+        gemini_api_key = os.getenv("GEMINI_API_KEY")
+        if not gemini_api_key:
+            raise ValueError("GEMINI_API_KEY environment variable is required")
             
-            def embed_documents(self, texts):
-                return self.model.encode(texts).tolist()
-            
-            def embed_query(self, text):
-                return self.model.encode([text])[0].tolist()
-        
-        self.embeddings = EmbeddingsWrapper(self.embeddings_model)
+        self.embeddings = GoogleGenerativeAIEmbeddings(
+            model="models/embedding-001", 
+            google_api_key=gemini_api_key
+        )
         
         # Initialize vector store
         self.index_name = os.getenv("PINECONE_INDEX", "marketing-content")
