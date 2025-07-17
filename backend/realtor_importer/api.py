@@ -225,6 +225,145 @@ def stop_job(
     
     return {"message": "Job stopped successfully"}
 
+@router.post("/process-selected", response_model=schemas.ProcessedJobResponse)
+async def process_selected_jobs(
+    request: schemas.ProcessJobsRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(auth.get_current_active_user),
+):
+    """
+    Process and merge multiple selected jobs:
+    1. Merge and deduplicate contacts
+    2. Crawl website content
+    3. Validate emails with ZeroBounce
+    """
+    # Validate that all jobs belong to the user and are completed
+    jobs = db.query(ScrapingJob).filter(
+        ScrapingJob.id.in_(request.job_ids),
+        ScrapingJob.user_id == current_user.id,
+        ScrapingJob.status == "COMPLETED"
+    ).all()
+    
+    if len(jobs) != len(request.job_ids):
+        raise HTTPException(
+            status_code=400,
+            detail="Some jobs not found or not completed"
+        )
+    
+    # Create a new processed job entry
+    from . import models
+    processed_job = models.ProcessedJob(
+        user_id=current_user.id,
+        source_job_ids=request.job_ids,
+        status="PENDING"
+    )
+    db.add(processed_job)
+    db.commit()
+    db.refresh(processed_job)
+    
+    # Start background processing
+    background_tasks.add_task(
+        tasks.process_merged_jobs,
+        processed_job.id,
+        request.job_ids
+    )
+    
+    return schemas.ProcessedJobResponse(
+        id=processed_job.id,
+        status=processed_job.status,
+        created_at=processed_job.created_at,
+        source_job_count=len(request.job_ids)
+    )
+
+@router.get("/processed/{processed_id}", response_model=schemas.ProcessedJobDetail)
+def get_processed_job(
+    processed_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(auth.get_current_active_user),
+):
+    """Get details of a processed/merged job"""
+    from . import models
+    
+    processed_job = db.query(models.ProcessedJob).filter(
+        models.ProcessedJob.id == processed_id,
+        models.ProcessedJob.user_id == current_user.id
+    ).first()
+    
+    if not processed_job:
+        raise HTTPException(status_code=404, detail="Processed job not found")
+    
+    # Get merged contacts
+    contacts = db.query(models.MergedContact).filter(
+        models.MergedContact.processed_job_id == processed_id
+    ).all()
+    
+    return schemas.ProcessedJobDetail(
+        id=processed_job.id,
+        status=processed_job.status,
+        created_at=processed_job.created_at,
+        source_job_ids=processed_job.source_job_ids,
+        total_contacts=processed_job.total_contacts,
+        duplicates_removed=processed_job.duplicates_removed,
+        emails_validated=processed_job.emails_validated,
+        websites_crawled=processed_job.websites_crawled,
+        contacts=[schemas.MergedContactResponse.from_orm(c) for c in contacts]
+    )
+
+@router.post("/processed/{processed_id}/personalize-emails")
+def create_personalized_emails(
+    processed_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(auth.get_current_active_user),
+):
+    """
+    Redirect processed contacts to email personalization
+    """
+    from . import models
+    
+    # Get the processed job
+    processed_job = db.query(models.ProcessedJob).filter(
+        models.ProcessedJob.id == processed_id,
+        models.ProcessedJob.user_id == current_user.id
+    ).first()
+    
+    if not processed_job:
+        raise HTTPException(status_code=404, detail="Processed job not found")
+    
+    # Get merged contacts
+    contacts = db.query(models.MergedContact).filter(
+        models.MergedContact.processed_job_id == processed_id
+    ).all()
+    
+    # Convert to CSV format for email personalizer
+    import io
+    import csv
+    
+    output = io.StringIO()
+    writer = csv.DictWriter(output, fieldnames=[
+        'first_name', 'last_name', 'company', 'email', 
+        'city', 'state', 'website_content', 'phone'
+    ])
+    
+    writer.writeheader()
+    for contact in contacts:
+        writer.writerow({
+            'first_name': contact.first_name,
+            'last_name': contact.last_name,
+            'company': contact.company,
+            'email': contact.email,
+            'city': contact.city,
+            'state': contact.state,
+            'website_content': contact.website_content[:500] if contact.website_content else '',
+            'phone': contact.cell_phone
+        })
+    
+    # Return CSV data that can be used by email personalizer
+    return {
+        "csv_data": output.getvalue(),
+        "contact_count": len(contacts)
+    }
+
 @router.get("/{job_id}/export/csv")
 def export_job_csv(
     job_id: str,

@@ -91,6 +91,30 @@ export const GeneratorWorkflow = () => {
     useEffect(() => {
         fetchTemplates();
     }, []);
+    
+    // Check for data from realtor importer
+    useEffect(() => {
+        const savedData = sessionStorage.getItem('emailPersonalizerData');
+        if (savedData) {
+            try {
+                const { fileName, fileContent, fromRealtorImporter } = JSON.parse(savedData);
+                
+                if (fromRealtorImporter && fileContent) {
+                    // Create a File object from the content
+                    const blob = new Blob([fileContent], { type: 'text/csv' });
+                    const file = new File([blob], fileName, { type: 'text/csv' });
+                    
+                    // Process the file
+                    handleFileSelect(file);
+                    
+                    // Clear the sessionStorage
+                    sessionStorage.removeItem('emailPersonalizerData');
+                }
+            } catch (error) {
+                console.error('Error loading data from realtor importer:', error);
+            }
+        }
+    }, []);
 
     const fetchTemplates = async () => {
         try {

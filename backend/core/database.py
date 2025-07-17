@@ -117,6 +117,12 @@ class RealtorContact(Base):
     buyer_deals_total_deals = Column(Integer, nullable=True)
     buyer_deals_total_value = Column(BigInteger, nullable=True)
     buyer_deals_avg_price = Column(BigInteger, nullable=True)
+    
+    # Sales stats from the new scraper
+    closed_sales = Column(String, nullable=True)
+    total_value = Column(String, nullable=True)
+    price_range = Column(String, nullable=True)
+    average_price = Column(String, nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -148,4 +154,6 @@ def get_db():
 
 def create_tables():
     """Create database tables if they don't exist."""
+    # Import models to ensure they're registered with Base
+    from realtor_importer.models import ProcessedJob, MergedContact
     Base.metadata.create_all(bind=engine) 

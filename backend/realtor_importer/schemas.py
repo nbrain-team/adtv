@@ -112,3 +112,50 @@ class ScrapingJobSummary(ScrapingJobBase):
     
     class Config:
         from_attributes = True 
+
+# ====================
+# Processing/Merging
+# ====================
+
+class ProcessJobsRequest(BaseModel):
+    job_ids: List[str]
+
+class ProcessedJobResponse(BaseModel):
+    id: str
+    status: str
+    created_at: datetime
+    source_job_count: int
+
+class MergedContactResponse(BaseModel):
+    id: str
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    company: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    cell_phone: Optional[str] = None
+    email: Optional[str] = None
+    agent_website: Optional[str] = None
+    website_content: Optional[str] = None
+    email_valid: Optional[bool] = None
+    email_status: Optional[str] = None
+    closed_sales: Optional[str] = None
+    total_value: Optional[str] = None
+    price_range: Optional[str] = None
+    average_price: Optional[str] = None
+    
+    class Config:
+        from_attributes = True
+
+class ProcessedJobDetail(BaseModel):
+    id: str
+    status: str
+    created_at: datetime
+    source_job_ids: List[str]
+    total_contacts: int
+    duplicates_removed: int
+    emails_validated: int
+    websites_crawled: int
+    contacts: List[MergedContactResponse]
+
+# ==================== 

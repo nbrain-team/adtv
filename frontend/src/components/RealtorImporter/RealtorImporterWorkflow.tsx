@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Box, Flex, Button, TextField, Text, Heading, Card, Table, Callout, Badge } from '@radix-ui/themes';
+import { Box, Flex, Button, TextField, Text, Heading, Card, Table, Callout, Badge, Checkbox, Dialog } from '@radix-ui/themes';
 import { InfoCircledIcon, ExclamationTriangleIcon } from '@radix-ui/react-icons';
 import api from '../../api';
 import SalesFilter from './SalesFilter';
@@ -66,6 +66,17 @@ export const RealtorImporterWorkflow = () => {
   const [selectedJob, setSelectedJob] = useState<ScrapingJob | null>(null);
   const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [selectedJobs, setSelectedJobs] = useState<string[]>([]);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processedJobId, setProcessedJobId] = useState<string | null>(null);
+  const [showProcessedModal, setShowProcessedModal] = useState(false);
+  const [processedJobDetails, setProcessedJobDetails] = useState<any>(null);
+
+  // Get completed jobs for selection
+  const completedJobs = useMemo(() => 
+    jobs.filter(job => job.status === 'completed').map(job => job.id),
+    [jobs]
+  );
 
   // Helper function to format currency
   const formatCurrency = (value: number | null | undefined): string => {
@@ -164,6 +175,88 @@ export const RealtorImporterWorkflow = () => {
     }
   };
 
+  const handleSelectAll = (checked: boolean | 'indeterminate') => {
+    if (checked === true) {
+      setSelectedJobs(completedJobs);
+    } else {
+      setSelectedJobs([]);
+    }
+  };
+
+  const handleJobSelection = (jobId: string, checked: boolean) => {
+    setSelectedJobs(prev => {
+      if (checked) {
+        return [...prev, jobId];
+      } else {
+        return prev.filter(id => id !== jobId);
+      }
+    });
+  };
+
+  const handleProcessJobs = async () => {
+    if (selectedJobs.length === 0) return;
+    setIsProcessing(true);
+    try {
+      const response = await api.post('/realtor-importer/process-selected', { job_ids: selectedJobs });
+      setProcessedJobId(response.data.id);
+      setSelectedJobs([]); // Clear selected jobs after processing
+      fetchJobs(); // Refresh job list
+      
+      // Start polling for processed job status
+      pollProcessedJob(response.data.id);
+    } catch (err) {
+      setError('Failed to process selected jobs.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+  
+  const pollProcessedJob = async (jobId: string) => {
+    const pollInterval = setInterval(async () => {
+      try {
+        const response = await api.get(`/realtor-importer/processed/${jobId}`);
+        setProcessedJobDetails(response.data);
+        
+        if (response.data.status === 'COMPLETED' || response.data.status === 'FAILED') {
+          clearInterval(pollInterval);
+          setShowProcessedModal(true);
+        }
+      } catch (err) {
+        clearInterval(pollInterval);
+        setError('Failed to fetch processed job details.');
+      }
+    }, 2000); // Poll every 2 seconds
+  };
+  
+  const handlePersonalizeEmails = async () => {
+    if (!processedJobId) return;
+    
+    try {
+      const response = await api.post(`/realtor-importer/processed/${processedJobId}/personalize-emails`);
+      
+      // Create a Blob from the CSV data
+      const blob = new Blob([response.data.csv_data], { type: 'text/csv' });
+      const file = new File([blob], 'processed_contacts.csv', { type: 'text/csv' });
+      
+      // Store the file data in sessionStorage to pass to the email personalizer
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        sessionStorage.setItem('emailPersonalizerData', JSON.stringify({
+          fileName: 'processed_contacts.csv',
+          fileContent: e.target?.result,
+          fromRealtorImporter: true
+        }));
+        
+        // Navigate to the email personalizer
+        window.location.href = '/agents?agent=email-personalizer';
+      };
+      reader.readAsText(file);
+      
+    } catch (err) {
+      setError('Failed to prepare emails for personalization.');
+    }
+  };
+
   const activeJob = useMemo(() => jobs.find(j => j.status === 'processing' || j.status === 'pending'), [jobs]);
 
   return (
@@ -219,63 +312,115 @@ export const RealtorImporterWorkflow = () => {
       </Box>
 
       {/* Jobs List Section */}
-      <Flex gap="5" mb="4">
-        <Box width="100%">
-          <Heading size="4" mb="3">Scraping History</Heading>
-          <Flex direction="row" gap="3" wrap="wrap">
-              {jobs.map(job => (
-                  <Card 
-                    key={job.id} 
-                    onClick={() => fetchJobDetails(job.id)} 
-                    style={{cursor: 'pointer', position: 'relative', minWidth: '300px', flex: '0 0 calc(33.333% - 16px)'}}
+      <Box width="100%">
+        <Flex justify="between" align="center" mb="3">
+          <Heading size="4">Scraping History</Heading>
+          {selectedJobs.length > 0 && (
+            <Flex gap="2">
+              <Text size="2" color="gray">{selectedJobs.length} selected</Text>
+              <Button 
+                size="2" 
+                onClick={handleProcessJobs}
+                disabled={selectedJobs.length < 2 || isProcessing}
+              >
+                {isProcessing ? 'Processing...' : 'Process Selected'}
+              </Button>
+            </Flex>
+          )}
+        </Flex>
+        
+        {jobs.length === 0 ? (
+          <Card>
+            <Text size="2" color="gray" style={{display: 'block', textAlign: 'center', padding: '2rem'}}>
+              No scraping jobs yet. Start a new scrape above.
+            </Text>
+          </Card>
+        ) : (
+          <Card>
+            <Table.Root variant="surface" size="2">
+              <Table.Header>
+                <Table.Row>
+                  <Table.ColumnHeaderCell style={{width: '40px'}}>
+                    <Checkbox 
+                      checked={selectedJobs.length === completedJobs.length && completedJobs.length > 0}
+                      onCheckedChange={handleSelectAll}
+                    />
+                  </Table.ColumnHeaderCell>
+                  <Table.ColumnHeaderCell>Job Name</Table.ColumnHeaderCell>
+                  <Table.ColumnHeaderCell>URL</Table.ColumnHeaderCell>
+                  <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
+                  <Table.ColumnHeaderCell>Contacts</Table.ColumnHeaderCell>
+                  <Table.ColumnHeaderCell>Created</Table.ColumnHeaderCell>
+                  <Table.ColumnHeaderCell>Actions</Table.ColumnHeaderCell>
+                </Table.Row>
+              </Table.Header>
+              <Table.Body>
+                {jobs.map(job => (
+                  <Table.Row 
+                    key={job.id}
+                    onClick={() => !selectedJobs.includes(job.id) && fetchJobDetails(job.id)}
+                    style={{cursor: 'pointer'}}
                   >
-                      <Flex justify="between" align="start">
-                          <Box style={{maxWidth: '70%'}}>
-                              <Text size="2" weight="bold" truncate>
-                                {job.name || 'Unnamed Job'}
-                              </Text>
-                              <Text size="1" color="gray" truncate>
-                                {job.start_url}
-                              </Text>
-                          </Box>
-                          <Badge color={statusColors[job.status]}>
-                            {statusLabels[job.status]}
-                          </Badge>
-                      </Flex>
-                      <Flex justify="between" mt="2">
-                          <Text size="1" color="gray">Contacts: {job.contact_count}</Text>
-                          <Text size="1" color="gray">{new Date(job.created_at).toLocaleString()}</Text>
-                      </Flex>
-                      {job.status === 'processing' && (
-                          <Text size="1" color="blue" mt="1">
-                              Scraping profiles... {job.contact_count > 0 && `(${job.contact_count} so far)`}
-                          </Text>
+                    <Table.Cell onClick={(e) => e.stopPropagation()}>
+                      <Checkbox 
+                        checked={selectedJobs.includes(job.id)}
+                        disabled={job.status !== 'completed'}
+                        onCheckedChange={(checked) => handleJobSelection(job.id, !!checked)}
+                      />
+                    </Table.Cell>
+                    <Table.Cell>
+                      <Text size="2" weight="bold">{job.name || 'Unnamed Job'}</Text>
+                    </Table.Cell>
+                    <Table.Cell>
+                      <Text size="1" color="gray" truncate style={{maxWidth: '300px'}}>
+                        {job.start_url}
+                      </Text>
+                    </Table.Cell>
+                    <Table.Cell>
+                      <Badge color={statusColors[job.status]}>
+                        {statusLabels[job.status]}
+                      </Badge>
+                      {job.status === 'processing' && job.contact_count > 0 && (
+                        <Text size="1" color="blue"> ({job.contact_count})</Text>
                       )}
-                      {(job.status === 'pending' || job.status === 'processing') && (
+                    </Table.Cell>
+                    <Table.Cell>
+                      <Text size="2">{job.contact_count}</Text>
+                    </Table.Cell>
+                    <Table.Cell>
+                      <Text size="1" color="gray">
+                        {new Date(job.created_at).toLocaleDateString()}
+                      </Text>
+                    </Table.Cell>
+                    <Table.Cell onClick={(e) => e.stopPropagation()}>
+                      <Flex gap="2">
+                        {(job.status === 'pending' || job.status === 'processing') && (
+                          <Button 
+                            size="1" 
+                            color="orange" 
+                            variant="ghost"
+                            onClick={(e) => handleStopJob(job.id, e)}
+                          >
+                            Stop
+                          </Button>
+                        )}
                         <Button 
                           size="1" 
-                          color="orange" 
+                          color="red" 
                           variant="ghost"
-                          onClick={(e) => handleStopJob(job.id, e)}
-                          style={{position: 'absolute', top: '36px', right: '8px'}}
+                          onClick={(e) => handleDeleteJob(job.id, e)}
                         >
-                          Stop
+                          Delete
                         </Button>
-                      )}
-                      <Button 
-                        size="1" 
-                        color="red" 
-                        variant="ghost"
-                        onClick={(e) => handleDeleteJob(job.id, e)}
-                        style={{position: 'absolute', top: '8px', right: '8px'}}
-                      >
-                        Delete
-                      </Button>
-                  </Card>
-              ))}
-          </Flex>
-        </Box>
-      </Flex>
+                      </Flex>
+                    </Table.Cell>
+                  </Table.Row>
+                ))}
+              </Table.Body>
+            </Table.Root>
+          </Card>
+        )}
+      </Box>
 
       {/* Job Details Section */}
       <Box width="100%">
@@ -392,6 +537,106 @@ export const RealtorImporterWorkflow = () => {
             </Card>
         )}
       </Box>
+      
+      {/* Processed Job Modal */}
+      <Dialog.Root open={showProcessedModal} onOpenChange={setShowProcessedModal}>
+        <Dialog.Content maxWidth="800px">
+          <Dialog.Title>Processing Complete</Dialog.Title>
+          
+          {processedJobDetails && (
+            <Box>
+              <Flex direction="column" gap="3">
+                {processedJobDetails.status === 'COMPLETED' ? (
+                  <>
+                    <Callout.Root color="green">
+                      <Callout.Icon><InfoCircledIcon /></Callout.Icon>
+                      <Callout.Text>
+                        Successfully processed {processedJobDetails.source_job_ids?.length || 0} jobs
+                      </Callout.Text>
+                    </Callout.Root>
+                    
+                    <Card>
+                      <Flex direction="column" gap="2">
+                        <Text size="3" weight="bold">Processing Summary</Text>
+                        <Flex gap="4" wrap="wrap">
+                          <Box>
+                            <Text size="1" color="gray">Total Contacts</Text>
+                            <Text size="3" weight="bold">{processedJobDetails.total_contacts}</Text>
+                          </Box>
+                          <Box>
+                            <Text size="1" color="gray">Duplicates Removed</Text>
+                            <Text size="3" weight="bold" color="orange">{processedJobDetails.duplicates_removed}</Text>
+                          </Box>
+                          <Box>
+                            <Text size="1" color="gray">Emails Validated</Text>
+                            <Text size="3" weight="bold" color="blue">{processedJobDetails.emails_validated}</Text>
+                          </Box>
+                          <Box>
+                            <Text size="1" color="gray">Websites Crawled</Text>
+                            <Text size="3" weight="bold" color="green">{processedJobDetails.websites_crawled}</Text>
+                          </Box>
+                        </Flex>
+                      </Flex>
+                    </Card>
+                    
+                    {processedJobDetails.contacts && processedJobDetails.contacts.length > 0 && (
+                      <Box>
+                        <Text size="2" weight="bold" mb="2">Sample Contacts (First 10)</Text>
+                        <Box style={{ overflowX: 'auto' }}>
+                          <Table.Root variant="surface" size="1">
+                            <Table.Header>
+                              <Table.Row>
+                                <Table.ColumnHeaderCell>Name</Table.ColumnHeaderCell>
+                                <Table.ColumnHeaderCell>Company</Table.ColumnHeaderCell>
+                                <Table.ColumnHeaderCell>Email</Table.ColumnHeaderCell>
+                                <Table.ColumnHeaderCell>Email Status</Table.ColumnHeaderCell>
+                                <Table.ColumnHeaderCell>Website Crawled</Table.ColumnHeaderCell>
+                              </Table.Row>
+                            </Table.Header>
+                            <Table.Body>
+                              {processedJobDetails.contacts.slice(0, 10).map((contact: any) => (
+                                <Table.Row key={contact.id}>
+                                  <Table.Cell>{contact.first_name} {contact.last_name}</Table.Cell>
+                                  <Table.Cell>{contact.company || 'N/A'}</Table.Cell>
+                                  <Table.Cell>{contact.email || 'N/A'}</Table.Cell>
+                                  <Table.Cell>
+                                    {contact.email_status && (
+                                      <Badge color={contact.email_valid ? 'green' : 'red'}>
+                                        {contact.email_status}
+                                      </Badge>
+                                    )}
+                                  </Table.Cell>
+                                  <Table.Cell>
+                                    {contact.website_content ? '✓' : '✗'}
+                                  </Table.Cell>
+                                </Table.Row>
+                              ))}
+                            </Table.Body>
+                          </Table.Root>
+                        </Box>
+                      </Box>
+                    )}
+                    
+                    <Flex gap="3" justify="end" mt="3">
+                      <Button variant="soft" onClick={() => setShowProcessedModal(false)}>
+                        Close
+                      </Button>
+                      <Button onClick={handlePersonalizeEmails}>
+                        Create Personalized Emails
+                      </Button>
+                    </Flex>
+                  </>
+                ) : (
+                  <Callout.Root color="red">
+                    <Callout.Icon><ExclamationTriangleIcon /></Callout.Icon>
+                    <Callout.Text>Processing failed. Please try again.</Callout.Text>
+                  </Callout.Root>
+                )}
+              </Flex>
+            </Box>
+          )}
+        </Dialog.Content>
+      </Dialog.Root>
     </div>
   );
 }; 
