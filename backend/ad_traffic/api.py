@@ -6,8 +6,8 @@ import uuid
 import os
 import shutil
 
-from backend.core.database import get_db, User
-from backend.core.auth import get_current_user
+from core.database import get_db, User
+from core.auth import get_current_user
 from . import models, schemas, services
 
 router = APIRouter(prefix="/api/ad-traffic", tags=["ad-traffic"])

@@ -5,7 +5,7 @@ from datetime import datetime
 import uuid
 
 from . import models, schemas
-from backend.core.database import User
+from core.database import User
 
 
 # Client services

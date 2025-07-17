@@ -5,7 +5,7 @@ from sqlalchemy.sql import func
 import uuid
 import enum
 
-from backend.core.database import Base, User
+from core.database import Base, User
 
 
 class Platform(str, enum.Enum):
