@@ -10,7 +10,7 @@ from core.database import get_db, User
 from core.auth import get_current_active_user
 from . import models, schemas, services
 
-router = APIRouter(prefix="/api/ad-traffic", tags=["ad-traffic"])
+router = APIRouter(tags=["ad-traffic"])
 
 
 # Client endpoints
