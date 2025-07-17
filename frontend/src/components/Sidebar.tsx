@@ -67,12 +67,12 @@ export const Sidebar = ({ onNewChat }: { onNewChat: () => void }) => {
                 )}
                 {hasPermission('data-lake') && (
                     <button className="sidebar-icon" title="Data Lake" onClick={() => navigate('/data-lake')}>
-                        <img src="/new-icons/14.png" alt="Data Lake" />
+                        <img src="/new-icons/data-lake.png" alt="Data Lake" />
                     </button>
                 )}
-                {hasPermission('campaigns') && (
-                    <button className="sidebar-icon" title="Marketing Campaigns" onClick={() => navigate('/campaigns')}>
-                        <img src="/new-icons/8.png" alt="Marketing Campaigns" />
+                {hasPermission('realtor') && (
+                    <button className="sidebar-icon" title="Realtor" onClick={() => navigate('/realtor')}>
+                        <img src="/new-icons/15.png" alt="Realtor" />
                     </button>
                 )}
                 {userProfile?.role === 'admin' && (

@@ -4,8 +4,6 @@ import { ArrowLeftIcon } from '@radix-ui/react-icons';
 import { GeneratorWorkflow } from '../components/GeneratorWorkflow';
 import { RealtorImporterWorkflow } from '../components/RealtorImporter/RealtorImporterWorkflow';
 import { TemplateAgentCreator } from '../components/TemplateAgentCreator';
-import { VideoClipExtractorWorkflow } from '../components/VideoClipExtractor/VideoClipExtractorWorkflow';
-import { AdTrafficPage } from '../components/AdTraffic/AdTrafficPage';
 import { MainLayout } from '../components/MainLayout';
 import { useNavigate } from 'react-router-dom';
 
@@ -14,47 +12,40 @@ interface Agent {
   id: string;
   name: string;
   description: string;
+  icon: string;
   component: JSX.Element;
 }
 
 // Array of available agents
-const agents: Agent[] = [
+const agents = [
   {
-    id: 'ad-traffic',
-    name: 'Ad Traffic Manager',
-    description: 'Manage clients and their social media campaigns with AI-powered video clips.',
-    component: <AdTrafficPage />,
-  },
-  {
-    id: 'email-personalizer',
-    name: '1-2-1 Email Personalizer',
-    description: 'Upload a CSV to generate personalized emails at scale.',
+    id: 'email-personalize',
+    name: 'Email Personalizer',
+    description: 'Upload a CSV with contact data and generate personalized emails at scale using AI templates.',
+    icon: '✉️',
     component: <GeneratorWorkflow />,
   },
   {
     id: 'realtor-importer',
-    name: 'Realtor Contact Importer',
-    description: 'Scrape realtor contact data from a homes.com search result page.',
+    name: 'Realtor Data Importer',
+    description: 'Scrape realtor profiles from Homes.com, enrich data, and prepare for email campaigns.',
+    icon: '🏠',
     component: <RealtorImporterWorkflow />,
   },
   {
-    id: 'template-creator',
-    name: 'Template Agent Creator',
-    description: 'Create custom template agents from example inputs and outputs.',
+    id: 'email-templates',
+    name: 'Template Agent Manager',
+    description: 'Create AI agents that learn from examples to generate custom templates.',
+    icon: '🤖',
     component: <TemplateAgentCreator onBack={() => {}} onCreated={() => {}} />, // Will be properly connected below
   },
   {
-    id: 'video-clip-extractor',
-    name: 'AI Video Clip Extractor',
-    description: 'Extract smart clips from promotional videos using AI vision analysis.',
-    component: <VideoClipExtractorWorkflow />,
-  },
-  {
-    id: 'pr-outreach',
-    name: 'PR Outreach Agent',
-    description: 'Create and distribute personalized press releases. (Coming Soon)',
+    id: 'more-coming',
+    name: 'More Agents Coming Soon',
+    description: 'We\'re constantly building new AI agents to help automate your marketing workflows.',
+    icon: '🚀',
     component: <Box p="4"><Text>This agent is under construction.</Text></Box>,
-  },
+  }
 ];
 
 const AgentsPage = () => {
@@ -63,9 +54,9 @@ const AgentsPage = () => {
 
   const handleSelectAgent = (agentId: string) => {
     const agent = agents.find(a => a.id === agentId);
-    if (agent && agent.id !== 'pr-outreach') {
+    if (agent && agent.id !== 'more-coming') {
       setSelectedAgent(agent);
-    } else if (agent?.id === 'pr-outreach') {
+    } else if (agent?.id === 'more-coming') {
       // Optionally, show an alert or do nothing for disabled agents
       alert('This agent is coming soon!');
     }
@@ -83,7 +74,7 @@ const AgentsPage = () => {
 
   // Clone the component with proper props for template creator
   const getAgentComponent = (agent: Agent) => {
-    if (agent.id === 'template-creator') {
+    if (agent.id === 'email-templates') {
       return <TemplateAgentCreator onBack={handleGoBack} onCreated={handleTemplateCreated} />;
     }
     return agent.component;
@@ -125,14 +116,17 @@ const AgentsPage = () => {
                   key={agent.id} 
                   onClick={() => handleSelectAgent(agent.id)}
                   style={{ 
-                    cursor: agent.id === 'pr-outreach' ? 'not-allowed' : 'pointer', 
+                    cursor: agent.id === 'more-coming' ? 'not-allowed' : 'pointer', 
                     transition: 'all 0.2s',
-                    opacity: agent.id === 'pr-outreach' ? 0.6 : 1
+                    opacity: agent.id === 'more-coming' ? 0.6 : 1
                   }}
                   className="agent-card"
                 >
-                  <Flex direction="column" gap="2">
-                    <Heading size="4">{agent.name}</Heading>
+                  <Flex direction="column" gap="3">
+                    <Text size="8" style={{ fontSize: '3rem' }}>
+                      {agent.icon}
+                    </Text>
+                    <Heading size="5">{agent.name}</Heading>
                     <Text size="2" color="gray">{agent.description}</Text>
                   </Flex>
                 </Card>
