@@ -129,11 +129,9 @@ app.add_middleware(
 )
 
 # --- Routers ---
-app.include_router(pinecone_manager.router, prefix="/api/pinecone", tags=["pinecone"])
-app.include_router(llm_handler.router, prefix="/api/llm", tags=["llm"])
-app.include_router(processor.router, prefix="/api/processor", tags=["processor"])
-app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
-app.include_router(generator_handler.router, prefix="/api/generator", tags=["generator"])
+# Note: Only include routers from modules that actually define them
+# The following modules are utilities and don't have routers:
+# - pinecone_manager, llm_handler, processor, auth, generator_handler
 app.include_router(realtor_importer_router, prefix="/realtor-importer", tags=["realtor"])
 app.include_router(data_lake_router, prefix="/api/data-lake", tags=["data-lake"])
 app.include_router(user_router, prefix="/user", tags=["user"])
