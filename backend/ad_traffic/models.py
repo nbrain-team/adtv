@@ -48,7 +48,7 @@ class AdTrafficClient(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
     # Relationships
-    user = relationship("User", back_populates="ad_traffic_clients")
+    user = relationship("User")
     posts = relationship("SocialPost", back_populates="client", cascade="all, delete-orphan")
     campaigns = relationship("Campaign", back_populates="client", cascade="all, delete-orphan")
 
