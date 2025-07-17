@@ -26,6 +26,7 @@ from core.user_routes import router as user_router
 from campaign_api.campaign_routes import router as campaign_router
 from core.email_template_routes import router as email_template_router
 from db_setup import update_db_schema, migrate_data
+from video_processor.api import router as video_processor_router
 
 
 load_dotenv()
@@ -128,40 +129,17 @@ app.add_middleware(
 )
 
 # --- Routers ---
-app.include_router(
-    realtor_importer_router,
-    prefix="/realtor-importer",
-    tags=["Realtor Importer"],
-    dependencies=[Depends(auth.get_current_active_user)]
-)
-
-app.include_router(
-    data_lake_router,
-    prefix="/data-lake",
-    tags=["Data Lake"],
-    dependencies=[Depends(auth.get_current_active_user)]
-)
-
-app.include_router(
-    user_router,
-    prefix="/user",
-    tags=["User Management"],
-    dependencies=[Depends(auth.get_current_active_user)]
-)
-
-app.include_router(
-    campaign_router,
-    prefix="/campaign",
-    tags=["Campaign Management"],
-    dependencies=[Depends(auth.get_current_active_user)]
-)
-
-app.include_router(
-    email_template_router,
-    prefix="/email-templates",
-    tags=["Email Templates"],
-    dependencies=[Depends(auth.get_current_active_user)]
-)
+app.include_router(pinecone_manager.router, prefix="/api/pinecone", tags=["pinecone"])
+app.include_router(llm_handler.router, prefix="/api/llm", tags=["llm"])
+app.include_router(processor.router, prefix="/api/processor", tags=["processor"])
+app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
+app.include_router(generator_handler.router, prefix="/api/generator", tags=["generator"])
+app.include_router(realtor_importer_router, prefix="/realtor-importer", tags=["realtor"])
+app.include_router(data_lake_router, prefix="/api/data-lake", tags=["data-lake"])
+app.include_router(user_router, prefix="/user", tags=["user"])
+app.include_router(campaign_router, prefix="/campaigns", tags=["campaigns"])
+app.include_router(email_template_router, prefix="/api/email-templates", tags=["email-templates"])
+app.include_router(video_processor_router, prefix="/api/video-processor", tags=["video-processor"])
 
 @app.get("/")
 def read_root():

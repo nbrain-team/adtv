@@ -4,6 +4,7 @@ import { ArrowLeftIcon } from '@radix-ui/react-icons';
 import { GeneratorWorkflow } from '../components/GeneratorWorkflow';
 import { RealtorImporterWorkflow } from '../components/RealtorImporter/RealtorImporterWorkflow';
 import { TemplateAgentCreator } from '../components/TemplateAgentCreator';
+import { VideoClipExtractorWorkflow } from '../components/VideoClipExtractor/VideoClipExtractorWorkflow';
 import { MainLayout } from '../components/MainLayout';
 import { useNavigate } from 'react-router-dom';
 
@@ -34,6 +35,12 @@ const agents: Agent[] = [
     name: 'Template Agent Creator',
     description: 'Create custom template agents from example inputs and outputs.',
     component: <TemplateAgentCreator onBack={() => {}} onCreated={() => {}} />, // Will be properly connected below
+  },
+  {
+    id: 'video-clip-extractor',
+    name: 'AI Video Clip Extractor',
+    description: 'Extract smart clips from promotional videos using AI vision analysis.',
+    component: <VideoClipExtractorWorkflow />,
   },
   {
     id: 'pr-outreach',

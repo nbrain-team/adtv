@@ -22,4 +22,7 @@ python-jose[cryptography]
 email-validator
 pandas
 selenium
-playwright 
+playwright
+opencv-python
+openai
+ffmpeg-python 
