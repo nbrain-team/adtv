@@ -23,14 +23,8 @@ class BrightDataScraper:
         logger.info(f"Initialized BrightDataScraper with endpoint: {self.ws_endpoint[:50]}...")
         
     async def connect_to_brightdata(self):
-        """Connect to Bright Data's managed browser"""
-        import logging
-        logger = logging.getLogger(__name__)
-        
+        """Connect to Bright Data browser instance with better error handling"""
         try:
-            logger.info(f"\n[BRIGHTDATA CONNECTION] Starting connection process...")
-            logger.info(f"[BRIGHTDATA CONNECTION] Endpoint: {self.ws_endpoint[:50]}...")
-            
             playwright = await async_playwright().start()
             logger.info("[BRIGHTDATA CONNECTION] Playwright started successfully")
             
@@ -68,17 +62,78 @@ class BrightDataScraper:
             return browser, page
             
         except Exception as e:
-            logger.error(f"[BRIGHTDATA CONNECTION] ✗ Failed to connect: {str(e)}")
+            error_msg = str(e)
+            logger.error(f"[BRIGHTDATA CONNECTION] ✗ Failed to connect: {error_msg}")
             logger.error(f"[BRIGHTDATA CONNECTION] Error type: {type(e).__name__}")
             logger.error(f"[BRIGHTDATA CONNECTION] Full endpoint: {self.ws_endpoint}")
+            print(f"[BRIGHTDATA CONNECTION] ✗ Failed: {error_msg}")
             
-            # Check if it's an authentication error
-            if "401" in str(e) or "unauthorized" in str(e).lower():
-                logger.error("[BRIGHTDATA CONNECTION] Authentication failed - check credentials")
-            elif "timeout" in str(e).lower():
-                logger.error("[BRIGHTDATA CONNECTION] Connection timed out - check network/proxy")
+            # Check if it's a suspension error
+            if "customer_suspended" in error_msg or "403 Auth Failed" in error_msg:
+                logger.warning("[BRIGHTDATA CONNECTION] Account is suspended - falling back to regular Playwright")
+                print("[BRIGHTDATA CONNECTION] Bright Data account suspended - using fallback scraping method")
+                
+                # Use regular Playwright as fallback
+                return await self.connect_regular_playwright()
             
-            print(f"[BRIGHTDATA CONNECTION] ✗ Failed: {str(e)}")
+            raise
+
+    async def connect_regular_playwright(self):
+        """Fallback to regular Playwright when Bright Data is unavailable"""
+        try:
+            logger.info("[FALLBACK] Starting regular Playwright browser...")
+            playwright = await async_playwright().start()
+            
+            # Launch a regular browser with some stealth settings
+            browser = await playwright.chromium.launch(
+                headless=True,
+                args=[
+                    '--disable-blink-features=AutomationControlled',
+                    '--disable-features=IsolateOrigins,site-per-process',
+                    '--disable-site-isolation-trials',
+                    '--disable-web-security',
+                    '--disable-features=BlockInsecurePrivateNetworkRequests',
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-accelerated-2d-canvas',
+                    '--no-first-run',
+                    '--no-zygote',
+                    '--single-process',
+                    '--disable-gpu'
+                ]
+            )
+            
+            context = await browser.new_context(
+                viewport={'width': 1920, 'height': 1080},
+                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                extra_http_headers={
+                    'Accept-Language': 'en-US,en;q=0.9',
+                    'Accept-Encoding': 'gzip, deflate, br',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                }
+            )
+            
+            page = await context.new_page()
+            
+            # Add some anti-detection measures
+            await page.add_init_script("""
+                Object.defineProperty(navigator, 'webdriver', {
+                    get: () => undefined
+                });
+                Object.defineProperty(navigator, 'plugins', {
+                    get: () => [1, 2, 3, 4, 5]
+                });
+                Object.defineProperty(navigator, 'languages', {
+                    get: () => ['en-US', 'en']
+                });
+            """)
+            
+            logger.info("[FALLBACK] ✓ Regular Playwright browser started successfully")
+            return browser, page
+            
+        except Exception as e:
+            logger.error(f"[FALLBACK] Failed to start regular Playwright: {str(e)}")
             raise
     
     async def human_delay(self, min_ms=500, max_ms=2000):
