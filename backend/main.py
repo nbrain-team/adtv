@@ -25,6 +25,7 @@ from core.data_lake_models import DataLakeRecord
 from core.user_routes import router as user_router
 from core.email_template_routes import router as email_template_router
 from db_setup import update_db_schema, migrate_data
+from ad_traffic.api import router as ad_traffic_router
 
 
 load_dotenv()
@@ -102,6 +103,15 @@ app = FastAPI(
 
 @app.on_event("startup")
 def on_startup():
+    # Run ad traffic migration first
+    try:
+        from scripts.add_unified_ad_traffic_tables import add_unified_ad_traffic_tables
+        logger.info("Running ad traffic tables migration...")
+        add_unified_ad_traffic_tables()
+        logger.info("Ad traffic tables migration completed.")
+    except Exception as e:
+        logger.warning(f"Ad traffic tables migration failed: {e}")
+    
     # Create all tables with error handling
     try:
         Base.metadata.create_all(bind=engine)
@@ -149,6 +159,7 @@ app.include_router(realtor_importer_router, prefix="/realtor-importer", tags=["r
 app.include_router(data_lake_router, prefix="/api/data-lake", tags=["data-lake"])
 app.include_router(user_router, prefix="/user", tags=["user"])
 app.include_router(email_template_router, prefix="/api/email-templates", tags=["email-templates"])
+app.include_router(ad_traffic_router, prefix="/api/ad-traffic", tags=["ad-traffic"])
 
 
 @app.get("/")
