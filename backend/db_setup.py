@@ -2,8 +2,7 @@ import logging
 from sqlalchemy import inspect, text
 from core.database import Base, engine, SessionLocal, User, ChatSession, TemplateAgent
 from core.data_lake_models import DataLakeRecord
-# Temporarily disable campaign models import to fix login
-# from core.campaign_models import Client, Campaign, ContentItem  # Import campaign models
+from core.campaign_models import Client, Campaign, ContentItem  # Import campaign models
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
