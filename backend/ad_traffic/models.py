@@ -41,7 +41,7 @@ class AdTrafficClient(Base):
     description = Column(Text)
     brand_voice = Column(Text)
     target_audience = Column(Text)
-    brand_colors = Column(ARRAY(String))
+    brand_colors = Column(JSON, default=[])
     logo_url = Column(String)
     social_accounts = Column(JSON, default={})
     created_at = Column(DateTime(timezone=True), server_default=func.now())
