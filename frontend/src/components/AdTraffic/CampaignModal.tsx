@@ -149,9 +149,26 @@ export const CampaignModal: React.FC<CampaignModalProps> = ({
                   id="video-upload"
                 />
                 <label htmlFor="video-upload">
-                  <Button type="button" variant="soft" style={{ cursor: 'pointer' }}>
+                  <Box
+                    as="span"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      padding: '0.5rem 1rem',
+                      backgroundColor: 'var(--accent-3)',
+                      color: 'var(--accent-11)',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      fontWeight: 500,
+                      transition: 'background-color 0.2s',
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--accent-4)'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--accent-3)'}
+                  >
                     <UploadIcon /> Choose Video File
-                  </Button>
+                  </Box>
                 </label>
                 {file && (
                   <Text size="2" color="gray" style={{ marginLeft: '1rem' }}>

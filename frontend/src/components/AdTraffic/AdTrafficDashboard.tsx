@@ -255,6 +255,7 @@ export const AdTrafficDashboard: React.FC = () => {
 
         <Dialog.Root open={showCampaignModal} onOpenChange={setShowCampaignModal}>
           <Dialog.Content maxWidth="700px">
+            <Dialog.Title style={{ display: 'none' }}>Create Video Campaign</Dialog.Title>
             {selectedClient && (
               <CampaignModal
                 client={selectedClient}
