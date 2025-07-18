@@ -107,6 +107,18 @@ def fix_ad_traffic_columns():
                 ADD COLUMN error_message TEXT
             """))
         
+        # Add updated_at if missing - THIS IS THE NEW ADDITION
+        result = conn.execute(text("""
+            SELECT column_name FROM information_schema.columns 
+            WHERE table_name='campaigns' AND column_name='updated_at'
+        """))
+        if result.rowcount == 0:
+            print("Adding updated_at to campaigns...")
+            conn.execute(text("""
+                ALTER TABLE campaigns 
+                ADD COLUMN updated_at TIMESTAMP WITH TIME ZONE
+            """))
+        
         # Check if uploads directory exists
         upload_dir = "uploads/campaigns"
         if not os.path.exists(upload_dir):
