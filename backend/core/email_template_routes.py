@@ -174,9 +174,29 @@ async def get_email_templates(
     db: Session = Depends(get_db)
 ):
     """Get all email templates (system + user-created)"""
+    from .database import EmailTemplate
+    
+    # Get all templates from database
+    db_templates = db.query(EmailTemplate).filter(
+        EmailTemplate.is_active == True
+    ).all()
+    
     templates = []
     
-    # Add system templates
+    # Add database templates
+    for template in db_templates:
+        templates.append(EmailTemplateResponse(
+            id=template.id,
+            name=template.name,
+            content=template.body,  # Note: database uses 'body' field
+            goal=template.subject,  # Using subject as goal for now
+            created_at=template.created_at,
+            updated_at=template.updated_at,
+            created_by=template.created_by or "system",
+            is_system=template.is_system
+        ))
+    
+    # Also add the legacy in-memory system templates if they exist
     for key, template in SYSTEM_TEMPLATES.items():
         templates.append(EmailTemplateResponse(
             id=template["id"],
@@ -189,11 +209,6 @@ async def get_email_templates(
             is_system=True
         ))
     
-    # Add user templates
-    for template_id, template in email_templates_storage.items():
-        if template["created_by"] == current_user.id:
-            templates.append(EmailTemplateResponse(**template))
-    
     return templates
 
 @router.post("/", response_model=EmailTemplateResponse)
@@ -203,22 +218,34 @@ async def create_email_template(
     db: Session = Depends(get_db)
 ):
     """Create a new email template"""
-    template_id = str(uuid.uuid4())
-    now = datetime.now()
+    from .database import EmailTemplate
     
-    template = {
-        "id": template_id,
-        "name": template_data.name,
-        "content": template_data.content,
-        "goal": template_data.goal,
-        "created_at": now,
-        "updated_at": now,
-        "created_by": current_user.id,
-        "is_system": False
-    }
+    # Create in database
+    db_template = EmailTemplate(
+        name=template_data.name,
+        subject=template_data.goal,  # Using goal as subject
+        body=template_data.content,
+        category="User Created",
+        is_active=True,
+        is_system=False,
+        created_by=current_user.id
+    )
     
-    email_templates_storage[template_id] = template
-    return EmailTemplateResponse(**template)
+    db.add(db_template)
+    db.commit()
+    db.refresh(db_template)
+    
+    # Return response
+    return EmailTemplateResponse(
+        id=db_template.id,
+        name=db_template.name,
+        content=db_template.body,
+        goal=db_template.subject,
+        created_at=db_template.created_at,
+        updated_at=db_template.updated_at,
+        created_by=db_template.created_by,
+        is_system=db_template.is_system
+    )
 
 @router.put("/{template_id}", response_model=EmailTemplateResponse)
 async def update_email_template(
