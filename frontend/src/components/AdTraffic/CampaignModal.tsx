@@ -6,7 +6,7 @@ import { api } from '../../services/api';
 
 interface CampaignModalProps {
   client: Client;
-  onComplete: () => void;
+  onComplete: (campaign: Campaign) => void;
   onCancel: () => void;
 }
 
@@ -72,34 +72,13 @@ export const CampaignModal: React.FC<CampaignModalProps> = ({
 
       setCampaign(response.data);
       
-      // Poll for campaign status
-      pollCampaignStatus(response.data.id);
+      // Close modal immediately and let parent handle the campaign
+      onComplete(response.data);
+      
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to create campaign');
       setLoading(false);
     }
-  };
-
-  const pollCampaignStatus = async (campaignId: string) => {
-    const interval = setInterval(async () => {
-      try {
-        const response = await api.get(`/api/ad-traffic/campaigns/${campaignId}`);
-        setCampaign(response.data);
-        
-        if (response.data.status !== CampaignStatus.PROCESSING) {
-          clearInterval(interval);
-          setLoading(false);
-          
-          if (response.data.status === CampaignStatus.READY) {
-            setTimeout(onComplete, 1500);
-          }
-        }
-      } catch (err) {
-        clearInterval(interval);
-        setError('Failed to check campaign status');
-        setLoading(false);
-      }
-    }, 2000);
   };
 
   const togglePlatform = (platform: Platform) => {

@@ -1,32 +1,35 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Flex, Heading, Text, Button, Tabs, Dialog } from '@radix-ui/themes';
-import { PlusIcon, PersonIcon, CalendarIcon } from '@radix-ui/react-icons';
-import { MainLayout } from '../MainLayout';
+import { Box, Flex, Text, Button, Tabs, Heading, Badge, Progress } from '@radix-ui/themes';
+import { PlusIcon, CalendarIcon, PersonIcon } from '@radix-ui/react-icons';
 import { ClientList } from './ClientList';
 import { CalendarView } from './CalendarView';
 import { ClientForm } from './ClientForm';
 import { PostModal } from './PostModal';
 import { CampaignModal } from './CampaignModal';
 import { ClientSelector } from './ClientSelector';
+import { MainLayout } from '../MainLayout';
 import { api } from '../../services/api';
-import { Client, SocialPost, Campaign } from './types';
+import { Client, SocialPost, Campaign, CampaignStatus } from './types';
+import * as Dialog from '@radix-ui/react-dialog';
 
 export const AdTrafficDashboard: React.FC = () => {
+  const [activeTab, setActiveTab] = useState('clients');
   const [clients, setClients] = useState<Client[]>([]);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [posts, setPosts] = useState<SocialPost[]>([]);
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [showClientModal, setShowClientModal] = useState(false);
+  const [showPostModal, setShowPostModal] = useState(false);
+  const [showCampaignModal, setShowCampaignModal] = useState(false);
+  const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const [activeCampaigns, setActiveCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   
   // Modal states
   const [showClientForm, setShowClientForm] = useState(false);
-  const [showPostModal, setShowPostModal] = useState(false);
-  const [showCampaignModal, setShowCampaignModal] = useState(false);
-  const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [editingPost, setEditingPost] = useState<SocialPost | null>(null);
   
   // View state
-  const [activeTab, setActiveTab] = useState('calendar');
+  // const [activeTab, setActiveTab] = useState('calendar'); // This line is removed as per the new_code
 
   // Fetch clients on mount
   useEffect(() => {
@@ -126,11 +129,49 @@ export const AdTrafficDashboard: React.FC = () => {
     setShowCampaignModal(true);
   };
 
-  const handleCampaignCreated = async () => {
+  const handleCampaignCreated = async (campaign: Campaign) => {
+    // Close modal immediately
+    setShowCampaignModal(false);
+    
+    // Add campaign to active campaigns list
+    setActiveCampaigns(prev => [...prev, campaign]);
+    
+    // Start polling for this campaign's status
+    pollCampaignStatus(campaign.id);
+    
+    // Refresh posts if we have a selected client
     if (selectedClient) {
       await fetchClientPosts(selectedClient.id);
     }
-    setShowCampaignModal(false);
+  };
+
+  const pollCampaignStatus = (campaignId: string) => {
+    const interval = setInterval(async () => {
+      try {
+        const response = await api.get<Campaign>(`/api/ad-traffic/campaigns/${campaignId}`);
+        const updatedCampaign = response.data;
+        
+        // Update the campaign in our list
+        setActiveCampaigns(prev => 
+          prev.map(c => c.id === campaignId ? updatedCampaign : c)
+        );
+        
+        // Stop polling if campaign is no longer processing
+        if (updatedCampaign.status !== CampaignStatus.PROCESSING) {
+          clearInterval(interval);
+          
+          // Remove from active campaigns after a delay if completed
+          if (updatedCampaign.status === CampaignStatus.READY) {
+            setTimeout(() => {
+              setActiveCampaigns(prev => prev.filter(c => c.id !== campaignId));
+            }, 5000);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to poll campaign status:', err);
+        clearInterval(interval);
+      }
+    }, 3000);
   };
 
   return (
@@ -191,47 +232,81 @@ export const AdTrafficDashboard: React.FC = () => {
               </Button>
             </Flex>
           ) : (
-            <Tabs.Root value={activeTab} onValueChange={setActiveTab}>
-              <Tabs.List style={{ padding: '0 2rem' }}>
-                <Tabs.Trigger value="calendar">
-                  <CalendarIcon /> Calendar
-                </Tabs.Trigger>
-                <Tabs.Trigger value="clients">
-                  <PersonIcon /> Clients
-                </Tabs.Trigger>
-              </Tabs.List>
+            <>
+              {/* Active Campaigns Banner */}
+              {activeCampaigns.length > 0 && (
+                <Box style={{ 
+                  padding: '1rem 2rem', 
+                  backgroundColor: 'var(--blue-2)',
+                  borderBottom: '1px solid var(--blue-6)'
+                }}>
+                  <Text size="2" weight="medium" style={{ marginBottom: '0.5rem' }}>
+                    Active Campaigns
+                  </Text>
+                  <Flex direction="column" gap="2">
+                    {activeCampaigns.map(campaign => (
+                      <Flex key={campaign.id} align="center" gap="3">
+                        <Text size="2">{campaign.name}</Text>
+                        <Badge color={
+                          campaign.status === CampaignStatus.PROCESSING ? 'blue' :
+                          campaign.status === CampaignStatus.READY ? 'green' : 'red'
+                        }>
+                          {campaign.status}
+                        </Badge>
+                        {campaign.status === CampaignStatus.PROCESSING && (
+                          <>
+                            <Progress value={campaign.progress || 0} style={{ width: '100px' }} />
+                            <Text size="1" color="gray">{campaign.progress || 0}%</Text>
+                          </>
+                        )}
+                      </Flex>
+                    ))}
+                  </Flex>
+                </Box>
+              )}
+              
+              <Tabs.Root value={activeTab} onValueChange={setActiveTab}>
+                <Tabs.List style={{ padding: '0 2rem' }}>
+                  <Tabs.Trigger value="calendar">
+                    <CalendarIcon /> Calendar
+                  </Tabs.Trigger>
+                  <Tabs.Trigger value="clients">
+                    <PersonIcon /> Clients
+                  </Tabs.Trigger>
+                </Tabs.List>
 
-              <Box style={{ height: 'calc(100% - 48px)', overflow: 'auto' }}>
-                <Tabs.Content value="calendar" style={{ height: '100%' }}>
-                  {selectedClient && (
-                    <CalendarView
-                      client={selectedClient}
-                      posts={posts}
-                      onCreatePost={handleCreatePost}
-                      onEditPost={handleEditPost}
-                      onDeletePost={handleDeletePost}
-                      onCreateCampaign={handleCreateCampaign}
+                <Box style={{ height: 'calc(100% - 48px)', overflow: 'auto' }}>
+                  <Tabs.Content value="calendar" style={{ height: '100%' }}>
+                    {selectedClient && (
+                      <CalendarView
+                        client={selectedClient}
+                        posts={posts}
+                        onCreatePost={handleCreatePost}
+                        onEditPost={handleEditPost}
+                        onDeletePost={handleDeletePost}
+                        onCreateCampaign={handleCreateCampaign}
+                      />
+                    )}
+                  </Tabs.Content>
+
+                  <Tabs.Content value="clients">
+                    <ClientList
+                      clients={clients}
+                      selectedClient={selectedClient}
+                      onSelectClient={setSelectedClient}
+                      onEditClient={handleEditClient}
+                      onDeleteClient={handleDeleteClient}
                     />
-                  )}
-                </Tabs.Content>
-
-                <Tabs.Content value="clients">
-                  <ClientList
-                    clients={clients}
-                    selectedClient={selectedClient}
-                    onSelectClient={setSelectedClient}
-                    onEditClient={handleEditClient}
-                    onDeleteClient={handleDeleteClient}
-                  />
-                </Tabs.Content>
-              </Box>
-            </Tabs.Root>
+                  </Tabs.Content>
+                </Box>
+              </Tabs.Root>
+            </>
           )}
         </Box>
 
         {/* Modals */}
         <Dialog.Root open={showClientForm} onOpenChange={setShowClientForm}>
-          <Dialog.Content maxWidth="500px">
+          <Dialog.Content style={{ maxWidth: '500px' }}>
             <ClientForm
               client={editingClient}
               onSave={handleClientSaved}
@@ -241,7 +316,7 @@ export const AdTrafficDashboard: React.FC = () => {
         </Dialog.Root>
 
         <Dialog.Root open={showPostModal} onOpenChange={setShowPostModal}>
-          <Dialog.Content maxWidth="600px">
+          <Dialog.Content style={{ maxWidth: '600px' }}>
             {selectedClient && (
               <PostModal
                 client={selectedClient}
@@ -254,7 +329,7 @@ export const AdTrafficDashboard: React.FC = () => {
         </Dialog.Root>
 
         <Dialog.Root open={showCampaignModal} onOpenChange={setShowCampaignModal}>
-          <Dialog.Content maxWidth="700px">
+          <Dialog.Content style={{ maxWidth: '700px' }}>
             <Dialog.Title style={{ display: 'none' }}>Create Video Campaign</Dialog.Title>
             {selectedClient && (
               <CampaignModal
