@@ -32,7 +32,7 @@ const TemplateManagerPage = () => {
 
     const fetchTemplates = async () => {
         try {
-            const response = await api.get('/email-templates');
+            const response = await api.get('/api/email-templates');
             setTemplates(response.data);
         } catch (error) {
             console.error('Failed to fetch templates:', error);
@@ -43,7 +43,7 @@ const TemplateManagerPage = () => {
 
     const handleCreate = async () => {
         try {
-            await api.post('/email-templates', {
+            await api.post('/api/email-templates', {
                 name: formName,
                 content: formContent,
                 goal: formGoal
@@ -60,13 +60,13 @@ const TemplateManagerPage = () => {
         if (!selectedTemplate) return;
         
         try {
-            await api.put(`/email-templates/${selectedTemplate.id}`, {
+            await api.put(`/api/email-templates/${selectedTemplate.id}`, {
                 name: formName,
                 content: formContent,
                 goal: formGoal
             });
+            setSelectedTemplate(null);
             setShowEditDialog(false);
-            resetForm();
             fetchTemplates();
         } catch (error) {
             console.error('Failed to update template:', error);
@@ -76,7 +76,7 @@ const TemplateManagerPage = () => {
     const handleDelete = async (id: string) => {
         if (window.confirm('Are you sure you want to delete this template?')) {
             try {
-                await api.delete(`/email-templates/${id}`);
+                await api.delete(`/api/email-templates/${id}`);
                 fetchTemplates();
             } catch (error) {
                 console.error('Failed to delete template:', error);
@@ -86,7 +86,7 @@ const TemplateManagerPage = () => {
 
     const handleDuplicate = async (template: EmailTemplate) => {
         try {
-            await api.post('/email-templates', {
+            await api.post('/api/email-templates', {
                 name: `${template.name} (Copy)`,
                 content: template.content,
                 goal: template.goal

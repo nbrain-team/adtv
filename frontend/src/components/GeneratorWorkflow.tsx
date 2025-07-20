@@ -118,7 +118,7 @@ export const GeneratorWorkflow = () => {
 
     const fetchTemplates = async () => {
         try {
-            const response = await api.get('/email-templates');
+            const response = await api.get('/api/email-templates');
             setTemplates(response.data);
         } catch (error) {
             console.error('Failed to fetch templates:', error);
