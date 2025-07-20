@@ -137,6 +137,22 @@ def on_startup():
             logger.info("Database migrations completed.")
     except Exception as e:
         logger.error(f"Error running migrations: {e}")
+    
+    # Ensure danny@nbrain.ai has ad-traffic permission
+    try:
+        with SessionLocal() as db:
+            user = db.query(User).filter(User.email == "danny@nbrain.ai").first()
+            if user:
+                permissions = user.permissions.copy() if user.permissions else {}
+                if 'ad-traffic' not in permissions:
+                    permissions['ad-traffic'] = True
+                    user.permissions = permissions
+                    db.commit()
+                    logger.info("Ensured ad-traffic permission for danny@nbrain.ai")
+            else:
+                logger.warning("User danny@nbrain.ai not found")
+    except Exception as e:
+        logger.error(f"Error updating ad-traffic permission: {e}")
 
     # Import ad_traffic_router after startup
     # from ad_traffic.api import router as ad_traffic_router
