@@ -196,19 +196,6 @@ async def get_email_templates(
             is_system=template.is_system
         ))
     
-    # Also add the legacy in-memory system templates if they exist
-    for key, template in SYSTEM_TEMPLATES.items():
-        templates.append(EmailTemplateResponse(
-            id=template["id"],
-            name=template["name"],
-            content=template["content"],
-            goal=template["goal"],
-            created_at=datetime.now(),
-            updated_at=datetime.now(),
-            created_by="system",
-            is_system=True
-        ))
-    
     return templates
 
 @router.post("/", response_model=EmailTemplateResponse)
@@ -255,26 +242,45 @@ async def update_email_template(
     db: Session = Depends(get_db)
 ):
     """Update an email template"""
-    if template_id not in email_templates_storage:
+    from .database import EmailTemplate
+    
+    # Get template from database
+    db_template = db.query(EmailTemplate).filter(EmailTemplate.id == template_id).first()
+    
+    if not db_template:
         raise HTTPException(status_code=404, detail="Template not found")
     
-    template = email_templates_storage[template_id]
-    
-    # Check ownership
-    if template["created_by"] != current_user.id:
+    # Check ownership (only allow editing non-system templates by creator)
+    if not db_template.is_system and db_template.created_by != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized to edit this template")
+    
+    # Don't allow editing system templates
+    if db_template.is_system:
+        raise HTTPException(status_code=403, detail="Cannot edit system templates")
     
     # Update fields
     if template_data.name is not None:
-        template["name"] = template_data.name
+        db_template.name = template_data.name
     if template_data.content is not None:
-        template["content"] = template_data.content
+        db_template.body = template_data.content
     if template_data.goal is not None:
-        template["goal"] = template_data.goal
+        db_template.subject = template_data.goal
     
-    template["updated_at"] = datetime.now()
+    db_template.updated_at = datetime.now()
     
-    return EmailTemplateResponse(**template)
+    db.commit()
+    db.refresh(db_template)
+    
+    return EmailTemplateResponse(
+        id=db_template.id,
+        name=db_template.name,
+        content=db_template.body,
+        goal=db_template.subject,
+        created_at=db_template.created_at,
+        updated_at=db_template.updated_at,
+        created_by=db_template.created_by,
+        is_system=db_template.is_system
+    )
 
 @router.delete("/{template_id}")
 async def delete_email_template(
@@ -283,14 +289,24 @@ async def delete_email_template(
     db: Session = Depends(get_db)
 ):
     """Delete an email template"""
-    if template_id not in email_templates_storage:
+    from .database import EmailTemplate
+    
+    # Get template from database
+    db_template = db.query(EmailTemplate).filter(EmailTemplate.id == template_id).first()
+    
+    if not db_template:
         raise HTTPException(status_code=404, detail="Template not found")
     
-    template = email_templates_storage[template_id]
-    
-    # Check ownership
-    if template["created_by"] != current_user.id:
+    # Check ownership (only allow deleting non-system templates by creator)
+    if not db_template.is_system and db_template.created_by != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized to delete this template")
     
-    del email_templates_storage[template_id]
+    # Don't allow deleting system templates
+    if db_template.is_system:
+        raise HTTPException(status_code=403, detail="Cannot delete system templates")
+    
+    # Soft delete by setting is_active to False
+    db_template.is_active = False
+    db.commit()
+    
     return {"message": "Template deleted successfully"} 
