@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Box, Flex, Heading, Text, Card, TextField, Button, Callout, Table, Checkbox, Badge, IconButton, Dialog, AlertDialog } from '@radix-ui/themes';
 import { InfoCircledIcon, PersonIcon, ExitIcon, MagnifyingGlassIcon, GearIcon, TrashIcon } from '@radix-ui/react-icons';
-import { MainLayout } from '../components/MainLayout';
-import api from '../api';
-import { useAuth } from '../context/AuthContext';
+import { MainLayout } from '../../../../frontend/src/components/MainLayout';
+import api from '../../../../frontend/src/services/api';
+import { useAuth } from '../../../../frontend/src/context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
 interface UserProfile {
