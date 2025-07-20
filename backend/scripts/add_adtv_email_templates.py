@@ -55,7 +55,8 @@ Warm regards,
 Associate Producer
 American Dream TV""",
             "category": "ADTV Outreach",
-            "is_active": True
+            "is_active": True,
+            "is_system": True
         },
         {
             "name": "ADTV Round 2 Email",
@@ -88,21 +89,24 @@ Warm regards,
 Associate Producer, ADTV Network
 [[ContactInfo]]""",
             "category": "ADTV Outreach",
-            "is_active": True
+            "is_active": True,
+            "is_system": True
         },
         {
             "name": "ADTV SMS Template",
             "subject": "SMS: ADTV Feature Opportunity",
             "body": """Hi {{FirstName}}, [[AssociateName]] here with ADTV Network. I sent you an email a couple days ago about the launch of our new Selling {{City}} season. We're opening up convos with top local agents to be featured as "The Voice" for areas like {{Market}}. Craig will be in {{City}} holding meetings at the [[HotelName]] on [[Date1]] or [[Date2]]. If either works, let me know and I'll get you scheduled! Didn't see the email? Just reply with the best address and I'll resend it.""",
             "category": "ADTV Outreach",
-            "is_active": True
+            "is_active": True,
+            "is_system": True
         },
         {
             "name": "ADTV Voicemail Script",
             "subject": "Voicemail: ADTV Feature Opportunity",
             "body": """Hi {{FirstName}}, this is [[AssociateName]] with ADTV Network. I sent you an email and just wanted to make sure you received it. We're launching our show here in {{City}}, highlighting real estate, lifestyle, and the incredible communities like {{Market}}, and we'd love for you to be part of it. We're coming to town next week and would really like to meet with you. All the details are in the email — please check your spam folder if you didn't see it. And if you'd like me to resend it, just text your best email address to [[AssociatePhone]] and I'll get that over to you. Thanks so much, and enjoy your day!""",
             "category": "ADTV Outreach",
-            "is_active": True
+            "is_active": True,
+            "is_system": True
         }
     ]
     

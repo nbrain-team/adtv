@@ -1,5 +1,5 @@
 import os
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, JSON, Boolean, ForeignKey, func, Enum as SAEnum, BigInteger
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, JSON, Boolean, ForeignKey, func, Enum as SAEnum, BigInteger, Text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from datetime import datetime
@@ -41,6 +41,7 @@ class User(Base):
 
     conversations = relationship("ChatSession", back_populates="user")
     template_agents = relationship("TemplateAgent", back_populates="creator", cascade="all, delete-orphan")
+    email_templates = relationship("EmailTemplate", back_populates="creator", cascade="all, delete-orphan")
     # Note: ad_traffic_clients relationship is defined on the AdTrafficClient model to avoid circular imports
 
 
@@ -143,6 +144,24 @@ class TemplateAgent(Base):
     
     # Relationship
     creator = relationship("User", back_populates="template_agents")
+
+
+class EmailTemplate(Base):
+    __tablename__ = "email_templates"
+    
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    name = Column(String, nullable=False, unique=True)
+    subject = Column(String, nullable=False)
+    body = Column(Text, nullable=False)
+    category = Column(String, nullable=False)
+    is_active = Column(Boolean, default=True)
+    is_system = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    created_by = Column(String, ForeignKey("users.id"))
+    
+    # Relationship
+    creator = relationship("User", back_populates="email_templates")
 
 
 def get_db():
