@@ -40,6 +40,13 @@ const agents = [
     component: <TemplateAgentCreator onBack={() => {}} onCreated={() => {}} />, // Will be properly connected below
   },
   {
+    id: 'data-lake',
+    name: 'Data Lake Manager',
+    description: 'Manage your centralized database of contacts, import/export data, and maintain your CRM.',
+    icon: '💾',
+    component: <Box p="4"><Text>Redirecting to Data Lake...</Text></Box>, // Placeholder component
+  },
+  {
     id: 'more-coming',
     name: 'More Agents Coming Soon',
     description: 'We\'re constantly building new AI agents to help automate your marketing workflows.',
@@ -54,7 +61,10 @@ const AgentsPage = () => {
 
   const handleSelectAgent = (agentId: string) => {
     const agent = agents.find(a => a.id === agentId);
-    if (agent && agent.id !== 'more-coming') {
+    if (agent && agent.id === 'data-lake') {
+      // Navigate to data lake page
+      navigate('/data-lake');
+    } else if (agent && agent.id !== 'more-coming') {
       setSelectedAgent(agent);
     } else if (agent?.id === 'more-coming') {
       // Optionally, show an alert or do nothing for disabled agents

@@ -65,11 +65,6 @@ export const Sidebar = ({ onNewChat }: { onNewChat: () => void }) => {
                         <img src="/new-icons/3.png" alt="Automation Agents" />
                     </button>
                 )}
-                {hasPermission('data-lake') && (
-                    <button className="sidebar-icon" title="Data Lake" onClick={() => navigate('/data-lake')}>
-                        <img src="/new-icons/data-lake.png" alt="Data Lake" />
-                    </button>
-                )}
                 {hasPermission('realtor') && (
                     <button className="sidebar-icon" title="Realtor" onClick={() => navigate('/realtor')}>
                         <img src="/new-icons/15.png" alt="Realtor" />
