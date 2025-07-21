@@ -144,11 +144,11 @@ def on_startup():
             user = db.query(User).filter(User.email == "danny@nbrain.ai").first()
             if user:
                 permissions = user.permissions.copy() if user.permissions else {}
-                if 'ad-traffic' not in permissions:
-                    permissions['ad-traffic'] = True
-                    user.permissions = permissions
-                    db.commit()
-                    logger.info("Ensured ad-traffic permission for danny@nbrain.ai")
+                # Always set ad-traffic to True, regardless of current value
+                permissions['ad-traffic'] = True
+                user.permissions = permissions
+                db.commit()
+                logger.info(f"Set ad-traffic permission to True for danny@nbrain.ai. All permissions: {permissions}")
             else:
                 logger.warning("User danny@nbrain.ai not found")
     except Exception as e:
