@@ -18,6 +18,7 @@ except ImportError:
 # Import Bright Data scraper as second priority
 try:
     from .brightdata_scraper import scrape_homes_brightdata
+    from .brightdata_scraper_fixed import scrape_homes_brightdata_fixed
     BRIGHTDATA_AVAILABLE = True
 except ImportError:
     BRIGHTDATA_AVAILABLE = False
@@ -291,7 +292,7 @@ def scrape_realtor_list_with_playwright(list_url: str, max_profiles: int = 10, u
         
         try:
             logger.info("  Calling scrape_homes_brightdata...")
-            result = scrape_homes_brightdata(list_url, max_profiles, batch_callback=batch_callback)
+            result = scrape_homes_brightdata_fixed(list_url, max_profiles, batch_callback=batch_callback)
             logger.info(f"  ✓ SUCCESS: Scraped {len(result)} profiles")
             return result
         except Exception as e:
