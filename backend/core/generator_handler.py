@@ -98,40 +98,34 @@ async def generate_content_rows(
 {generation_goal}
 """
                     
-                    # Construct the enhanced prompt
-                    prompt = f"""
-Your Task:
-You are personalizing an email template for a specific recipient. Your goal is to create a version that feels personally written for them while maintaining the original structure and intent.
-
-**INTELLIGENT PERSONALIZATION INSTRUCTIONS:**
-1. First, replace any {{{{placeholders}}}} that were already handled
-2. Then, use ALL the contextual data below to make intelligent adaptations:
-   - If they're on the West Coast and template mentions "west coast beauty", keep it
-   - If they're on the East Coast and template mentions "west coast beauty", adapt to "East Coast charm" or "beautiful fall foliage"
-   - If template mentions industry pain points generically, make them specific to their industry
-   - Adapt cultural references, weather mentions, time zones, local events based on location
-   - Adjust formality and terminology based on their role/title
-   - Reference company-specific details when relevant
-
-3. MAINTAIN the overall structure, length, and core message
-4. Make personalizations feel natural, not forced
-5. If data is limited, still make subtle adaptations based on what you have
-
-{goal_section}
-
-**Recipient's Data:**
-{context_str}
-
-**Email Template to Personalize:**
-{temp_content}
-
-**CRITICAL RULES:**
-- Output ONLY the final personalized email
-- Keep the same overall structure and flow
-- Make intelligent inferences from the data (e.g., Boston → cold winters, tech hub, historical city)
-- Personalization should enhance, not replace, the core message
-- If uncertain about a detail, make reasonable assumptions based on the data provided
-"""
+                    # Construct the enhanced prompt using string concatenation to avoid brace issues
+                    prompt = (
+                        "Your Task:\n"
+                        "You are personalizing an email template for a specific recipient. Your goal is to create a version that feels personally written for them while maintaining the original structure and intent.\n\n"
+                        "**INTELLIGENT PERSONALIZATION INSTRUCTIONS:**\n"
+                        "1. First, replace any {{placeholders}} that were already handled\n"
+                        "2. Then, use ALL the contextual data below to make intelligent adaptations:\n"
+                        "   - If they're on the West Coast and template mentions \"west coast beauty\", keep it\n"
+                        "   - If they're on the East Coast and template mentions \"west coast beauty\", adapt to \"East Coast charm\" or \"beautiful fall foliage\"\n"
+                        "   - If template mentions industry pain points generically, make them specific to their industry\n"
+                        "   - Adapt cultural references, weather mentions, time zones, local events based on location\n"
+                        "   - Adjust formality and terminology based on their role/title\n"
+                        "   - Reference company-specific details when relevant\n\n"
+                        "3. MAINTAIN the overall structure, length, and core message\n"
+                        "4. Make personalizations feel natural, not forced\n"
+                        "5. If data is limited, still make subtle adaptations based on what you have\n\n"
+                        + goal_section +
+                        "\n\n**Recipient's Data:**\n"
+                        + context_str +
+                        "\n\n**Email Template to Personalize:**\n"
+                        + temp_content +
+                        "\n\n**CRITICAL RULES:**\n"
+                        "- Output ONLY the final personalized email\n"
+                        "- Keep the same overall structure and flow\n"
+                        "- Make intelligent inferences from the data (e.g., Boston → cold winters, tech hub, historical city)\n"
+                        "- Personalization should enhance, not replace, the core message\n"
+                        "- If uncertain about a detail, make reasonable assumptions based on the data provided\n"
+                    )
                     messages = [
                         SystemMessage(content=GENERATOR_PERSONA),
                         HumanMessage(content=prompt)
@@ -173,40 +167,34 @@ You are personalizing an email template for a specific recipient. Your goal is t
 {generation_goal}
 """
                 
-                # Construct the enhanced prompt
-                prompt = f"""
-Your Task:
-You are personalizing an email template for a specific recipient. Your goal is to create a version that feels personally written for them while maintaining the original structure and intent.
-
-**INTELLIGENT PERSONALIZATION INSTRUCTIONS:**
-1. First, replace any {{{{placeholders}}}} that were already handled
-2. Then, use ALL the contextual data below to make intelligent adaptations:
-   - If they're on the West Coast and template mentions "west coast beauty", keep it
-   - If they're on the East Coast and template mentions "west coast beauty", adapt to "East Coast charm" or "beautiful fall foliage"
-   - If template mentions industry pain points generically, make them specific to their industry
-   - Adapt cultural references, weather mentions, time zones, local events based on location
-   - Adjust formality and terminology based on their role/title
-   - Reference company-specific details when relevant
-
-3. MAINTAIN the overall structure, length, and core message
-4. Make personalizations feel natural, not forced
-5. If data is limited, still make subtle adaptations based on what you have
-
-{goal_section}
-
-**Recipient's Data:**
-{context_str}
-
-**Email Template to Personalize:**
-{temp_content}
-
-**CRITICAL RULES:**
-- Output ONLY the final personalized email
-- Keep the same overall structure and flow
-- Make intelligent inferences from the data (e.g., Boston → cold winters, tech hub, historical city)
-- Personalization should enhance, not replace, the core message
-- If uncertain about a detail, make reasonable assumptions based on the data provided
-"""
+                # Construct the enhanced prompt using string concatenation to avoid brace issues
+                prompt = (
+                    "Your Task:\n"
+                    "You are personalizing an email template for a specific recipient. Your goal is to create a version that feels personally written for them while maintaining the original structure and intent.\n\n"
+                    "**INTELLIGENT PERSONALIZATION INSTRUCTIONS:**\n"
+                    "1. First, replace any {{placeholders}} that were already handled\n"
+                    "2. Then, use ALL the contextual data below to make intelligent adaptations:\n"
+                    "   - If they're on the West Coast and template mentions \"west coast beauty\", keep it\n"
+                    "   - If they're on the East Coast and template mentions \"west coast beauty\", adapt to \"East Coast charm\" or \"beautiful fall foliage\"\n"
+                    "   - If template mentions industry pain points generically, make them specific to their industry\n"
+                    "   - Adapt cultural references, weather mentions, time zones, local events based on location\n"
+                    "   - Adjust formality and terminology based on their role/title\n"
+                    "   - Reference company-specific details when relevant\n\n"
+                    "3. MAINTAIN the overall structure, length, and core message\n"
+                    "4. Make personalizations feel natural, not forced\n"
+                    "5. If data is limited, still make subtle adaptations based on what you have\n\n"
+                    + goal_section +
+                    "\n\n**Recipient's Data:**\n"
+                    + context_str +
+                    "\n\n**Email Template to Personalize:**\n"
+                    + temp_content +
+                    "\n\n**CRITICAL RULES:**\n"
+                    "- Output ONLY the final personalized email\n"
+                    "- Keep the same overall structure and flow\n"
+                    "- Make intelligent inferences from the data (e.g., Boston → cold winters, tech hub, historical city)\n"
+                    "- Personalization should enhance, not replace, the core message\n"
+                    "- If uncertain about a detail, make reasonable assumptions based on the data provided\n"
+                )
                 messages = [
                     SystemMessage(content=GENERATOR_PERSONA),
                     HumanMessage(content=prompt)
