@@ -88,31 +88,18 @@ def debug_realtor_scraper():
             count = result.scalar()
             print(f"   - Job {job['id'][:8]}... '{job['name'] or 'No name'}': {count} contacts saved")
         
-        # 4. Check downloaded files
-        print("\n4. Recent downloaded files:")
+        # 4. Check for completed jobs
+        print("\n4. Job completion status:")
         result = conn.execute(text("""
-            SELECT job_id, file_path, created_at
-            FROM download_files
+            SELECT status, COUNT(*) as count
+            FROM scraping_jobs
             WHERE created_at > :date_limit
-            ORDER BY created_at DESC
-            LIMIT 10
-        """), {"date_limit": datetime.now() - timedelta(days=7)})
+            GROUP BY status
+            ORDER BY count DESC
+        """), {"date_limit": datetime.now() - timedelta(days=30)})
         
-        export_count = 0
         for row in result:
-            export_count += 1
-            print(f"   - Job {row[0][:8] if row[0] else 'Unknown'}... -> {row[1]}")
-            print(f"     Created: {row[2]}")
-            
-            # Check if file exists
-            if os.path.exists(row[1]):
-                file_size = os.path.getsize(row[1])
-                print(f"     File size: {file_size / 1024:.1f} KB")
-            else:
-                print(f"     WARNING: File not found!")
-        
-        if export_count == 0:
-            print("   No downloads found in the last 7 days")
+            print(f"   - {row[0]}: {row[1]} jobs")
         
         # 5. Check for common errors
         print("\n5. Common errors (last 10):")
@@ -142,7 +129,9 @@ def debug_realtor_scraper():
             "backend/exports",
             "backend/exports/realtor",
             "/tmp/exports",
-            "/tmp/realtor_exports"
+            "/tmp/realtor_exports",
+            "/opt/render/project/src/exports",
+            "/opt/render/project/src/backend/exports"
         ]
         
         for dir_path in export_dirs:
@@ -154,6 +143,18 @@ def debug_realtor_scraper():
                     print(f"     Recent files: {', '.join(recent_files)}")
             else:
                 print(f"   - {dir_path}: Directory not found")
+        
+        # 7. Check current job details
+        print("\n7. Current/Recent job details:")
+        if jobs:
+            latest_job = jobs[0]
+            print(f"   Latest job: {latest_job['name'] or 'No name'}")
+            print(f"   Status: {latest_job['status']}")
+            print(f"   Started: {latest_job['created_at']}")
+            if latest_job['status'] == 'IN_PROGRESS':
+                print("   ⚠️  This job is currently running")
+                print("   Note: Jobs typically take 30-60 minutes for large searches")
+                print("   The scraper exports are generated after completion")
 
 if __name__ == "__main__":
     debug_realtor_scraper() 
