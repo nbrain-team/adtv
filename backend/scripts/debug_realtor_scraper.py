@@ -21,8 +21,8 @@ def debug_realtor_scraper():
         print("1. Recent scraper jobs (last 7 days):")
         result = conn.execute(text("""
             SELECT id, status, created_at, updated_at, error_message,
-                   search_params, total_results, processed_results
-            FROM scraper_jobs
+                   name, completed_at
+            FROM scraping_jobs
             WHERE created_at > :date_limit
             ORDER BY created_at DESC
             LIMIT 20
@@ -36,24 +36,25 @@ def debug_realtor_scraper():
                 'created_at': row[2],
                 'updated_at': row[3],
                 'error_message': row[4],
-                'search_params': row[5],
-                'total_results': row[6],
-                'processed_results': row[7]
+                'name': row[5],
+                'completed_at': row[6]
             }
             jobs.append(job)
             
             print(f"\n   Job ID: {row[0][:8]}...")
+            print(f"   Name: {row[5] or 'No name'}")
             print(f"   Status: {row[1]}")
             print(f"   Created: {row[2]}")
             print(f"   Updated: {row[3]}")
-            print(f"   Duration: {row[3] - row[2] if row[3] else 'Still running'}")
             
-            if row[5]:
-                params = json.loads(row[5]) if isinstance(row[5], str) else row[5]
-                print(f"   Location: {params.get('location', 'Unknown')}")
-                print(f"   Filters: {params.get('filters', {})}")
+            if row[6]:  # completed_at
+                duration = row[6] - row[2]
+            elif row[3]:  # updated_at
+                duration = row[3] - row[2]
+            else:
+                duration = datetime.now() - row[2]
             
-            print(f"   Results: {row[7] or 0}/{row[6] or 'Unknown'}")
+            print(f"   Duration: {duration}")
             
             if row[4]:
                 print(f"   ERROR: {row[4][:100]}...")
@@ -61,9 +62,9 @@ def debug_realtor_scraper():
         # 2. Check stuck jobs
         print("\n2. Potentially stuck jobs (running > 1 hour):")
         result = conn.execute(text("""
-            SELECT id, status, created_at, updated_at, search_params
-            FROM scraper_jobs
-            WHERE status IN ('pending', 'processing')
+            SELECT id, status, created_at, updated_at, name
+            FROM scraping_jobs
+            WHERE status IN ('PENDING', 'IN_PROGRESS')
             AND created_at < :time_limit
         """), {"time_limit": datetime.now() - timedelta(hours=1)})
         
@@ -71,30 +72,27 @@ def debug_realtor_scraper():
         for row in result:
             stuck_count += 1
             duration = datetime.now() - row[2]
-            print(f"   - Job {row[0][:8]}... has been {row[1]} for {duration}")
-            if row[4]:
-                params = json.loads(row[4]) if isinstance(row[4], str) else row[4]
-                print(f"     Location: {params.get('location', 'Unknown')}")
+            print(f"   - Job {row[0][:8]}... '{row[4] or 'No name'}' has been {row[1]} for {duration}")
         
         if stuck_count == 0:
             print("   No stuck jobs found")
         
-        # 3. Check property results
-        print("\n3. Property results by job:")
+        # 3. Check realtor contacts
+        print("\n3. Realtor contacts by job:")
         for job in jobs[:5]:  # Check last 5 jobs
             result = conn.execute(text("""
-                SELECT COUNT(*) FROM property_results
+                SELECT COUNT(*) FROM realtor_contacts
                 WHERE job_id = :job_id
             """), {"job_id": job['id']})
             
             count = result.scalar()
-            print(f"   - Job {job['id'][:8]}...: {count} properties saved")
+            print(f"   - Job {job['id'][:8]}... '{job['name'] or 'No name'}': {count} contacts saved")
         
-        # 4. Check file exports
-        print("\n4. Recent file exports:")
+        # 4. Check downloaded files
+        print("\n4. Recent downloaded files:")
         result = conn.execute(text("""
             SELECT job_id, file_path, created_at
-            FROM scraper_exports
+            FROM download_files
             WHERE created_at > :date_limit
             ORDER BY created_at DESC
             LIMIT 10
@@ -103,7 +101,7 @@ def debug_realtor_scraper():
         export_count = 0
         for row in result:
             export_count += 1
-            print(f"   - Job {row[0][:8]}... -> {row[1]}")
+            print(f"   - Job {row[0][:8] if row[0] else 'Unknown'}... -> {row[1]}")
             print(f"     Created: {row[2]}")
             
             # Check if file exists
@@ -114,13 +112,13 @@ def debug_realtor_scraper():
                 print(f"     WARNING: File not found!")
         
         if export_count == 0:
-            print("   No exports found in the last 7 days")
+            print("   No downloads found in the last 7 days")
         
         # 5. Check for common errors
         print("\n5. Common errors (last 10):")
         result = conn.execute(text("""
             SELECT error_message, COUNT(*) as count
-            FROM scraper_jobs
+            FROM scraping_jobs
             WHERE error_message IS NOT NULL
             AND created_at > :date_limit
             GROUP BY error_message
@@ -128,14 +126,22 @@ def debug_realtor_scraper():
             LIMIT 10
         """), {"date_limit": datetime.now() - timedelta(days=7)})
         
+        error_count = 0
         for row in result:
+            error_count += 1
             print(f"   - {row[1]}x: {row[0][:100]}...")
+        
+        if error_count == 0:
+            print("   No errors found in the last 7 days")
         
         # 6. Check export directory
         print("\n6. Export directory check:")
         export_dirs = [
+            "exports",
             "exports/realtor",
+            "backend/exports",
             "backend/exports/realtor",
+            "/tmp/exports",
             "/tmp/realtor_exports"
         ]
         

@@ -19,9 +19,9 @@ def fix_stuck_jobs():
         # 1. Find stuck jobs (running > 2 hours)
         print("1. Finding stuck jobs (running > 2 hours)...")
         result = conn.execute(text("""
-            SELECT id, status, created_at, updated_at
-            FROM scraper_jobs
-            WHERE status IN ('pending', 'processing', 'IN_PROGRESS', 'PENDING')
+            SELECT id, status, created_at, updated_at, name
+            FROM scraping_jobs
+            WHERE status IN ('PENDING', 'IN_PROGRESS')
             AND created_at < :time_limit
         """), {"time_limit": datetime.now() - timedelta(hours=2)})
         
@@ -32,9 +32,10 @@ def fix_stuck_jobs():
                 'id': row[0],
                 'status': row[1],
                 'created_at': row[2],
-                'duration': duration
+                'duration': duration,
+                'name': row[4]
             })
-            print(f"   - Job {row[0][:8]}... has been {row[1]} for {duration}")
+            print(f"   - Job {row[0][:8]}... '{row[4] or 'No name'}' has been {row[1]} for {duration}")
         
         if not stuck_jobs:
             print("   No stuck jobs found!")
@@ -53,8 +54,8 @@ def fix_stuck_jobs():
         with engine.begin() as trans_conn:
             for job in stuck_jobs:
                 trans_conn.execute(text("""
-                    UPDATE scraper_jobs
-                    SET status = 'failed',
+                    UPDATE scraping_jobs
+                    SET status = 'FAILED',
                         error_message = :error_msg,
                         updated_at = :now
                     WHERE id = :job_id
@@ -63,32 +64,33 @@ def fix_stuck_jobs():
                     'error_msg': f'Job timed out after {job["duration"]}',
                     'now': datetime.now()
                 })
-                print(f"   ✅ Marked job {job['id'][:8]}... as failed")
+                print(f"   ✅ Marked job {job['id'][:8]}... '{job['name'] or 'No name'}' as failed")
         
         print(f"\n✅ Fixed {len(stuck_jobs)} stuck jobs")
         
         # 4. Check for jobs without exports
         print("\n4. Checking for completed jobs without exports...")
         result = conn.execute(text("""
-            SELECT j.id, j.created_at,
-                   (SELECT COUNT(*) FROM property_results WHERE job_id = j.id) as property_count
-            FROM scraper_jobs j
-            LEFT JOIN scraper_exports e ON j.id = e.job_id
-            WHERE j.status = 'completed'
-            AND e.id IS NULL
+            SELECT j.id, j.created_at, j.name,
+                   (SELECT COUNT(*) FROM realtor_contacts WHERE job_id = j.id) as contact_count
+            FROM scraping_jobs j
+            LEFT JOIN download_files d ON j.id = d.job_id
+            WHERE j.status = 'COMPLETED'
+            AND d.id IS NULL
             ORDER BY j.created_at DESC
             LIMIT 10
         """))
         
         missing_exports = []
         for row in result:
-            if row[2] > 0:  # Has properties but no export
+            if row[3] > 0:  # Has contacts but no export
                 missing_exports.append({
                     'id': row[0],
                     'created_at': row[1],
-                    'property_count': row[2]
+                    'name': row[2],
+                    'contact_count': row[3]
                 })
-                print(f"   - Job {row[0][:8]}... has {row[2]} properties but no export file")
+                print(f"   - Job {row[0][:8]}... '{row[2] or 'No name'}' has {row[3]} contacts but no export file")
         
         if missing_exports:
             print(f"\n   Found {len(missing_exports)} jobs with missing exports")
