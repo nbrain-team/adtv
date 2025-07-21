@@ -207,7 +207,7 @@ async def get_campaign(
         raise HTTPException(status_code=404, detail="Campaign not found")
     return campaign
 
-@router.get("/campaigns/{campaign_id}/posts", response_model=List[schemas.SocialMediaPostResponse])
+@router.get("/campaigns/{campaign_id}/posts", response_model=List[schemas.SocialPost])
 def get_campaign_posts(
     campaign_id: str,
     current_user: User = Depends(get_current_active_user),

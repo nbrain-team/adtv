@@ -187,7 +187,7 @@ def get_campaign_with_clips(
     return campaign
 
 
-def get_campaign_posts(db: Session, campaign_id: str, user_id: str) -> List[models.SocialMediaPost]:
+def get_campaign_posts(db: Session, campaign_id: str, user_id: str) -> List[models.SocialPost]:
     """Get all posts associated with a campaign"""
     # First verify the campaign belongs to the user
     campaign = db.query(models.Campaign).join(
@@ -201,9 +201,9 @@ def get_campaign_posts(db: Session, campaign_id: str, user_id: str) -> List[mode
         return []
     
     # Get all posts for the campaign
-    posts = db.query(models.SocialMediaPost).filter(
-        models.SocialMediaPost.campaign_id == campaign_id
-    ).order_by(models.SocialMediaPost.scheduled_time).all()
+    posts = db.query(models.SocialPost).filter(
+        models.SocialPost.campaign_id == campaign_id
+    ).order_by(models.SocialPost.scheduled_time).all()
     
     return posts
 
