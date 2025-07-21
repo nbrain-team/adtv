@@ -151,6 +151,12 @@ def delete_post(db: Session, post_id: str, user_id: str) -> bool:
 
 
 # Campaign services
+def get_client_campaigns(db: Session, client_id: str) -> List[models.Campaign]:
+    """Get all campaigns for a client"""
+    return db.query(models.Campaign).filter(
+        models.Campaign.client_id == client_id
+    ).order_by(models.Campaign.created_at.desc()).all()
+
 def create_campaign(
     db: Session, 
     campaign_data: schemas.CampaignCreate,

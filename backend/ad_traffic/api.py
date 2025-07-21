@@ -142,6 +142,21 @@ async def delete_post(
 
 
 # Campaign endpoints
+@router.get("/clients/{client_id}/campaigns", response_model=List[schemas.Campaign])
+async def get_client_campaigns(
+    client_id: str,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get all campaigns for a client"""
+    # Verify client ownership
+    client = services.get_client(db, client_id, current_user.id)
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+    
+    campaigns = services.get_client_campaigns(db, client_id)
+    return campaigns
+
 @router.post("/clients/{client_id}/campaigns")
 async def create_campaign(
     client_id: str,

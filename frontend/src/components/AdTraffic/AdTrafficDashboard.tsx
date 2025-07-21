@@ -291,9 +291,6 @@ export const AdTrafficDashboard: React.FC = () => {
                   <Tabs.Trigger value="calendar">
                     <CalendarIcon /> Calendar
                   </Tabs.Trigger>
-                  <Tabs.Trigger value="campaigns">
-                    <VideoIcon /> Campaigns
-                  </Tabs.Trigger>
                   <Tabs.Trigger value="clients">
                     <PersonIcon /> Clients
                   </Tabs.Trigger>
@@ -302,7 +299,7 @@ export const AdTrafficDashboard: React.FC = () => {
                 <Box style={{ height: 'calc(100% - 48px)', overflow: 'auto' }}>
                   <Tabs.Content value="calendar" style={{ height: '100%' }}>
                     {selectedClient && (
-                      <>
+                      <Flex direction="column" style={{ height: '100%' }}>
                         {viewingCampaign && (
                           <Box style={{ 
                             padding: '1rem 2rem', 
@@ -319,28 +316,33 @@ export const AdTrafficDashboard: React.FC = () => {
                             </Flex>
                           </Box>
                         )}
-                        <CalendarView
-                          client={selectedClient}
-                          posts={posts}
-                          onCreatePost={handleCreatePost}
-                          onEditPost={handleEditPost}
-                          onDeletePost={handleDeletePost}
-                          onCreateCampaign={handleCreateCampaign}
-                        />
-                      </>
-                    )}
-                  </Tabs.Content>
-
-                  <Tabs.Content value="campaigns" style={{ padding: '2rem' }}>
-                    {selectedClient ? (
-                      <CampaignsList
-                        clientId={selectedClient.id}
-                        onViewCampaign={handleViewCampaign}
-                        onRefresh={() => selectedClient && fetchClientPosts(selectedClient.id)}
-                      />
-                    ) : (
-                      <Flex align="center" justify="center" style={{ height: '100%' }}>
-                        <Text color="gray">Please select a client first</Text>
+                        
+                        {/* Calendar Section */}
+                        <Box style={{ flex: '0 0 auto', minHeight: '400px' }}>
+                          <CalendarView
+                            client={selectedClient}
+                            posts={posts}
+                            onCreatePost={handleCreatePost}
+                            onEditPost={handleEditPost}
+                            onDeletePost={handleDeletePost}
+                            onCreateCampaign={handleCreateCampaign}
+                          />
+                        </Box>
+                        
+                        {/* Campaigns List Section */}
+                        <Box style={{ 
+                          flex: 1, 
+                          borderTop: '1px solid var(--gray-4)', 
+                          padding: '2rem',
+                          backgroundColor: 'var(--gray-1)',
+                          overflow: 'auto'
+                        }}>
+                          <CampaignsList
+                            clientId={selectedClient.id}
+                            onViewCampaign={handleViewCampaign}
+                            onRefresh={() => selectedClient && fetchClientPosts(selectedClient.id)}
+                          />
+                        </Box>
                       </Flex>
                     )}
                   </Tabs.Content>

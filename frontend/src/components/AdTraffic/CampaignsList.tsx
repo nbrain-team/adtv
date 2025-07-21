@@ -4,6 +4,18 @@ import { PlayIcon, CheckIcon, Cross2Icon, ReloadIcon, EyeOpenIcon } from '@radix
 import { Campaign, CampaignStatus } from './types';
 import { api } from '../../services/api';
 
+// Add CSS for spinning animation
+const spinAnimation = `
+  @keyframes spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+`;
+
 interface CampaignsListProps {
   clientId: string;
   onViewCampaign: (campaign: Campaign) => void;
@@ -20,8 +32,30 @@ export const CampaignsList: React.FC<CampaignsListProps> = ({
   const [filter, setFilter] = useState<'all' | 'processing' | 'ready' | 'failed'>('all');
 
   useEffect(() => {
+    // Add CSS animation to document
+    const style = document.createElement('style');
+    style.textContent = spinAnimation;
+    document.head.appendChild(style);
+    
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
+
+  useEffect(() => {
     fetchCampaigns();
   }, [clientId]);
+
+  useEffect(() => {
+    // Poll for updates every 5 seconds if there are processing campaigns
+    const interval = setInterval(() => {
+      if (campaigns.some(c => c.status === CampaignStatus.PROCESSING)) {
+        fetchCampaigns();
+      }
+    }, 5000);
+    
+    return () => clearInterval(interval);
+  }, [campaigns, clientId]);
 
   const fetchCampaigns = async () => {
     try {
@@ -43,7 +77,11 @@ export const CampaignsList: React.FC<CampaignsListProps> = ({
   const getStatusIcon = (status: CampaignStatus) => {
     switch (status) {
       case CampaignStatus.PROCESSING:
-        return <ReloadIcon className="animate-spin" />;
+        return (
+          <Box style={{ animation: 'spin 1s linear infinite' }}>
+            <ReloadIcon />
+          </Box>
+        );
       case CampaignStatus.READY:
         return <CheckIcon color="green" />;
       case CampaignStatus.FAILED:
@@ -131,12 +169,18 @@ export const CampaignsList: React.FC<CampaignsListProps> = ({
                   
                   <Flex gap="3" align="center">
                     <Badge color={getStatusColor(campaign.status)} variant="soft">
-                      {campaign.status}
+                      {campaign.status === CampaignStatus.PROCESSING ? 'Uploading & Processing' : campaign.status}
                     </Badge>
                     
                     {campaign.duration_weeks && (
                       <Text size="1" color="gray">
                         {campaign.duration_weeks} weeks
+                      </Text>
+                    )}
+                    
+                    {campaign.status === CampaignStatus.PROCESSING && (
+                      <Text size="1" style={{ fontStyle: 'italic' }} color="gray">
+                        Processing video clips...
                       </Text>
                     )}
                     
