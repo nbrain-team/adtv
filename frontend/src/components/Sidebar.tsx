@@ -75,7 +75,7 @@ export const Sidebar = ({ onNewChat }: { onNewChat: () => void }) => {
                         <img src="/new-icons/5.png" alt="Ad Traffic" />
                     </button>
                 )}
-                {userProfile?.role === 'admin' && (
+                {hasPermission('template-manager') && (
                     <button className="sidebar-icon" title="Email Templates" onClick={() => navigate('/template-manager')}>
                         <img src="/new-icons/9.png" alt="Email Templates" />
                     </button>
