@@ -1,5 +1,5 @@
-import { Box, Card, Text, Button, Flex, TextArea, Select, Spinner, Checkbox, Heading, Grid, TextField, Badge } from '@radix-ui/themes';
-import { UploadIcon, DownloadIcon, ChevronDownIcon, GearIcon } from '@radix-ui/react-icons';
+import { Box, Card, Text, Button, Flex, TextArea, Select, Spinner, Checkbox, Heading, Grid, TextField, Badge, IconButton } from '@radix-ui/themes';
+import { UploadIcon, DownloadIcon, ChevronDownIcon, GearIcon, ClockIcon, CheckCircledIcon, TrashIcon } from '@radix-ui/react-icons';
 import { useState, useRef, ChangeEvent, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Papa from 'papaparse';
@@ -12,6 +12,15 @@ interface EmailTemplate {
     content: string;
     goal: string;
     is_system: boolean;
+}
+
+interface SavedProject {
+    id: string;
+    name: string;
+    csvContent: string;
+    status: 'processing' | 'completed';
+    createdAt: string;
+    rowCount?: number;
 }
 
 // A modern, reusable file input component
@@ -82,6 +91,7 @@ export const GeneratorWorkflow = () => {
     const [isLoadingTemplates, setIsLoadingTemplates] = useState(true);
     const [projectName, setProjectName] = useState('');
     const [rowCount, setRowCount] = useState(0);
+    const [savedProjects, setSavedProjects] = useState<SavedProject[]>([]);
     
     // Ref for the textarea to handle cursor position
     const textAreaRef = useRef<HTMLTextAreaElement>(null);
@@ -92,6 +102,7 @@ export const GeneratorWorkflow = () => {
     // Fetch templates on component mount
     useEffect(() => {
         fetchTemplates();
+        loadSavedProjects();
     }, []);
     
     // Check for data from realtor importer
@@ -127,6 +138,51 @@ export const GeneratorWorkflow = () => {
         } finally {
             setIsLoadingTemplates(false);
         }
+    };
+
+    const loadSavedProjects = () => {
+        const saved = localStorage.getItem('emailPersonalizerProjects');
+        if (saved) {
+            setSavedProjects(JSON.parse(saved));
+        }
+    };
+
+    const saveProject = (status: 'processing' | 'completed') => {
+        const project: SavedProject = {
+            id: Date.now().toString(),
+            name: projectName || `Project ${new Date().toLocaleDateString()}`,
+            csvContent: finalCsv || '',
+            status,
+            createdAt: new Date().toISOString(),
+            rowCount: rowCount
+        };
+
+        const saved = localStorage.getItem('emailPersonalizerProjects');
+        const projects = saved ? JSON.parse(saved) : [];
+        
+        // Remove any existing project with same name
+        const filtered = projects.filter((p: SavedProject) => p.name !== project.name);
+        
+        // Add new project at beginning
+        const updated = [project, ...filtered].slice(0, 10); // Keep last 10 projects
+        
+        localStorage.setItem('emailPersonalizerProjects', JSON.stringify(updated));
+        setSavedProjects(updated);
+    };
+
+    const loadProject = (project: SavedProject) => {
+        setProjectName(project.name);
+        setFinalCsv(project.csvContent);
+        setRowCount(project.rowCount || 0);
+        setCurrentStep(6);
+    };
+
+    const deleteProject = (projectId: string) => {
+        const saved = localStorage.getItem('emailPersonalizerProjects');
+        const projects = saved ? JSON.parse(saved) : [];
+        const filtered = projects.filter((p: SavedProject) => p.id !== projectId);
+        localStorage.setItem('emailPersonalizerProjects', JSON.stringify(filtered));
+        setSavedProjects(filtered);
     };
 
     // Extract fields that need manual input from template content
@@ -301,6 +357,11 @@ export const GeneratorWorkflow = () => {
             setCurrentStep(currentStep); // Stay on current step for preview
         } else {
             setCurrentStep(6); // Move to generating step
+            // Save project as processing when starting full generation
+            if (!projectName) {
+                setProjectName(`Campaign ${new Date().toLocaleDateString()}`);
+            }
+            saveProject('processing');
         }
 
         const formData = new FormData();
@@ -356,6 +417,8 @@ export const GeneratorWorkflow = () => {
                         setFinalCsv(csvString);
                         setRowCount(csvRows.length - 1); // Subtract 1 for header row
                         setCurrentStep(6); // Move to download step
+                        // Save project as completed
+                        saveProject('completed');
                     }
                 } catch (e) {
                     console.error("Failed to parse streamed line:", line, e);
@@ -393,6 +456,9 @@ export const GeneratorWorkflow = () => {
 
     const handleSaveAndDownload = () => {
         if (finalCsv) {
+            // Update the saved project with the final name
+            saveProject('completed');
+            
             const blob = new Blob([finalCsv], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement('a');
             const url = URL.createObjectURL(blob);
@@ -453,6 +519,71 @@ export const GeneratorWorkflow = () => {
                                     </Text>
                                 </Flex>
                             </Card>
+                        </Grid>
+                    </Box>
+                )}
+
+                {/* Recent Projects Section */}
+                {currentStep === 1 && savedProjects.length > 0 && (
+                    <Box mt="6">
+                        <Heading as="h3" size="4" mb="3">Recent Projects</Heading>
+                        <Grid columns={{ initial: '1', md: '2' }} gap="3">
+                            {savedProjects.map(project => (
+                                <Card 
+                                    key={project.id}
+                                    style={{ 
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s'
+                                    }}
+                                    onClick={() => loadProject(project)}
+                                >
+                                    <Flex justify="between" align="start">
+                                        <Box>
+                                            <Flex align="center" gap="2" mb="1">
+                                                <Text weight="medium">{project.name}</Text>
+                                                <Badge 
+                                                    color={project.status === 'completed' ? 'green' : 'orange'} 
+                                                    variant="soft"
+                                                    size="1"
+                                                >
+                                                    {project.status === 'completed' ? (
+                                                        <Flex align="center" gap="1">
+                                                            <CheckCircledIcon width="12" height="12" />
+                                                            Completed
+                                                        </Flex>
+                                                    ) : (
+                                                        <Flex align="center" gap="1">
+                                                            <ClockIcon width="12" height="12" />
+                                                            Processing
+                                                        </Flex>
+                                                    )}
+                                                </Badge>
+                                            </Flex>
+                                            <Text size="1" color="gray">
+                                                {new Date(project.createdAt).toLocaleString()}
+                                            </Text>
+                                            {project.rowCount && (
+                                                <Text size="1" color="gray">
+                                                    {project.rowCount} rows
+                                                </Text>
+                                            )}
+                                        </Box>
+                                        <IconButton
+                                            size="1"
+                                            variant="ghost"
+                                            color="red"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (window.confirm('Delete this project?')) {
+                                                    deleteProject(project.id);
+                                                }
+                                            }}
+                                        >
+                                            <TrashIcon />
+                                        </IconButton>
+                                    </Flex>
+                                </Card>
+                            ))}
                         </Grid>
                     </Box>
                 )}
