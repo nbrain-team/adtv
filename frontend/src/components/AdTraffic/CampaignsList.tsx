@@ -4,18 +4,6 @@ import { PlayIcon, CheckIcon, Cross2Icon, ReloadIcon, EyeOpenIcon } from '@radix
 import { Campaign, CampaignStatus } from './types';
 import { api } from '../../services/api';
 
-// Add CSS for spinning animation
-const spinAnimation = `
-  @keyframes spin {
-    from {
-      transform: rotate(0deg);
-    }
-    to {
-      transform: rotate(360deg);
-    }
-  }
-`;
-
 interface CampaignsListProps {
   clientId: string;
   onViewCampaign: (campaign: Campaign) => void;
@@ -30,17 +18,6 @@ export const CampaignsList: React.FC<CampaignsListProps> = ({
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'processing' | 'ready' | 'failed'>('all');
-
-  useEffect(() => {
-    // Add CSS animation to document
-    const style = document.createElement('style');
-    style.textContent = spinAnimation;
-    document.head.appendChild(style);
-    
-    return () => {
-      document.head.removeChild(style);
-    };
-  }, []);
 
   useEffect(() => {
     fetchCampaigns();
@@ -77,11 +54,7 @@ export const CampaignsList: React.FC<CampaignsListProps> = ({
   const getStatusIcon = (status: CampaignStatus) => {
     switch (status) {
       case CampaignStatus.PROCESSING:
-        return (
-          <Box style={{ animation: 'spin 1s linear infinite' }}>
-            <ReloadIcon />
-          </Box>
-        );
+        return <ReloadIcon className="animate-spin" />;
       case CampaignStatus.READY:
         return <CheckIcon color="green" />;
       case CampaignStatus.FAILED:
