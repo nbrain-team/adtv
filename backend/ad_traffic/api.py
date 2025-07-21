@@ -205,4 +205,14 @@ async def get_campaign(
     campaign = services.get_campaign_with_clips(db, campaign_id, current_user.id)
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
-    return campaign 
+    return campaign
+
+@router.get("/campaigns/{campaign_id}/posts", response_model=List[schemas.SocialMediaPostResponse])
+def get_campaign_posts(
+    campaign_id: str,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get all posts associated with a campaign"""
+    posts = services.get_campaign_posts(db, campaign_id, current_user.id)
+    return posts 

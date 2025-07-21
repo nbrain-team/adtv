@@ -40,7 +40,8 @@ code {
 .sidebar-icon {
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-i
+    tems: center;
     gap: 0.5rem;
     background: none;
     border: none;

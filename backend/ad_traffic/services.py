@@ -187,6 +187,27 @@ def get_campaign_with_clips(
     return campaign
 
 
+def get_campaign_posts(db: Session, campaign_id: str, user_id: str) -> List[models.SocialMediaPost]:
+    """Get all posts associated with a campaign"""
+    # First verify the campaign belongs to the user
+    campaign = db.query(models.Campaign).join(
+        models.AdTrafficClient
+    ).filter(
+        models.Campaign.id == campaign_id,
+        models.AdTrafficClient.user_id == user_id
+    ).first()
+    
+    if not campaign:
+        return []
+    
+    # Get all posts for the campaign
+    posts = db.query(models.SocialMediaPost).filter(
+        models.SocialMediaPost.campaign_id == campaign_id
+    ).order_by(models.SocialMediaPost.scheduled_time).all()
+    
+    return posts
+
+
 # Background processing
 async def process_campaign_video(
     db: Session,
