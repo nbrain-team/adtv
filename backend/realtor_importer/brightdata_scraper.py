@@ -872,7 +872,7 @@ async def scrape_with_brightdata(list_url: str, max_profiles: int = 10, batch_ca
     # Scrape individual profiles
     results = []
     batch_data = []
-    BATCH_SIZE = 50
+    BATCH_SIZE = 20  # Changed from 50 to match tasks.py
     
     for i, url in enumerate(profile_urls):
         logger.info(f"\n{'='*60}")
