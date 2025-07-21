@@ -24,6 +24,7 @@ from core.data_lake_routes import router as data_lake_router
 from core.data_lake_models import DataLakeRecord
 from core.user_routes import router as user_router
 from core.email_template_routes import router as email_template_router
+from core.personalizer_routes import router as personalizer_router
 from db_setup import update_db_schema, migrate_data
 from ad_traffic.api import router as ad_traffic_router
 
@@ -176,6 +177,7 @@ app.include_router(data_lake_router, prefix="/api/data-lake", tags=["data-lake"]
 app.include_router(user_router, prefix="/user", tags=["user"])
 app.include_router(email_template_router, prefix="/api/email-templates", tags=["email-templates"])
 app.include_router(ad_traffic_router, prefix="/api/ad-traffic", tags=["ad-traffic"])
+app.include_router(personalizer_router, prefix="/api/personalizer", tags=["personalizer"])
 
 
 @app.get("/")

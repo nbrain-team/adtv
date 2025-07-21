@@ -176,4 +176,5 @@ def create_tables():
     """Create database tables if they don't exist."""
     # Import models to ensure they're registered with Base
     from realtor_importer.models import ProcessedJob, MergedContact
+    from core.personalizer_models import PersonalizerProject
     Base.metadata.create_all(bind=engine) 

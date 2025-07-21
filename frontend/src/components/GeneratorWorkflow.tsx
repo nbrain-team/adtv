@@ -80,6 +80,7 @@ export const GeneratorWorkflow = () => {
     const [manualFields, setManualFields] = useState<Record<string, string>>({});
     const [templates, setTemplates] = useState<EmailTemplate[]>([]);
     const [isLoadingTemplates, setIsLoadingTemplates] = useState(true);
+    const [projectName, setProjectName] = useState('');
     
     // Ref for the textarea to handle cursor position
     const textAreaRef = useRef<HTMLTextAreaElement>(null);
@@ -385,13 +386,13 @@ export const GeneratorWorkflow = () => {
         }
     };
 
-    const handleDownload = () => {
+    const handleSaveAndDownload = () => {
         if (finalCsv) {
             const blob = new Blob([finalCsv], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement('a');
             const url = URL.createObjectURL(blob);
             link.setAttribute('href', url);
-            link.setAttribute('download', 'personalized_output.csv');
+            link.setAttribute('download', `${projectName.trim() || 'personalized_output'}.csv`);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -779,14 +780,31 @@ export const GeneratorWorkflow = () => {
                 {/* Step 6: Download */}
                 {currentStep === 6 && finalCsv && (
                     <Box>
-                        <Heading as="h2" size="4" mb="1" mt="4">Step 6: Download Your File</Heading>
+                        <Heading as="h2" size="4" mb="1" mt="4">Step 6: Save Your Project</Heading>
                         <Text as="p" size="2" color="gray" mb="3">
-                            Your personalized CSV is ready.
+                            Your personalized CSV is ready. Give it a name to save for later.
                         </Text>
-                        <Button onClick={handleDownload}>
-                            <DownloadIcon />
-                            Download Personalized CSV
-                        </Button>
+                        
+                        <Flex gap="3" align="end">
+                            <Box style={{ flex: 1 }}>
+                                <Text as="label" size="2" mb="1" weight="medium">
+                                    Project Name
+                                </Text>
+                                <TextField.Root
+                                    placeholder="e.g., Q4 Campaign Emails"
+                                    value={projectName}
+                                    onChange={(e) => setProjectName(e.target.value)}
+                                />
+                            </Box>
+                            <Button onClick={handleSaveAndDownload} disabled={!projectName.trim()}>
+                                <DownloadIcon />
+                                Save & Download CSV
+                            </Button>
+                        </Flex>
+                        
+                        <Text size="1" color="gray" mt="2">
+                            Note: Currently projects are stored locally. Cloud storage coming soon.
+                        </Text>
                     </Box>
                 )}
             </Flex>
