@@ -56,12 +56,12 @@ const arrayToCsv = (data: string[][]): string => {
         row.map(field => {
             const str = String(field === null || field === undefined ? '' : field);
             // Handle fields containing commas, quotes, or newlines
-            if (/[",\\n]/.test(str)) {
+            if (/[",\n]/.test(str)) {
                 return `"${str.replace(/"/g, '""')}"`;
             }
             return str;
         }).join(',')
-    ).join('\\r\\n');
+    ).join('\r\n');  // Changed from '\\r\\n' to '\r\n'
 };
 
 export const GeneratorWorkflow = () => {
@@ -81,6 +81,7 @@ export const GeneratorWorkflow = () => {
     const [templates, setTemplates] = useState<EmailTemplate[]>([]);
     const [isLoadingTemplates, setIsLoadingTemplates] = useState(true);
     const [projectName, setProjectName] = useState('');
+    const [rowCount, setRowCount] = useState(0);
     
     // Ref for the textarea to handle cursor position
     const textAreaRef = useRef<HTMLTextAreaElement>(null);
@@ -181,10 +182,11 @@ export const GeneratorWorkflow = () => {
         Papa.parse(file, {
             header: true,
             skipEmptyLines: true,
-            preview: 1, // We only need the headers, so we only parse one row
             complete: (results: Papa.ParseResult<Record<string, unknown>>) => {
                 if (results.meta.fields) {
                     setCsvHeaders(results.meta.fields);
+                    // Set row count from parsed data
+                    setRowCount(results.data.length);
                     // Reset key fields on new file upload
                     setKeyFields([]);
                     if (workflowType === 'scratch') {
@@ -348,8 +350,11 @@ export const GeneratorWorkflow = () => {
                             csvRows.push(parsed.data);
                         }
                     } else if (parsed.type === 'done' && !isPreview) {
+                        console.log('CSV Generation complete. Rows collected:', csvRows.length);
+                        console.log('First few rows:', csvRows.slice(0, 3));
                         const csvString = arrayToCsv(csvRows);
                         setFinalCsv(csvString);
+                        setRowCount(csvRows.length - 1); // Subtract 1 for header row
                         setCurrentStep(6); // Move to download step
                     }
                 } catch (e) {
@@ -777,34 +782,56 @@ export const GeneratorWorkflow = () => {
                     </Box>
                 )}
 
-                {/* Step 6: Download */}
-                {currentStep === 6 && finalCsv && (
+                {/* Step 6: Processing/Download */}
+                {currentStep === 6 && (
                     <Box>
-                        <Heading as="h2" size="4" mb="1" mt="4">Step 6: Save Your Project</Heading>
-                        <Text as="p" size="2" color="gray" mb="3">
-                            Your personalized CSV is ready. Give it a name to save for later.
-                        </Text>
-                        
-                        <Flex gap="3" align="end">
-                            <Box style={{ flex: 1 }}>
-                                <Text as="label" size="2" mb="1" weight="medium">
-                                    Project Name
-                                </Text>
-                                <TextField.Root
-                                    placeholder="e.g., Q4 Campaign Emails"
-                                    value={projectName}
-                                    onChange={(e) => setProjectName(e.target.value)}
-                                />
+                        {!finalCsv ? (
+                            // Processing state
+                            <Box>
+                                <Heading as="h2" size="4" mb="1" mt="4">Processing Your Campaign...</Heading>
+                                <Card>
+                                    <Flex direction="column" align="center" gap="4" p="4">
+                                        <Spinner size="3" />
+                                        <Text size="3" weight="medium">Generating personalized emails for all rows</Text>
+                                        <Text size="2" color="gray">
+                                            This may take a few minutes. You can leave this page and come back later.
+                                        </Text>
+                                        <Text size="1" color="gray">
+                                            Processing {rowCount} rows...
+                                        </Text>
+                                    </Flex>
+                                </Card>
                             </Box>
-                            <Button onClick={handleSaveAndDownload} disabled={!projectName.trim()}>
-                                <DownloadIcon />
-                                Save & Download CSV
-                            </Button>
-                        </Flex>
-                        
-                        <Text size="1" color="gray" mt="2">
-                            Note: Currently projects are stored locally. Cloud storage coming soon.
-                        </Text>
+                        ) : (
+                            // Download state
+                            <Box>
+                                <Heading as="h2" size="4" mb="1" mt="4">Your Campaign is Ready!</Heading>
+                                <Text as="p" size="2" color="gray" mb="3">
+                                    Successfully generated {rowCount} personalized emails.
+                                </Text>
+                                
+                                <Flex gap="3" align="end">
+                                    <Box style={{ flex: 1 }}>
+                                        <Text as="label" size="2" mb="1" weight="medium">
+                                            Project Name
+                                        </Text>
+                                        <TextField.Root
+                                            placeholder="e.g., Q4 Campaign Emails"
+                                            value={projectName}
+                                            onChange={(e) => setProjectName(e.target.value)}
+                                        />
+                                    </Box>
+                                    <Button onClick={handleSaveAndDownload} disabled={!projectName.trim()}>
+                                        <DownloadIcon />
+                                        Save & Download CSV
+                                    </Button>
+                                </Flex>
+                                
+                                <Text size="1" color="gray" mt="2">
+                                    Your CSV contains all personalized emails. Each row is a complete email ready to send.
+                                </Text>
+                            </Box>
+                        )}
                     </Box>
                 )}
             </Flex>
