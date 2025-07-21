@@ -865,6 +865,43 @@ async def scrape_with_brightdata(list_url: str, max_profiles: int = 10, batch_ca
     if not profile_urls:
         logger.error("No profiles found on list pages!")
         return []
+
+    # If we have a batch callback, save URLs immediately before phase 2
+    if batch_callback:
+        logger.info(f"\nSaving {len(profile_urls)} profile URLs immediately...")
+        url_batch_data = []
+        URL_BATCH_SIZE = 20
+        
+        for i, url in enumerate(profile_urls):
+            profile = {
+                'profile_url': url,
+                'source': 'homes.com',
+                'first_name': 'Pending',
+                'last_name': 'Scrape'
+            }
+            url_batch_data.append(profile)
+            
+            if len(url_batch_data) >= URL_BATCH_SIZE:
+                logger.info(f"[URL BATCH] Saving batch of {len(url_batch_data)} profiles...")
+                try:
+                    batch_callback(url_batch_data)
+                    logger.info(f"[URL BATCH] ✓ Batch saved successfully")
+                except Exception as e:
+                    logger.error(f"[URL BATCH] ✗ Error saving batch: {str(e)}")
+                url_batch_data = []
+        
+        # Save any remaining
+        if url_batch_data:
+            logger.info(f"[URL BATCH] Saving final batch of {len(url_batch_data)} profiles...")
+            try:
+                batch_callback(url_batch_data)
+                logger.info(f"[URL BATCH] ✓ Final batch saved successfully")
+            except Exception as e:
+                logger.error(f"[URL BATCH] ✗ Error saving final batch: {str(e)}")
+        
+        logger.info(f"✓ All {len(profile_urls)} profile URLs saved to database")
+        logger.info("Profiles will be enriched with details in a future run")
+        return []  # Return empty since we saved via callback
     
     logger.info(f"\nPHASE 2: Scraping individual profiles...")
     logger.info(f"Total profiles to scrape: {len(profile_urls)}")
