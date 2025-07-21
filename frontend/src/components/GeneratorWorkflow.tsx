@@ -326,18 +326,22 @@ export const GeneratorWorkflow = () => {
             let header: string[] = [];
             let csvRows: string[][] = [];
             let buffer = '';
+            let foundPreview = false; // Add this flag
 
             const processLine = (line: string) => {
                 if (line.trim() === '') return;
                 try {
-                    const parsed = JSON.parse(line);
+                    // Replace NaN with null before parsing
+                    const sanitizedLine = line.replace(/\bNaN\b/g, 'null');
+                    const parsed = JSON.parse(sanitizedLine);
                     if (parsed.type === 'error') throw new Error(parsed.detail || 'An error occurred during generation.');
                     if (parsed.type === 'header') header = parsed.data;
                     else if (parsed.type === 'row') {
                         if (isPreview) {
                             const contentIndex = header.indexOf('ai_generated_content');
-                            setPreviewContent(contentIndex > -1 ? parsed.data[contentIndex] : "Could not extract content.");
-                            setCurrentStep(4);
+                            const content = contentIndex > -1 ? parsed.data[contentIndex] : "Could not extract content.";
+                            setPreviewContent(content);
+                            foundPreview = true; // Set the flag
                         } else {
                             if (csvRows.length === 0) csvRows.push(header);
                             csvRows.push(parsed.data);
@@ -345,7 +349,7 @@ export const GeneratorWorkflow = () => {
                     } else if (parsed.type === 'done' && !isPreview) {
                         const csvString = arrayToCsv(csvRows);
                         setFinalCsv(csvString);
-                        setCurrentStep(5);
+                        setCurrentStep(6); // Move to download step
                     }
                 } catch (e) {
                     console.error("Failed to parse streamed line:", line, e);
@@ -367,7 +371,7 @@ export const GeneratorWorkflow = () => {
                     processLine(line);
                 }
 
-                if (isPreview && previewContent) {
+                if (isPreview && foundPreview) { // Use the flag instead of state
                     reader.cancel();
                     break;
                 }
@@ -758,9 +762,9 @@ export const GeneratorWorkflow = () => {
                 )}
 
                 {/* Step 5: Preview */}
-                {previewContent && (
+                {previewContent && currentStep >= 4 && (
                     <Box>
-                        <Heading as="h2" size="4" mb="1" mt="4">Step 5: Preview</Heading>
+                        <Heading as="h2" size="4" mb="1" mt="4">Preview</Heading>
                         <Card>
                             <Box className="markdown-preview" p="3">
                                 <ReactMarkdown>{previewContent}</ReactMarkdown>
