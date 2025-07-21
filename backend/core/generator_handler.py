@@ -75,7 +75,7 @@ async def generate_content_rows(
 
                     # Direct replacement for key fields
                     for field in key_fields:
-                        placeholder = f"{{{{{field}}}}"
+                        placeholder = '{{' + field + '}}'
                         if placeholder in temp_content and field in row and pd.notna(row[field]):
                             temp_content = temp_content.replace(placeholder, str(row[field]))
 
@@ -144,7 +144,7 @@ async def generate_content_rows(
                 # Direct replacement for key fields
                 temp_content = core_content
                 for field in key_fields:
-                    placeholder = f"{{{{{field}}}}}"
+                    placeholder = '{{' + field + '}}'
                     if placeholder in temp_content and field in row and pd.notna(row[field]):
                         temp_content = temp_content.replace(placeholder, str(row[field]))
 
