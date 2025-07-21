@@ -267,7 +267,8 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
             "knowledge": True,
             "agents": True,
             "data-lake": True,
-            "user-management": True
+            "user-management": True,
+            "ad-traffic": True  # Add this permission!
         }
         db.commit()
         db.refresh(user)
