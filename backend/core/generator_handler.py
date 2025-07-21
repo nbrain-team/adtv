@@ -4,6 +4,7 @@ from langchain.schema import SystemMessage, HumanMessage
 import pandas as pd
 import io
 import logging
+from typing import List, Dict
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -30,7 +31,8 @@ async def generate_content_rows(
     key_fields: list[str],
     core_content: str,
     is_preview: bool = False,
-    generation_goal: str = ""
+    generation_goal: str = "",
+    templates: List[Dict] = []
 ):
     """
     Reads a CSV, generates personalized content row by row, and yields each
@@ -54,46 +56,55 @@ async def generate_content_rows(
         total_rows = len(target_df)
         logger.info(f"Starting content generation stream for {total_rows} rows...")
 
-        # Yield header as the first part of the stream
-        header = target_df.columns.tolist() + ['ai_generated_content']
+        # If templates are provided, use them instead of single core_content
+        if templates:
+            header = target_df.columns.tolist()
+            for t in templates:
+                header.append(f"{t['name'].replace(' ', '_')}_personalized")
+        else:
+            header = target_df.columns.tolist() + ['ai_generated_content']
         yield header
 
         for index, row in target_df.iterrows():
             logger.info(f"Streaming processing for row {index + 1}/{total_rows}")
+            new_row = row.tolist()
 
-            # Direct replacement for key fields
-            temp_content = core_content
-            for field in key_fields:
-                placeholder = f"{{{{{field}}}}}"
-                if placeholder in temp_content and field in row and pd.notna(row[field]):
-                    temp_content = temp_content.replace(placeholder, str(row[field]))
+            if templates:
+                for template in templates:
+                    temp_content = template['content']
 
-            # Prepare contextual data for the AI - include ALL fields for inference
-            all_data = {k: v for k, v in row.items() if pd.notna(v)}
-            
-            # Create rich context descriptions
-            context_parts = []
-            for k, v in all_data.items():
-                if pd.notna(v):
-                    context_parts.append(f"{k}: {v}")
-            
-            context_str = "\n".join(context_parts)
+                    # Direct replacement for key fields
+                    for field in key_fields:
+                        placeholder = f"{{{{{field}}}}"
+                        if placeholder in temp_content and field in row and pd.notna(row[field]):
+                            temp_content = temp_content.replace(placeholder, str(row[field]))
 
-            # Conditionally add the overall goal to the prompt
-            goal_section = ""
-            if generation_goal:
-                goal_section = f"""
+                    # Prepare contextual data for the AI - include ALL fields for inference
+                    all_data = {k: v for k, v in row.items() if pd.notna(v)}
+                    
+                    # Create rich context descriptions
+                    context_parts = []
+                    for k, v in all_data.items():
+                        if pd.notna(v):
+                            context_parts.append(f"{k}: {v}")
+                    
+                    context_str = "\n".join(context_parts)
+
+                    # Conditionally add the overall goal to the prompt
+                    goal_section = ""
+                    if generation_goal:
+                        goal_section = f"""
 **Overall Personalization Goal:**
 {generation_goal}
 """
-            
-            # Construct the enhanced prompt
-            prompt = f"""
+                    
+                    # Construct the enhanced prompt
+                    prompt = f"""
 Your Task:
 You are personalizing an email template for a specific recipient. Your goal is to create a version that feels personally written for them while maintaining the original structure and intent.
 
 **INTELLIGENT PERSONALIZATION INSTRUCTIONS:**
-1. First, replace any {{placeholders}} that were already handled
+1. First, replace any {{{{placeholders}}}} that were already handled
 2. Then, use ALL the contextual data below to make intelligent adaptations:
    - If they're on the West Coast and template mentions "west coast beauty", keep it
    - If they're on the East Coast and template mentions "west coast beauty", adapt to "East Coast charm" or "beautiful fall foliage"
@@ -121,20 +132,96 @@ You are personalizing an email template for a specific recipient. Your goal is t
 - Personalization should enhance, not replace, the core message
 - If uncertain about a detail, make reasonable assumptions based on the data provided
 """
-            messages = [
-                SystemMessage(content=GENERATOR_PERSONA),
-                HumanMessage(content=prompt)
-            ]
+                    messages = [
+                        SystemMessage(content=GENERATOR_PERSONA),
+                        HumanMessage(content=prompt)
+                    ]
 
-            try:
-                response = await llm.ainvoke(messages)
-                generated_text = response.content
-                logger.info(f"Successfully generated content for row {index + 1}")
-            except Exception as e:
-                logger.error(f"LLM failed for row {index + 1}. Error: {e}. Using empty string.")
-                generated_text = ""
+                    try:
+                        response = await llm.ainvoke(messages)
+                        generated_text = response.content
+                        logger.info(f"Successfully generated content for row {index + 1} and template {template['name']}")
+                    except Exception as e:
+                        logger.error(f"LLM failed for row {index + 1} and template {template['name']}. Error: {e}. Using empty string.")
+                        generated_text = ""
 
-            new_row = row.tolist() + [generated_text]
+                    new_row.append(generated_text)
+            else:
+                # Direct replacement for key fields
+                temp_content = core_content
+                for field in key_fields:
+                    placeholder = f"{{{{{field}}}}}"
+                    if placeholder in temp_content and field in row and pd.notna(row[field]):
+                        temp_content = temp_content.replace(placeholder, str(row[field]))
+
+                # Prepare contextual data for the AI - include ALL fields for inference
+                all_data = {k: v for k, v in row.items() if pd.notna(v)}
+                
+                # Create rich context descriptions
+                context_parts = []
+                for k, v in all_data.items():
+                    if pd.notna(v):
+                        context_parts.append(f"{k}: {v}")
+                
+                context_str = "\n".join(context_parts)
+
+                # Conditionally add the overall goal to the prompt
+                goal_section = ""
+                if generation_goal:
+                    goal_section = f"""
+**Overall Personalization Goal:**
+{generation_goal}
+"""
+                
+                # Construct the enhanced prompt
+                prompt = f"""
+Your Task:
+You are personalizing an email template for a specific recipient. Your goal is to create a version that feels personally written for them while maintaining the original structure and intent.
+
+**INTELLIGENT PERSONALIZATION INSTRUCTIONS:**
+1. First, replace any {{{{placeholders}}}} that were already handled
+2. Then, use ALL the contextual data below to make intelligent adaptations:
+   - If they're on the West Coast and template mentions "west coast beauty", keep it
+   - If they're on the East Coast and template mentions "west coast beauty", adapt to "East Coast charm" or "beautiful fall foliage"
+   - If template mentions industry pain points generically, make them specific to their industry
+   - Adapt cultural references, weather mentions, time zones, local events based on location
+   - Adjust formality and terminology based on their role/title
+   - Reference company-specific details when relevant
+
+3. MAINTAIN the overall structure, length, and core message
+4. Make personalizations feel natural, not forced
+5. If data is limited, still make subtle adaptations based on what you have
+
+{goal_section}
+
+**Recipient's Data:**
+{context_str}
+
+**Email Template to Personalize:**
+{temp_content}
+
+**CRITICAL RULES:**
+- Output ONLY the final personalized email
+- Keep the same overall structure and flow
+- Make intelligent inferences from the data (e.g., Boston → cold winters, tech hub, historical city)
+- Personalization should enhance, not replace, the core message
+- If uncertain about a detail, make reasonable assumptions based on the data provided
+"""
+                messages = [
+                    SystemMessage(content=GENERATOR_PERSONA),
+                    HumanMessage(content=prompt)
+                ]
+
+                try:
+                    response = await llm.ainvoke(messages)
+                    generated_text = response.content
+                    logger.info(f"Successfully generated content for row {index + 1}")
+                except Exception as e:
+                    logger.error(f"LLM failed for row {index + 1}. Error: {e}. Using empty string.")
+                    generated_text = ""
+
+                new_row = row.tolist() + [generated_text]
+
             yield new_row
 
         logger.info(f"Finished content generation stream for all {total_rows} rows.")

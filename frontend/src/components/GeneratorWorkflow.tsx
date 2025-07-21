@@ -82,7 +82,7 @@ export const GeneratorWorkflow = () => {
     const [coreContent, setCoreContent] = useState('');
     const [generationGoal, setGenerationGoal] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    const [previewContent, setPreviewContent] = useState('');
+    const [previewContent, setPreviewContent] = useState<{template: string, content: string}[]>([]);
     const [finalCsv, setFinalCsv] = useState<string | null>(null);
     const [selectedTemplates, setSelectedTemplates] = useState<string[]>([]);
     const [workflowType, setWorkflowType] = useState<'template' | 'scratch' | null>(null);
@@ -351,7 +351,7 @@ export const GeneratorWorkflow = () => {
         const processedContent = replaceManualFields(coreContent);
 
         setIsLoading(true);
-        setPreviewContent('');
+        setPreviewContent([]); // Clear previous preview content
         setFinalCsv(null);
         if (isPreview) {
             setCurrentStep(currentStep); // Stay on current step for preview
@@ -370,6 +370,7 @@ export const GeneratorWorkflow = () => {
         formData.append('core_content', processedContent);
         formData.append('is_preview', String(isPreview));
         formData.append('generation_goal', generationGoal);
+        formData.append('selected_templates', JSON.stringify(selectedTemplates));
 
         try {
             const apiUrl = import.meta.env.VITE_API_BASE_URL || '';
@@ -402,9 +403,25 @@ export const GeneratorWorkflow = () => {
                     if (parsed.type === 'header') header = parsed.data;
                     else if (parsed.type === 'row') {
                         if (isPreview) {
-                            const contentIndex = header.indexOf('ai_generated_content');
-                            const content = contentIndex > -1 ? parsed.data[contentIndex] : "Could not extract content.";
-                            setPreviewContent(content);
+                            // For preview, extract generated contents
+                            const originalLength = csvHeaders.length;
+                            const generatedParts = parsed.data.slice(originalLength);
+                            const previews = [];
+                            if (selectedTemplates.length > 0) {
+                                selectedTemplates.forEach((id, idx) => {
+                                    const template = templates.find(t => t.id === id);
+                                    previews.push({
+                                        template: template?.name || 'Template ' + (idx + 1),
+                                        content: generatedParts[idx] || 'No content generated'
+                                    });
+                                });
+                            } else {
+                                previews.push({
+                                    template: 'Generated Content',
+                                    content: generatedParts[0] || 'No content generated'
+                                });
+                            }
+                            setPreviewContent(previews);
                             foundPreview = true; // Set the flag
                         } else {
                             if (csvRows.length === 0) csvRows.push(header);
@@ -899,14 +916,19 @@ export const GeneratorWorkflow = () => {
                 )}
 
                 {/* Step 5: Preview */}
-                {previewContent && currentStep >= 4 && (
+                {previewContent.length > 0 && currentStep >= 4 && (
                     <Box>
                         <Heading as="h2" size="4" mb="1" mt="4">Preview</Heading>
-                        <Card>
-                            <Box className="markdown-preview" p="3">
-                                <ReactMarkdown>{previewContent}</ReactMarkdown>
-                            </Box>
-                        </Card>
+                        <Grid columns={{ initial: '1', md: '2' }} gap="3">
+                            {previewContent.map((preview, index) => (
+                                <Card key={index}>
+                                    <Text size="2" weight="medium" mb="2">{preview.template}</Text>
+                                    <Box className="markdown-preview" p="3" style={{ background: 'var(--gray-1)', borderRadius: 'var(--radius-2)', border: '1px solid var(--gray-4)' }}>
+                                        <ReactMarkdown>{preview.content}</ReactMarkdown>
+                                    </Box>
+                                </Card>
+                            ))}
+                        </Grid>
                         <Button onClick={() => handleGenerate(false)} disabled={isLoading} mt="3">
                             {isLoading ? <Spinner /> : 'Looks Good! Generate Full CSV'}
                         </Button>

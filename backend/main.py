@@ -328,11 +328,25 @@ async def generator_process(
     key_fields: str = Form(...),
     core_content: str = Form(...),
     is_preview: str = Form(...), # Comes in as a string 'true' or 'false'
-    generation_goal: str = Form("") # Optional field for extra instructions
+    generation_goal: str = Form(""), # Optional field for extra instructions
+    selected_templates: str = Form("[]"),  # JSON string of template IDs
+    db: Session = Depends(get_db)
 ):
     preview_mode = is_preview.lower() == 'true'
     key_fields_list = json.loads(key_fields)
+    selected_template_ids = json.loads(selected_templates)
     csv_buffer = io.BytesIO(await file.read())
+
+    # Fetch selected templates if any
+    templates = []
+    if selected_template_ids:
+        from core.database import EmailTemplate
+        db_templates = db.query(EmailTemplate).filter(EmailTemplate.id.in_(selected_template_ids)).all()
+        templates = [{
+            'id': t.id,
+            'name': t.name,
+            'content': t.body
+        } for t in db_templates]
 
     # Create the generator; it will handle preview logic internally
     content_generator = generator_handler.generate_content_rows(
@@ -340,7 +354,8 @@ async def generator_process(
         key_fields=key_fields_list,
         core_content=core_content,
         is_preview=preview_mode,
-        generation_goal=generation_goal
+        generation_goal=generation_goal,
+        templates=templates
     )
 
     # ALWAYS stream the response to avoid timeouts. The frontend will handle
