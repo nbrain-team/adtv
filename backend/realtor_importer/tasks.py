@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 MAX_PROFILES_PER_JOB = 700
 
 # Batch size for saving results
-BATCH_SIZE = 50
+BATCH_SIZE = 20  # Reduced from 50 for more frequent saves
 
 
 def process_scrape_job(job_id: str):
