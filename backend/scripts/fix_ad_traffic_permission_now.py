@@ -1,35 +1,31 @@
 #!/usr/bin/env python3
-"""Fix ad-traffic permission for danny@nbrain.ai"""
+"""Force fix ad-traffic permission for danny@nbrain.ai"""
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.database import SessionLocal, User
 
-def fix_ad_traffic_permission():
-    """Ensure danny@nbrain.ai has ad-traffic permission"""
+def fix_permission():
+    """Force ad-traffic permission to True"""
     db = SessionLocal()
     
     try:
         user = db.query(User).filter(User.email == "danny@nbrain.ai").first()
         if user:
-            print(f"Found user: {user.email}")
             print(f"Current permissions: {user.permissions}")
             
-            # Ensure permissions is a dict
+            # Force update
             permissions = user.permissions.copy() if user.permissions else {}
-            
-            # Add ad-traffic permission
             permissions['ad-traffic'] = True
             
-            # Update in database
+            # Directly update in database to ensure it sticks
             user.permissions = permissions
             db.commit()
-            
-            # Verify the update
             db.refresh(user)
-            print(f"Updated permissions: {user.permissions}")
-            print("✅ Successfully added ad-traffic permission!")
+            
+            print(f"✅ Updated permissions: {user.permissions}")
+            print(f"ad-traffic is now: {user.permissions.get('ad-traffic', False)}")
         else:
             print("❌ User danny@nbrain.ai not found!")
     except Exception as e:
@@ -39,4 +35,4 @@ def fix_ad_traffic_permission():
         db.close()
 
 if __name__ == "__main__":
-    fix_ad_traffic_permission() 
+    fix_permission() 

@@ -33,7 +33,7 @@ class User(Base):
     
     # Role and permissions
     role = Column(String, default="user")  # "user" or "admin"
-    permissions = Column(JSON, default=lambda: {"chat": True, "campaigns": False})  # Module access permissions
+    permissions = Column(JSON, default=lambda: {"chat": True, "campaigns": False, "ad-traffic": False})  # Module access permissions
     
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
