@@ -180,7 +180,7 @@ export const CampaignsList: React.FC<CampaignsListProps> = ({
                     
                     {campaign.status === CampaignStatus.PROCESSING && (
                       <Text size="1" style={{ fontStyle: 'italic' }} color="gray">
-                        Processing video clips...
+                        Creating clips and scheduling posts...
                       </Text>
                     )}
                     
@@ -213,8 +213,13 @@ export const CampaignsList: React.FC<CampaignsListProps> = ({
                     </Box>
                   )}
                   
-                  <Button size="2" variant="ghost">
-                    <EyeOpenIcon /> View
+                  <Button 
+                    size="2" 
+                    variant="ghost"
+                    disabled={campaign.status === CampaignStatus.PROCESSING}
+                  >
+                    <EyeOpenIcon /> 
+                    {campaign.status === CampaignStatus.PROCESSING ? 'Processing...' : 'View'}
                   </Button>
                 </Flex>
               </Flex>

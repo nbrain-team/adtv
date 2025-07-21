@@ -133,7 +133,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         style={{ 
           padding: '1rem 2rem',
           borderBottom: '1px solid var(--gray-4)',
-          backgroundColor: 'white'
+          backgroundColor: 'white',
+          flexShrink: 0
         }}
       >
         <Flex gap="3" align="center">
@@ -175,7 +176,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       </Flex>
 
       {/* Calendar Grid */}
-      <Box style={{ flex: 1, overflowY: 'auto', padding: '1rem' }}>
+      <Box style={{ flex: 1, overflow: 'auto', padding: '1rem' }}>
         <Box
           style={{
             display: 'grid',
@@ -183,7 +184,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             gap: '1px',
             backgroundColor: 'var(--gray-4)',
             border: '1px solid var(--gray-4)',
-            height: '100%'
+            minHeight: 'min-content'
           }}
         >
           {/* Day Headers */}

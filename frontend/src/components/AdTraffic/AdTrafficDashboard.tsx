@@ -299,12 +299,13 @@ export const AdTrafficDashboard: React.FC = () => {
                 <Box style={{ height: 'calc(100% - 48px)', overflow: 'auto' }}>
                   <Tabs.Content value="calendar" style={{ height: '100%' }}>
                     {selectedClient && (
-                      <Flex direction="column" style={{ height: '100%' }}>
+                      <Flex direction="column" style={{ height: '100%', overflow: 'hidden' }}>
                         {viewingCampaign && (
                           <Box style={{ 
                             padding: '1rem 2rem', 
                             backgroundColor: 'var(--amber-2)',
-                            borderBottom: '1px solid var(--amber-6)'
+                            borderBottom: '1px solid var(--amber-6)',
+                            flexShrink: 0
                           }}>
                             <Flex justify="between" align="center">
                               <Text size="2">
@@ -318,7 +319,12 @@ export const AdTrafficDashboard: React.FC = () => {
                         )}
                         
                         {/* Calendar Section */}
-                        <Box style={{ flex: '0 0 auto', minHeight: '400px' }}>
+                        <Box style={{ 
+                          flex: '1 1 60%', 
+                          minHeight: '300px',
+                          overflow: 'auto',
+                          borderBottom: '1px solid var(--gray-4)'
+                        }}>
                           <CalendarView
                             client={selectedClient}
                             posts={posts}
@@ -331,8 +337,8 @@ export const AdTrafficDashboard: React.FC = () => {
                         
                         {/* Campaigns List Section */}
                         <Box style={{ 
-                          flex: 1, 
-                          borderTop: '1px solid var(--gray-4)', 
+                          flex: '1 1 40%', 
+                          minHeight: '200px',
                           padding: '2rem',
                           backgroundColor: 'var(--gray-1)',
                           overflow: 'auto'

@@ -16,8 +16,9 @@ logger = logging.getLogger(__name__)
 async def process_campaign(
     campaign_id: str,
     video_path: str,
-    platforms: List[schemas.PlatformType],
-    duration_weeks: int
+    platforms: List[str],
+    duration_weeks: int,
+    client_id: str
 ):
     """Process a video campaign - extract clips and create social posts"""
     logger.info(f"Starting campaign processing: {campaign_id}")
@@ -25,8 +26,8 @@ async def process_campaign(
     with SessionLocal() as db:
         try:
             # Update campaign status
-            campaign = db.query(models.VideoClipCampaign).filter(
-                models.VideoClipCampaign.id == campaign_id
+            campaign = db.query(models.Campaign).filter(
+                models.Campaign.id == campaign_id
             ).first()
             
             if not campaign:
@@ -111,12 +112,12 @@ async def process_campaign(
                     clip = clips[clip_index]
                     
                     # Create post
-                    post = models.SocialMediaPost(
-                        client_id=campaign.client_id,
+                    post = models.SocialPost(
+                        client_id=client_id,
                         campaign_id=campaign_id,
                         video_clip_id=clip.id,
                         content=clip.suggested_caption,
-                        platforms=[p.value for p in platforms],
+                        platforms=platforms,
                         scheduled_time=post_date,
                         status=models.PostStatus.SCHEDULED
                     )
@@ -134,8 +135,8 @@ async def process_campaign(
             logger.error(f"Error processing campaign {campaign_id}: {str(e)}")
             
             # Update campaign with error
-            campaign = db.query(models.VideoClipCampaign).filter(
-                models.VideoClipCampaign.id == campaign_id
+            campaign = db.query(models.Campaign).filter(
+                models.Campaign.id == campaign_id
             ).first()
             
             if campaign:

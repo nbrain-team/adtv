@@ -221,32 +221,26 @@ async def process_campaign_video(
     video_path: str,
     client: models.AdTrafficClient
 ):
-    """Process campaign video (placeholder for video processing logic)"""
-    # This is where you would integrate with the video processing backend
-    # For now, we'll just update the campaign status
+    """Process campaign video"""
+    from . import video_processor
     
     try:
-        # Update progress
+        # Get campaign details
         campaign = db.query(models.Campaign).filter_by(id=campaign_id).first()
         if not campaign:
             return
         
-        campaign.status = models.CampaignStatus.PROCESSING
-        campaign.progress = 10
-        db.commit()
-        
-        # TODO: Integrate with video processing backend
-        # - Extract clips using AI
-        # - Generate captions and hashtags
-        # - Create platform-optimized versions
-        # - Schedule posts
-        
-        # For now, mark as ready
-        campaign.status = models.CampaignStatus.READY
-        campaign.progress = 100
-        db.commit()
+        # Process the video and create clips/posts
+        await video_processor.process_campaign(
+            campaign_id=campaign_id,
+            video_path=video_path,
+            platforms=campaign.platforms,
+            duration_weeks=campaign.duration_weeks,
+            client_id=client.id
+        )
         
     except Exception as e:
+        # Update campaign with error
         campaign = db.query(models.Campaign).filter_by(id=campaign_id).first()
         if campaign:
             campaign.status = models.CampaignStatus.FAILED
