@@ -28,6 +28,7 @@ from core.email_template_routes import router as email_template_router
 from core.personalizer_routes import router as personalizer_router
 from db_setup import update_db_schema, migrate_data
 from ad_traffic.api import router as ad_traffic_router
+from contact_enricher.api import router as contact_enricher_router
 
 
 load_dotenv()
@@ -132,6 +133,15 @@ def on_startup():
     except Exception as e:
         logger.warning(f"Video URLs fix failed: {e}")
     
+    # Add contact enricher tables
+    try:
+        from scripts.add_contact_enricher_tables import add_contact_enricher_tables
+        logger.info("Adding contact enricher tables...")
+        add_contact_enricher_tables()
+        logger.info("Contact enricher tables added.")
+    except Exception as e:
+        logger.warning(f"Contact enricher tables migration failed: {e}")
+    
     # Create all tables with error handling
     try:
         Base.metadata.create_all(bind=engine)
@@ -197,6 +207,7 @@ app.include_router(user_router, prefix="/user", tags=["user"])
 app.include_router(email_template_router, prefix="/api/email-templates", tags=["email-templates"])
 app.include_router(ad_traffic_router, prefix="/api/ad-traffic", tags=["ad-traffic"])
 app.include_router(personalizer_router, prefix="/api/personalizer", tags=["personalizer"])
+app.include_router(contact_enricher_router, prefix="/api/contact-enricher", tags=["contact-enricher"])
 
 # Mount uploads directory for static file serving
 import os
@@ -296,7 +307,8 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
             "data-lake": True,
             "user-management": True,
             "ad-traffic": True,  # Add this permission!
-            "template-manager": True  # Add template manager permission
+            "template-manager": True,  # Add template manager permission
+            "contact-enricher": True  # Add contact enricher permission
         }
         db.commit()
         db.refresh(user)

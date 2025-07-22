@@ -15,6 +15,7 @@ import DataLakePage from './pages/DataLakePage';
 import ProfilePage from './pages/ProfilePage';
 import TemplateManagerPage from './pages/TemplateManagerPage';
 import AdTrafficPage from './pages/AdTrafficPage';
+import ContactEnricherPage from './pages/ContactEnricherPage';
 
 // Define the structure for a message
 interface Message {
@@ -80,6 +81,11 @@ function App() {
             <Route path="/ad-traffic" element={
               <ProtectedRoute requiredPermission="ad-traffic">
                 <AdTrafficPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/contact-enricher" element={
+              <ProtectedRoute requiredPermission="contact-enricher">
+                <ContactEnricherPage />
               </ProtectedRoute>
             } />
           </Routes>

@@ -25,4 +25,9 @@ selenium
 playwright
 opencv-python
 openai
-ffmpeg-python 
+ffmpeg-python
+# Contact Enricher dependencies
+google-search-results
+facebook-sdk
+phonenumbers
+aiohttp 

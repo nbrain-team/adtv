@@ -177,4 +177,5 @@ def create_tables():
     # Import models to ensure they're registered with Base
     from realtor_importer.models import ProcessedJob, MergedContact
     from core.personalizer_models import PersonalizerProject
+    from contact_enricher.models import EnrichmentProject, EnrichedContact, EnrichmentAPIConfig
     Base.metadata.create_all(bind=engine) 
