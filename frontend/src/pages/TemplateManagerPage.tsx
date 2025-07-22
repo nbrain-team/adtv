@@ -65,11 +65,14 @@ const TemplateManagerPage = () => {
                 content: formContent,
                 goal: formGoal
             });
-            setSelectedTemplate(null);
+            // Reset form state
+            resetForm();
             setShowEditDialog(false);
+            // Refresh templates
             fetchTemplates();
         } catch (error) {
             console.error('Failed to update template:', error);
+            alert('Failed to update template. Please try again.');
         }
     };
 
@@ -223,7 +226,12 @@ const TemplateManagerPage = () => {
                 )}
 
                 {/* Create Dialog */}
-                <Dialog.Root open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+                <Dialog.Root open={showCreateDialog} onOpenChange={(open) => {
+                    setShowCreateDialog(open);
+                    if (!open) {
+                        resetForm();
+                    }
+                }}>
                     <Dialog.Content style={{ maxWidth: '600px' }}>
                         <Dialog.Title>Create Email Template</Dialog.Title>
                         
@@ -276,7 +284,12 @@ const TemplateManagerPage = () => {
                 </Dialog.Root>
 
                 {/* Edit Dialog */}
-                <Dialog.Root open={showEditDialog} onOpenChange={setShowEditDialog}>
+                <Dialog.Root open={showEditDialog} onOpenChange={(open) => {
+                    setShowEditDialog(open);
+                    if (!open) {
+                        resetForm();
+                    }
+                }}>
                     <Dialog.Content style={{ maxWidth: '600px' }}>
                         <Dialog.Title>Edit Email Template</Dialog.Title>
                         

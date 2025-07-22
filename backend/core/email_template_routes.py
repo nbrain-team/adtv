@@ -28,7 +28,7 @@ class EmailTemplateResponse(BaseModel):
     goal: str
     created_at: datetime
     updated_at: datetime
-    created_by: str
+    created_by: Optional[str]
     is_system: bool
 
 # In-memory storage for now (you can migrate to database later)
@@ -230,7 +230,7 @@ async def create_email_template(
         goal=db_template.subject,
         created_at=db_template.created_at,
         updated_at=db_template.updated_at,
-        created_by=db_template.created_by,
+        created_by=db_template.created_by or "system",
         is_system=db_template.is_system
     )
 
@@ -278,7 +278,7 @@ async def update_email_template(
         goal=db_template.subject,
         created_at=db_template.created_at,
         updated_at=db_template.updated_at,
-        created_by=db_template.created_by,
+        created_by=db_template.created_by or "system",
         is_system=db_template.is_system
     )
 
