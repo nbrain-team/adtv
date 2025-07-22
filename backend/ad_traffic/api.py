@@ -179,7 +179,9 @@ async def create_campaign(
         raise HTTPException(status_code=400, detail="Invalid video file")
     
     # Save video file
-    upload_dir = f"uploads/campaigns/{client_id}"
+    # Make sure we're saving to the backend/uploads directory
+    backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    upload_dir = os.path.join(backend_dir, "uploads", "campaigns", client_id)
     os.makedirs(upload_dir, exist_ok=True)
     
     file_extension = os.path.splitext(video.filename)[1]
@@ -189,6 +191,9 @@ async def create_campaign(
     with open(video_path, "wb") as buffer:
         shutil.copyfileobj(video.file, buffer)
     
+    # Store the relative path for URL generation
+    relative_video_path = f"uploads/campaigns/{client_id}/{video_filename}"
+    
     # Create campaign
     campaign_data = schemas.CampaignCreate(
         name=name,
@@ -196,14 +201,14 @@ async def create_campaign(
         platforms=[schemas.Platform(p) for p in platforms]
     )
     
-    campaign = services.create_campaign(db, campaign_data, client_id, video_path)
+    campaign = services.create_campaign(db, campaign_data, client_id, relative_video_path)
     
     # Start background processing
     # Don't pass the db session to background task - it will create its own
     background_tasks.add_task(
         services.process_campaign_video,
         campaign.id,
-        video_path,
+        relative_video_path,
         client.id  # Pass client_id instead of client object
     )
     

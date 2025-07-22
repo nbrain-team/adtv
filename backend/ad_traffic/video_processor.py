@@ -82,6 +82,11 @@ async def process_campaign(
             logger.info(f"Creating {len(mock_clips)} video clips...")
             clips = []
             for i, clip_data in enumerate(mock_clips):
+                # Convert local file path to URL path
+                # video_path is like "uploads/campaigns/{client_id}/{filename}"
+                # Convert to URL: "/uploads/campaigns/{client_id}/{filename}"
+                video_url = f"/{video_path}" if not video_path.startswith('/') else video_path
+                
                 clip = models.VideoClip(
                     campaign_id=campaign_id,
                     title=clip_data["title"],
@@ -89,7 +94,7 @@ async def process_campaign(
                     duration=clip_data["duration"],
                     start_time=clip_data["start_time"],
                     end_time=clip_data["end_time"],
-                    video_url=video_path,  # Mock - would be processed clip URL
+                    video_url=video_url,  # Use URL path instead of file path
                     thumbnail_url=f"/mock/thumbnail_{i}.jpg",
                     suggested_caption=clip_data["suggested_caption"],
                     suggested_hashtags=clip_data["suggested_hashtags"],

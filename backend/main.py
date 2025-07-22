@@ -123,6 +123,15 @@ def on_startup():
     except Exception as e:
         logger.warning(f"Video clips schema fix failed: {e}")
     
+    # Fix video URLs
+    try:
+        from scripts.fix_video_urls import fix_video_urls
+        logger.info("Fixing video URLs...")
+        fix_video_urls()
+        logger.info("Video URLs fix completed.")
+    except Exception as e:
+        logger.warning(f"Video URLs fix failed: {e}")
+    
     # Create all tables with error handling
     try:
         Base.metadata.create_all(bind=engine)
