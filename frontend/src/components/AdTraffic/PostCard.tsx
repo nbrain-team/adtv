@@ -5,7 +5,8 @@ import {
   Pencil2Icon, 
   TrashIcon,
   CopyIcon,
-  EyeOpenIcon 
+  EyeOpenIcon,
+  VideoIcon 
 } from '@radix-ui/react-icons';
 import { SocialPost, Platform, PostStatus } from './types';
 
@@ -85,7 +86,7 @@ export const PostCard: React.FC<PostCardProps> = ({
       >
         <Flex direction="column" gap="1">
           <Flex justify="between" align="center">
-            <Flex gap="1">
+            <Flex gap="1" align="center">
               {post.platforms.map(platform => (
                 <Badge 
                   key={platform} 
@@ -97,6 +98,14 @@ export const PostCard: React.FC<PostCardProps> = ({
                   {getPlatformIcon(platform)}
                 </Badge>
               ))}
+              {post.video_clip && (
+                <VideoIcon 
+                  width="14" 
+                  height="14" 
+                  color="var(--purple-9)"
+                  style={{ marginLeft: '4px' }}
+                />
+              )}
             </Flex>
             <Text size="1" color="gray">
               {formatTime(post.scheduled_time)}

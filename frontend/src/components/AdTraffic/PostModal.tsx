@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Flex, Text, TextArea, Button, Heading, Checkbox, TextField } from '@radix-ui/themes';
+import { Box, Flex, Text, TextArea, Button, Heading, Checkbox, TextField, Badge } from '@radix-ui/themes';
 import { CalendarIcon, ImageIcon } from '@radix-ui/react-icons';
 import { Client, SocialPost, PostFormData, Platform } from './types';
 import { api } from '../../services/api';
@@ -155,15 +155,53 @@ export const PostModal: React.FC<PostModalProps> = ({
             <Box>
               <Text size="2" weight="medium">Attached Video Clip</Text>
               <Box style={{ 
-                padding: '0.5rem', 
                 backgroundColor: 'var(--gray-2)', 
-                borderRadius: '4px',
-                marginTop: '0.5rem'
+                borderRadius: '8px',
+                marginTop: '0.5rem',
+                overflow: 'hidden'
               }}>
-                <Text size="2">{post.video_clip.title}</Text>
-                <Text size="1" color="gray">
-                  {Math.round(post.video_clip.duration)}s • {post.video_clip.content_type}
-                </Text>
+                {/* Video Preview */}
+                <Box style={{ position: 'relative', paddingBottom: '56.25%', height: 0 }}>
+                  <video
+                    controls
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      height: '100%',
+                      backgroundColor: 'black'
+                    }}
+                  >
+                    <source src={post.video_clip.video_url} type="video/mp4" />
+                    Your browser does not support the video tag.
+                  </video>
+                </Box>
+                
+                {/* Video Info */}
+                <Box style={{ padding: '1rem' }}>
+                  <Flex justify="between" align="start">
+                    <Box>
+                      <Text size="3" weight="medium">{post.video_clip.title}</Text>
+                      <Text size="2" color="gray" style={{ marginTop: '0.25rem' }}>
+                        {post.video_clip.description}
+                      </Text>
+                    </Box>
+                    <Badge variant="soft">
+                      {Math.round(post.video_clip.duration)}s
+                    </Badge>
+                  </Flex>
+                  
+                  {post.video_clip.suggested_hashtags && post.video_clip.suggested_hashtags.length > 0 && (
+                    <Flex gap="2" wrap="wrap" style={{ marginTop: '1rem' }}>
+                      {post.video_clip.suggested_hashtags.map((tag, index) => (
+                        <Badge key={index} variant="outline" size="1">
+                          {tag}
+                        </Badge>
+                      ))}
+                    </Flex>
+                  )}
+                </Box>
               </Box>
             </Box>
           )}

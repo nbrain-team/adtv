@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException, Form, BackgroundTasks, UploadFile, File, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, Response
+from fastapi.staticfiles import StaticFiles
 from typing import List, Optional, AsyncGenerator
 from pydantic import BaseModel, Field, EmailStr
 from dotenv import load_dotenv
@@ -188,6 +189,12 @@ app.include_router(email_template_router, prefix="/api/email-templates", tags=["
 app.include_router(ad_traffic_router, prefix="/api/ad-traffic", tags=["ad-traffic"])
 app.include_router(personalizer_router, prefix="/api/personalizer", tags=["personalizer"])
 
+# Mount uploads directory for static file serving
+import os
+uploads_dir = os.path.join(os.path.dirname(__file__), "uploads")
+if not os.path.exists(uploads_dir):
+    os.makedirs(uploads_dir)
+app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
 
 @app.get("/")
 def read_root():

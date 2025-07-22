@@ -104,38 +104,39 @@ async def process_campaign(
             
             # Create social media posts spread across the campaign duration
             total_clips = len(clips)
-            posts_per_week = max(1, total_clips // duration_weeks)
             
             logger.info(f"Creating social media posts: {total_clips} clips over {duration_weeks} weeks")
             
             start_date = datetime.utcnow() + timedelta(days=1)  # Start tomorrow
             
+            # Schedule posts every other day
             clip_index = 0
             posts_created = 0
-            for week in range(duration_weeks):
-                week_start = start_date + timedelta(weeks=week)
+            current_date = start_date
+            
+            # Calculate total days for the campaign
+            total_days = duration_weeks * 7
+            
+            while clip_index < total_clips and current_date < start_date + timedelta(days=total_days):
+                clip = clips[clip_index]
                 
-                for day_offset in range(0, 7, max(1, 7 // posts_per_week)):
-                    if clip_index >= total_clips:
-                        break
-                    
-                    post_date = week_start + timedelta(days=day_offset)
-                    clip = clips[clip_index]
-                    
-                    # Create post
-                    post = models.SocialPost(
-                        client_id=client_id,
-                        campaign_id=campaign_id,
-                        video_clip_id=clip.id,
-                        content=clip.suggested_caption,
-                        platforms=platforms,
-                        scheduled_time=post_date,
-                        status=models.PostStatus.SCHEDULED
-                    )
-                    db.add(post)
-                    clip_index += 1
-                    posts_created += 1
-                    logger.info(f"Created post for {post_date.strftime('%Y-%m-%d')}")
+                # Create post
+                post = models.SocialPost(
+                    client_id=client_id,
+                    campaign_id=campaign_id,
+                    video_clip_id=clip.id,
+                    content=clip.suggested_caption,
+                    platforms=platforms,
+                    scheduled_time=current_date,
+                    status=models.PostStatus.SCHEDULED
+                )
+                db.add(post)
+                clip_index += 1
+                posts_created += 1
+                logger.info(f"Created post for {current_date.strftime('%Y-%m-%d')}")
+                
+                # Move to next posting date (every other day)
+                current_date += timedelta(days=2)
             
             # Update campaign status
             logger.info(f"Finalizing campaign: {posts_created} posts created")
