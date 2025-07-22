@@ -216,33 +216,54 @@ def get_campaign_posts(db: Session, campaign_id: str, user_id: str) -> List[mode
 
 # Background processing
 async def process_campaign_video(
-    db: Session,
     campaign_id: str,
     video_path: str,
-    client: models.AdTrafficClient
+    client_id: str
 ):
     """Process campaign video"""
-    from . import video_processor
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    logger.info(f"Starting video processing for campaign {campaign_id}")
     
     try:
-        # Get campaign details
-        campaign = db.query(models.Campaign).filter_by(id=campaign_id).first()
-        if not campaign:
-            return
+        # Import video_processor here to avoid circular imports
+        from . import video_processor
+        
+        # Create new db session for background task
+        from core.database import SessionLocal
+        
+        with SessionLocal() as db:
+            # Get campaign details
+            campaign = db.query(models.Campaign).filter_by(id=campaign_id).first()
+            if not campaign:
+                logger.error(f"Campaign {campaign_id} not found in database")
+                return
+            
+            logger.info(f"Processing video for campaign: {campaign.name}, platforms: {campaign.platforms}")
         
         # Process the video and create clips/posts
+        # video_processor.process_campaign creates its own db session
         await video_processor.process_campaign(
             campaign_id=campaign_id,
             video_path=video_path,
             platforms=campaign.platforms,
             duration_weeks=campaign.duration_weeks,
-            client_id=client.id
+            client_id=client_id
         )
         
+        logger.info(f"Successfully completed processing for campaign {campaign_id}")
+        
     except Exception as e:
+        logger.error(f"Error processing campaign {campaign_id}: {str(e)}", exc_info=True)
+        
         # Update campaign with error
-        campaign = db.query(models.Campaign).filter_by(id=campaign_id).first()
-        if campaign:
-            campaign.status = models.CampaignStatus.FAILED
-            campaign.error_message = str(e)
-            db.commit() 
+        from core.database import SessionLocal
+        
+        with SessionLocal() as db:
+            campaign = db.query(models.Campaign).filter_by(id=campaign_id).first()
+            if campaign:
+                campaign.status = models.CampaignStatus.FAILED
+                campaign.error_message = str(e)
+                db.commit()
+                logger.info(f"Updated campaign {campaign_id} status to FAILED") 

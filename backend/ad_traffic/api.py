@@ -199,12 +199,12 @@ async def create_campaign(
     campaign = services.create_campaign(db, campaign_data, client_id, video_path)
     
     # Start background processing
+    # Don't pass the db session to background task - it will create its own
     background_tasks.add_task(
         services.process_campaign_video,
-        db,
         campaign.id,
         video_path,
-        client
+        client.id  # Pass client_id instead of client object
     )
     
     return campaign

@@ -22,10 +22,13 @@ async def process_campaign(
 ):
     """Process a video campaign - extract clips and create social posts"""
     logger.info(f"Starting campaign processing: {campaign_id}")
+    logger.info(f"Video path: {video_path}")
+    logger.info(f"Platforms: {platforms}, Duration: {duration_weeks} weeks")
     
     with SessionLocal() as db:
         try:
             # Update campaign status
+            logger.info(f"Fetching campaign {campaign_id} from database...")
             campaign = db.query(models.Campaign).filter(
                 models.Campaign.id == campaign_id
             ).first()
@@ -34,9 +37,11 @@ async def process_campaign(
                 logger.error(f"Campaign {campaign_id} not found")
                 return
             
+            logger.info(f"Updating campaign status to PROCESSING...")
             campaign.status = models.CampaignStatus.PROCESSING
             campaign.progress = 10
             db.commit()
+            logger.info(f"Campaign status updated successfully")
             
             # TODO: Implement actual video processing
             # For now, create mock clips
@@ -74,6 +79,7 @@ async def process_campaign(
             ]
             
             # Create clips
+            logger.info(f"Creating {len(mock_clips)} video clips...")
             clips = []
             for i, clip_data in enumerate(mock_clips):
                 clip = models.VideoClip(
@@ -91,16 +97,21 @@ async def process_campaign(
                 )
                 db.add(clip)
                 clips.append(clip)
+                logger.info(f"Created clip: {clip.title}")
             
             db.commit()
+            logger.info(f"All clips committed to database")
             
             # Create social media posts spread across the campaign duration
             total_clips = len(clips)
             posts_per_week = max(1, total_clips // duration_weeks)
             
+            logger.info(f"Creating social media posts: {total_clips} clips over {duration_weeks} weeks")
+            
             start_date = datetime.utcnow() + timedelta(days=1)  # Start tomorrow
             
             clip_index = 0
+            posts_created = 0
             for week in range(duration_weeks):
                 week_start = start_date + timedelta(weeks=week)
                 
@@ -123,13 +134,16 @@ async def process_campaign(
                     )
                     db.add(post)
                     clip_index += 1
+                    posts_created += 1
+                    logger.info(f"Created post for {post_date.strftime('%Y-%m-%d')}")
             
             # Update campaign status
+            logger.info(f"Finalizing campaign: {posts_created} posts created")
             campaign.status = models.CampaignStatus.READY
             campaign.progress = 100
             db.commit()
             
-            logger.info(f"Campaign {campaign_id} processing completed")
+            logger.info(f"Campaign {campaign_id} processing completed successfully")
             
         except Exception as e:
             logger.error(f"Error processing campaign {campaign_id}: {str(e)}")

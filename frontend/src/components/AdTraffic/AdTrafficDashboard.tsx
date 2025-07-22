@@ -206,7 +206,7 @@ export const AdTrafficDashboard: React.FC = () => {
         }}>
           <Flex justify="between" align="center">
             <Box>
-              <Heading size="6">Ad Traffic Manager</Heading>
+              <Heading size="6">ADTV Traffic Manager</Heading>
               <Text size="2" color="gray">
                 Manage clients and their social media campaigns
               </Text>
