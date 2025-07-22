@@ -222,7 +222,7 @@ class BrightDataScraper:
             if browser:
                 await browser.close()
     
-    async def scrape_homes_list_with_pagination(self, list_url: str, max_profiles: int = 700) -> List[str]:
+    async def scrape_homes_list_with_pagination(self, list_url: str, max_profiles: int = 700, batch_callback=None) -> List[str]:
         """Scrape homes.com list pages with pagination support"""
         import logging
         logger = logging.getLogger(__name__)
@@ -860,7 +860,7 @@ async def scrape_with_brightdata(list_url: str, max_profiles: int = 10, batch_ca
     
     # Get profile URLs from all pages
     logger.info("PHASE 1: Collecting profile URLs from list pages...")
-    profile_urls = await scraper.scrape_homes_list_with_pagination(list_url, max_profiles)
+    profile_urls = await scraper.scrape_homes_list_with_pagination(list_url, max_profiles, batch_callback)
     
     if not profile_urls:
         logger.error("No profiles found on list pages!")
@@ -900,8 +900,8 @@ async def scrape_with_brightdata(list_url: str, max_profiles: int = 10, batch_ca
                 logger.error(f"[URL BATCH] ✗ Error saving final batch: {str(e)}")
         
         logger.info(f"✓ All {len(profile_urls)} profile URLs saved to database")
-        logger.info("Profiles will be enriched with details in a future run")
-        return []  # Return empty since we saved via callback
+        logger.info("Now continuing to scrape full profile details...")
+        # Don't return here - continue to Phase 2!
     
     logger.info(f"\nPHASE 2: Scraping individual profiles...")
     logger.info(f"Total profiles to scrape: {len(profile_urls)}")
