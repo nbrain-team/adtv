@@ -250,13 +250,13 @@ async def update_email_template(
     if not db_template:
         raise HTTPException(status_code=404, detail="Template not found")
     
-    # Check ownership (only allow editing non-system templates by creator)
+    # Check ownership - allow editing system templates or templates created by the user
     if not db_template.is_system and db_template.created_by != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized to edit this template")
     
-    # Don't allow editing system templates
-    if db_template.is_system:
-        raise HTTPException(status_code=403, detail="Cannot edit system templates")
+    # Allow editing system templates now
+    # if db_template.is_system:
+    #     raise HTTPException(status_code=403, detail="Cannot edit system templates")
     
     # Update fields
     if template_data.name is not None:
@@ -297,13 +297,13 @@ async def delete_email_template(
     if not db_template:
         raise HTTPException(status_code=404, detail="Template not found")
     
-    # Check ownership (only allow deleting non-system templates by creator)
+    # Check ownership - allow deleting system templates or templates created by the user
     if not db_template.is_system and db_template.created_by != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized to delete this template")
     
-    # Don't allow deleting system templates
-    if db_template.is_system:
-        raise HTTPException(status_code=403, detail="Cannot delete system templates")
+    # Allow deleting system templates now
+    # if db_template.is_system:
+    #     raise HTTPException(status_code=403, detail="Cannot delete system templates")
     
     # Soft delete by setting is_active to False
     db_template.is_active = False

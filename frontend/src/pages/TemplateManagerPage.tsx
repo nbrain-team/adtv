@@ -11,7 +11,7 @@ interface EmailTemplate {
     goal: string;
     created_at: string;
     updated_at: string;
-    is_system: boolean; // System templates can't be edited/deleted
+    is_system: boolean; // System templates are pre-loaded templates
 }
 
 const TemplateManagerPage = () => {
@@ -162,25 +162,21 @@ const TemplateManagerPage = () => {
                                                 )}
                                             </Box>
                                             <Flex gap="2">
-                                                {!template.is_system && (
-                                                    <>
-                                                        <IconButton
-                                                            size="1"
-                                                            variant="ghost"
-                                                            onClick={() => openEditDialog(template)}
-                                                        >
-                                                            <Pencil1Icon />
-                                                        </IconButton>
-                                                        <IconButton
-                                                            size="1"
-                                                            variant="ghost"
-                                                            color="red"
-                                                            onClick={() => handleDelete(template.id)}
-                                                        >
-                                                            <TrashIcon />
-                                                        </IconButton>
-                                                    </>
-                                                )}
+                                                <IconButton
+                                                    size="1"
+                                                    variant="ghost"
+                                                    onClick={() => openEditDialog(template)}
+                                                >
+                                                    <Pencil1Icon />
+                                                </IconButton>
+                                                <IconButton
+                                                    size="1"
+                                                    variant="ghost"
+                                                    color="red"
+                                                    onClick={() => handleDelete(template.id)}
+                                                >
+                                                    <TrashIcon />
+                                                </IconButton>
                                                 <IconButton
                                                     size="1"
                                                     variant="ghost"
