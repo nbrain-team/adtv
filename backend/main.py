@@ -113,6 +113,15 @@ def on_startup():
     except Exception as e:
         logger.warning(f"Ad traffic tables migration failed: {e}")
     
+    # Fix video clips schema
+    try:
+        from scripts.fix_video_clips_schema import fix_video_clips_schema
+        logger.info("Fixing video clips schema...")
+        fix_video_clips_schema()
+        logger.info("Video clips schema fix completed.")
+    except Exception as e:
+        logger.warning(f"Video clips schema fix failed: {e}")
+    
     # Create all tables with error handling
     try:
         Base.metadata.create_all(bind=engine)
