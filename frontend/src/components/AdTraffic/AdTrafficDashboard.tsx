@@ -197,12 +197,13 @@ export const AdTrafficDashboard: React.FC = () => {
 
   return (
     <MainLayout onNewChat={() => {}}>
-      <Box style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <Box style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {/* Header */}
         <Box style={{ 
           padding: '1rem 2rem', 
           borderBottom: '1px solid var(--gray-4)',
-          backgroundColor: 'white' 
+          backgroundColor: 'white',
+          flexShrink: 0
         }}>
           <Flex justify="between" align="center">
             <Box>
@@ -233,7 +234,7 @@ export const AdTrafficDashboard: React.FC = () => {
         </Box>
 
         {/* Main Content */}
-        <Box style={{ flex: 1, overflow: 'hidden' }}>
+        <Box style={{ flex: 1, overflow: 'auto' }}>
           {loading ? (
             <Flex align="center" justify="center" style={{ height: '100%' }}>
               <Text>Loading...</Text>
@@ -370,7 +371,7 @@ export const AdTrafficDashboard: React.FC = () => {
 
         {/* Modals */}
         <Dialog.Root open={showClientForm} onOpenChange={setShowClientForm}>
-          <Dialog.Content style={{ maxWidth: '500px' }}>
+          <Dialog.Content style={{ maxWidth: '500px', maxHeight: '90vh', overflow: 'auto' }}>
             <ClientForm
               client={editingClient}
               onSave={handleClientSaved}
@@ -380,7 +381,7 @@ export const AdTrafficDashboard: React.FC = () => {
         </Dialog.Root>
 
         <Dialog.Root open={showPostModal} onOpenChange={setShowPostModal}>
-          <Dialog.Content style={{ maxWidth: '600px' }}>
+          <Dialog.Content style={{ maxWidth: '600px', maxHeight: '90vh', overflow: 'auto' }}>
             {selectedClient && (
               <PostModal
                 client={selectedClient}
@@ -393,7 +394,7 @@ export const AdTrafficDashboard: React.FC = () => {
         </Dialog.Root>
 
         <Dialog.Root open={showCampaignModal} onOpenChange={setShowCampaignModal}>
-          <Dialog.Content style={{ maxWidth: '700px' }}>
+          <Dialog.Content style={{ maxWidth: '700px', maxHeight: '90vh', overflow: 'auto' }}>
             <Dialog.Title style={{ display: 'none' }}>Create Video Campaign</Dialog.Title>
             {selectedClient && (
               <CampaignModal

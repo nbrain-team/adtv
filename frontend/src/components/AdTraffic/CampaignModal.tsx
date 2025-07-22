@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Box, Flex, Text, TextField, Button, Heading, Checkbox, Slider, Progress } from '@radix-ui/themes';
+import { Box, Flex, Text, TextField, Button, Heading, Checkbox, Slider, Progress, Spinner } from '@radix-ui/themes';
 import { VideoIcon, UploadIcon, CheckIcon } from '@radix-ui/react-icons';
 import { Client, CampaignFormData, Platform, Campaign, CampaignStatus } from './types';
 import { api } from '../../services/api';
@@ -96,7 +96,7 @@ export const CampaignModal: React.FC<CampaignModalProps> = ({
   ];
 
   return (
-    <Box>
+    <Box style={{ padding: '2rem' }}>
       <Heading size="5" mb="4">
         <VideoIcon style={{ display: 'inline', marginRight: '0.5rem' }} />
         Create Video Campaign
@@ -209,7 +209,14 @@ export const CampaignModal: React.FC<CampaignModalProps> = ({
                 type="submit" 
                 disabled={loading || !formData.name || !file || formData.platforms.length === 0}
               >
-                Create Campaign
+                {loading ? (
+                  <Flex align="center" gap="2">
+                    <Spinner size="1" />
+                    <Text>Uploading...</Text>
+                  </Flex>
+                ) : (
+                  'Create Campaign'
+                )}
               </Button>
             </Flex>
           </Flex>

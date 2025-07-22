@@ -73,7 +73,7 @@ export const ClientForm: React.FC<ClientFormProps> = ({
   };
 
   return (
-    <Box>
+    <Box style={{ padding: '2rem' }}>
       <Heading size="5" mb="4">
         {client ? 'Edit Client' : 'Create New Client'}
       </Heading>

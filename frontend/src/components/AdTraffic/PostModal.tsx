@@ -77,7 +77,7 @@ export const PostModal: React.FC<PostModalProps> = ({
   ];
 
   return (
-    <Box>
+    <Box style={{ padding: '2rem' }}>
       <Heading size="5" mb="4">
         {post ? 'Edit Post' : 'Create New Post'}
       </Heading>
