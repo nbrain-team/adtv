@@ -430,7 +430,7 @@ async def enrich_project_contacts(project_id: str):
                 db.commit()
                 
                 # Rate limiting
-                await asyncio.sleep(2)  # 2 seconds between enrichments
+                await asyncio.sleep(1)  # Reduced from 2 seconds to 1 second
                 
             except Exception as e:
                 logger.error(f"Error enriching contact {contact.name}: {str(e)}")

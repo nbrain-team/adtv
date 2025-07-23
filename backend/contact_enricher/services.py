@@ -24,7 +24,16 @@ class GoogleSERPService:
     def __init__(self, api_key: str):
         self.api_key = api_key
         self.email_pattern = re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b')
-        self.phone_pattern = re.compile(r'(\+?1?\s*\(?[0-9]{3}\)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4})')
+        # Enhanced phone pattern to catch more formats
+        self.phone_patterns = [
+            re.compile(r'(\+?1?\s*\(?[0-9]{3}\)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4})'),  # Standard US
+            re.compile(r'(\([0-9]{3}\)\s*[0-9]{3}-[0-9]{4})'),  # (555) 555-5555
+            re.compile(r'([0-9]{3}\.[0-9]{3}\.[0-9]{4})'),  # 555.555.5555
+            re.compile(r'([0-9]{3}\s[0-9]{3}\s[0-9]{4})'),  # 555 555 5555
+            re.compile(r'(1-[0-9]{3}-[0-9]{3}-[0-9]{4})'),  # 1-555-555-5555
+            re.compile(r'(\+1\s*[0-9]{3}\s*[0-9]{3}\s*[0-9]{4})'),  # +1 555 555 5555
+            re.compile(r'([(]?[0-9]{3}[)]?\s?[0-9]{3}[-\s]?[0-9]{4})'),  # Various formats
+        ]
     
     async def search_contact_info(self, name: str, company: str = None, city: str = None, 
                                   website: str = None) -> Dict[str, Any]:
@@ -65,7 +74,7 @@ class GoogleSERPService:
                             })
                     
                     # Search for phones
-                    phones = self.phone_pattern.findall(snippet + ' ' + title)
+                    phones = self._find_phone_numbers(snippet + ' ' + title)
                     for phone in phones:
                         formatted_phone = self._format_phone(phone)
                         if formatted_phone:
@@ -81,7 +90,7 @@ class GoogleSERPService:
                 for paa in search_results.get('people_also_ask', []):
                     snippet = paa.get('snippet', '')
                     emails = self.email_pattern.findall(snippet)
-                    phones = self.phone_pattern.findall(snippet)
+                    phones = self._find_phone_numbers(snippet)
                     
                     for email in emails:
                         if self._is_valid_email(email, name):
@@ -114,25 +123,44 @@ class GoogleSERPService:
         """Build optimized search queries"""
         queries = []
         
-        # Basic queries
-        if company:
-            queries.append(f'"{name}" "{company}" email contact')
-            queries.append(f'"{name}" "{company}" phone number')
-        
+        # More specific real estate queries
         if city:
-            queries.append(f'"{name}" {city} realtor email')
-            queries.append(f'"{name}" {city} real estate contact')
+            queries.append(f'"{name}" realtor {city} email phone')
+            queries.append(f'"{name}" real estate agent {city} contact information')
+            queries.append(f'"{name}" {city} realty email')
+            queries.append(f'"{name}" {city} homes for sale contact')
+        
+        if company:
+            queries.append(f'"{name}" "{company}" email contact phone')
+            queries.append(f'"{name}" "{company}" realtor profile')
+            queries.append(f'"{name}" site:{company.lower().replace(" ", "")}.com')
+        
+        # LinkedIn and professional networks
+        queries.append(f'site:linkedin.com/in "{name}" realtor email')
+        queries.append(f'site:zillow.com "{name}" contact')
+        queries.append(f'site:realtor.com "{name}" phone email')
         
         # Website-specific search
-        if website:
+        if website and website != 'Not Found':
             domain = urlparse(website).netloc
-            queries.append(f'site:{domain} "{name}" contact')
-            queries.append(f'site:{domain} email phone')
+            if domain:
+                queries.append(f'site:{domain} contact email phone')
+                queries.append(f'site:{domain} "{name}"')
+                queries.append(f'site:{domain} about team staff')
         
-        # General query
+        # General queries
         queries.append(f'"{name}" email phone contact')
+        queries.append(f'"{name}" mobile cell phone number')
         
-        return queries[:3]  # Limit to 3 queries to save API calls
+        # Remove duplicates and limit
+        seen = set()
+        unique_queries = []
+        for q in queries:
+            if q not in seen:
+                seen.add(q)
+                unique_queries.append(q)
+        
+        return unique_queries[:5]  # Increased from 3 to 5 queries
     
     def _is_valid_email(self, email: str, name: str) -> bool:
         """Check if email is likely valid for the person"""
@@ -140,14 +168,27 @@ class GoogleSERPService:
         name_parts = name.lower().split()
         
         # Avoid generic emails
-        generic_patterns = ['info@', 'contact@', 'admin@', 'support@', 'noreply@']
+        generic_patterns = ['info@', 'contact@', 'admin@', 'support@', 'noreply@', 'sales@', 'office@']
         if any(pattern in email_lower for pattern in generic_patterns):
+            # Check if the name appears even in generic emails (like john.smith@info.company.com)
+            for part in name_parts:
+                if len(part) > 2 and part in email_lower:
+                    return True
             return False
         
-        # Check if name appears in email
+        # Accept email if it contains any part of the name
         for part in name_parts:
             if len(part) > 2 and part in email_lower:
                 return True
+        
+        # Accept email if it's from a real estate domain
+        real_estate_domains = ['remax', 'kw.com', 'coldwellbanker', 'century21', 'sothebys', 'compass.com', 'exp', 'bhhsca']
+        if any(domain in email_lower for domain in real_estate_domains):
+            return True
+        
+        # If none of the above, still accept if it looks professional (not obviously spam)
+        if '@' in email and '.' in email.split('@')[1]:
+            return True
         
         return False
     
@@ -170,6 +211,18 @@ class GoogleSERPService:
         
         return min(confidence, 1.0)
     
+    def _find_phone_numbers(self, text: str) -> List[str]:
+        """Find phone numbers in a given text using multiple patterns."""
+        found_numbers = []
+        for pattern in self.phone_patterns:
+            matches = pattern.findall(text)
+            for match in matches:
+                # Remove any non-digit characters from the match
+                cleaned_match = re.sub(r'\D', '', match)
+                if len(cleaned_match) == 10: # Assuming US phone numbers are 10 digits
+                    found_numbers.append(cleaned_match)
+        return found_numbers
+
     def _format_phone(self, phone: str) -> Optional[str]:
         """Format phone number to standard format"""
         try:
@@ -268,7 +321,14 @@ class WebsiteScraper:
     
     def __init__(self):
         self.email_pattern = re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b')
-        self.phone_pattern = re.compile(r'(\+?1?\s*\(?[0-9]{3}\)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4})')
+        self.phone_patterns = [
+            re.compile(r'(\+?1?\s*\(?[0-9]{3}\)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4})'),
+            re.compile(r'(\([0-9]{3}\)\s*[0-9]{3}-[0-9]{4})'),
+            re.compile(r'([0-9]{3}\.[0-9]{3}\.[0-9]{4})'),
+            re.compile(r'([0-9]{3}\s[0-9]{3}\s[0-9]{4})'),
+            re.compile(r'(1-[0-9]{3}-[0-9]{3}-[0-9]{4})'),
+            re.compile(r'(\+1\s*[0-9]{3}\s*[0-9]{3}\s*[0-9]{4})'),
+        ]
         self.social_patterns = {
             'facebook': r'facebook\.com/[^/\s]+',
             'twitter': r'twitter\.com/[^/\s]+',
@@ -340,7 +400,11 @@ class WebsiteScraper:
                 results['emails'].append(email.lower())
         
         # Extract phones
-        phones = self.phone_pattern.findall(text)
+        phones = []
+        for pattern in self.phone_patterns:
+            found = pattern.findall(text)
+            phones.extend(found)
+        
         for phone in phones:
             try:
                 parsed = phonenumbers.parse(phone, "US")
