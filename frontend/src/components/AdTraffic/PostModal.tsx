@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Flex, Text, TextArea, Button, Heading, Checkbox, TextField, Badge } from '@radix-ui/themes';
-import { CalendarIcon, ImageIcon } from '@radix-ui/react-icons';
+import { CalendarIcon, ImageIcon, TrashIcon } from '@radix-ui/react-icons';
 import { Client, SocialPost, PostFormData, Platform } from './types';
 import { api } from '../../services/api';
 
@@ -9,13 +9,15 @@ interface PostModalProps {
   post: SocialPost | null;
   onSave: () => void;
   onCancel: () => void;
+  onDelete?: (postId: string) => void;
 }
 
 export const PostModal: React.FC<PostModalProps> = ({
   client,
   post,
   onSave,
-  onCancel
+  onCancel,
+  onDelete
 }) => {
   const [formData, setFormData] = useState<PostFormData>({
     content: '',
@@ -59,6 +61,21 @@ export const PostModal: React.FC<PostModalProps> = ({
       setError(err.response?.data?.detail || 'Failed to save post');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (post && onDelete) {
+      if (window.confirm('Are you sure you want to delete this post?')) {
+        setLoading(true);
+        try {
+          await api.delete(`/api/ad-traffic/posts/${post.id}`);
+          onDelete(post.id);
+        } catch (err: any) {
+          setError(err.response?.data?.detail || 'Failed to delete post');
+          setLoading(false);
+        }
+      }
     }
   };
 
@@ -211,6 +228,18 @@ export const PostModal: React.FC<PostModalProps> = ({
           )}
 
           <Flex gap="3" justify="end">
+            {post && onDelete && (
+              <Button 
+                type="button" 
+                variant="soft" 
+                color="red"
+                onClick={handleDelete}
+                disabled={loading}
+                style={{ marginRight: 'auto' }}
+              >
+                <TrashIcon /> Delete Post
+              </Button>
+            )}
             <Button 
               type="button" 
               variant="soft" 
@@ -230,4 +259,4 @@ export const PostModal: React.FC<PostModalProps> = ({
       </form>
     </Box>
   );
-}; 
+};

@@ -388,6 +388,10 @@ export const AdTrafficDashboard: React.FC = () => {
                 post={editingPost}
                 onSave={handlePostSaved}
                 onCancel={() => setShowPostModal(false)}
+                onDelete={(postId) => {
+                  handleDeletePost(postId);
+                  setShowPostModal(false);
+                }}
               />
             )}
           </Dialog.Content>
