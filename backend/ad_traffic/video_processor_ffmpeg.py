@@ -48,10 +48,8 @@ def extract_clip(video_path: str, output_path: str, start_time: float, duration:
             ffmpeg
             .input(video_path, ss=start_time, t=duration)
             .output(output_path, 
-                    vcodec='libx264',
-                    acodec='aac',
-                    video_bitrate='1M',
-                    audio_bitrate='128k')
+                    c:v='copy',
+                    c:a='copy')
             .overwrite_output()
             .run(capture_stderr=True)
         )
