@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Flex, Text, Card, Badge, Button, Select, IconButton } from '@radix-ui/themes';
-import { PlayIcon, CheckIcon, Cross2Icon, ReloadIcon, EyeOpenIcon } from '@radix-ui/react-icons';
+import { PlayIcon, CheckIcon, Cross2Icon, ReloadIcon, EyeOpenIcon, TrashIcon } from '@radix-ui/react-icons';
+import { AlertDialog } from '@radix-ui/themes';
 import { Campaign, CampaignStatus } from './types';
 import { api } from '../../services/api';
 
@@ -18,6 +19,7 @@ export const CampaignsList: React.FC<CampaignsListProps> = ({
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'processing' | 'ready' | 'failed'>('all');
+  const [campaignToDelete, setCampaignToDelete] = useState<Campaign | null>(null);
 
   useEffect(() => {
     fetchCampaigns();
@@ -50,6 +52,18 @@ export const CampaignsList: React.FC<CampaignsListProps> = ({
     if (filter === 'all') return true;
     return campaign.status === filter;
   });
+
+  const handleDelete = async (campaignId: string) => {
+    try {
+      await api.delete(`/api/ad-traffic/campaigns/${campaignId}`);
+      setCampaignToDelete(null);
+      fetchCampaigns();
+      onRefresh?.();
+    } catch (error) {
+      console.error('Error deleting campaign:', error);
+      // You can add toast notification here for error
+    }
+  };
 
   const getStatusIcon = (status: CampaignStatus) => {
     switch (status) {
@@ -194,12 +208,47 @@ export const CampaignsList: React.FC<CampaignsListProps> = ({
                     <EyeOpenIcon /> 
                     {campaign.status === CampaignStatus.PROCESSING ? 'Processing...' : 'View'}
                   </Button>
+                  <IconButton 
+                    size="2" 
+                    variant="ghost" 
+                    color="red"
+                    disabled={campaign.status === CampaignStatus.PROCESSING}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setCampaignToDelete(campaign);
+                    }}
+                  >
+                    <TrashIcon />
+                  </IconButton>
                 </Flex>
               </Flex>
             </Card>
           ))
         )}
       </Flex>
+
+      <AlertDialog.Root open={!!campaignToDelete}>
+        <AlertDialog.Content maxWidth="450px">
+          <AlertDialog.Title>Delete Campaign</AlertDialog.Title>
+          <AlertDialog.Description size="2">
+            Are you sure you want to delete "{campaignToDelete?.name}"? This action cannot be undone.
+          </AlertDialog.Description>
+
+          <Flex gap="3" mt="4" justify="end">
+            <AlertDialog.Cancel>
+              <Button variant="soft" color="gray" onClick={() => setCampaignToDelete(null)}>
+                Cancel
+              </Button>
+            </AlertDialog.Cancel>
+            <AlertDialog.Action>
+              <Button variant="solid" color="red" onClick={() => handleDelete(campaignToDelete!.id)}>
+                Delete
+              </Button>
+            </AlertDialog.Action>
+          </Flex>
+        </AlertDialog.Content>
+      </AlertDialog.Root>
+
     </Box>
   );
 }; 
