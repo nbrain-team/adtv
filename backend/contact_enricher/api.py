@@ -102,8 +102,7 @@ async def upload_csv(
                 city=row.get('City'),
                 state=row.get('State'),
                 agent_website=row.get('Agent_Website'),
-                facebook_profile=row.get('Facebook_Profile'),
-                status="pending"
+                facebook_profile=row.get('Facebook_Profile')
             )
             db.add(contact)
             contacts_created += 1
