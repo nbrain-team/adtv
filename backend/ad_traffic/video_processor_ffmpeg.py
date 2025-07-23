@@ -47,9 +47,7 @@ def extract_clip(video_path: str, output_path: str, start_time: float, duration:
         (
             ffmpeg
             .input(video_path, ss=start_time, t=duration)
-            .output(output_path, 
-                    c:v='copy',
-                    c:a='copy')
+            .output(output_path, **{'c:v': 'copy', 'c:a': 'copy'})
             .overwrite_output()
             .run(capture_stderr=True)
         )
