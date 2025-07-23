@@ -1,5 +1,5 @@
-import React from 'react';
-import { Box, Card, Flex, Text, Badge, IconButton, DropdownMenu } from '@radix-ui/themes';
+import React, { useState } from 'react';
+import { Box, Card, Flex, Text, Badge, IconButton, DropdownMenu, AlertDialog, Button } from '@radix-ui/themes';
 import { 
   DotsHorizontalIcon, 
   Pencil2Icon, 
@@ -72,6 +72,8 @@ export const PostCard: React.FC<PostCardProps> = ({
       hour12: true 
     });
   };
+
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   if (compact) {
     return (
@@ -176,7 +178,7 @@ export const PostCard: React.FC<PostCardProps> = ({
                 <EyeOpenIcon /> Preview
               </DropdownMenu.Item>
               <DropdownMenu.Separator />
-              <DropdownMenu.Item color="red" onClick={onDelete}>
+              <DropdownMenu.Item color="red" onClick={() => setIsDeleteDialogOpen(true)}>
                 <TrashIcon /> Delete
               </DropdownMenu.Item>
             </DropdownMenu.Content>
@@ -254,6 +256,31 @@ export const PostCard: React.FC<PostCardProps> = ({
           </Text>
         </Flex>
       </Flex>
+
+      <AlertDialog.Root open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialog.Content maxWidth="450px">
+          <AlertDialog.Title>Delete Post</AlertDialog.Title>
+          <AlertDialog.Description size="2">
+            Are you sure you want to delete this post? This action cannot be undone.
+          </AlertDialog.Description>
+
+          <Flex gap="3" mt="4" justify="end">
+            <AlertDialog.Cancel>
+              <Button variant="soft" color="gray">
+                Cancel
+              </Button>
+            </AlertDialog.Cancel>
+            <AlertDialog.Action>
+              <Button variant="solid" color="red" onClick={() => {
+                onDelete();
+                setIsDeleteDialogOpen(false);
+              }}>
+                Delete
+              </Button>
+            </AlertDialog.Action>
+          </Flex>
+        </AlertDialog.Content>
+      </AlertDialog.Root>
     </Card>
   );
 }; 
