@@ -68,7 +68,7 @@ const DataLakePage = () => {
         columns: ['id', ...visibleColumns].join(',')
       });
       
-      const response = await api.get(`/data-lake/records?${params}`);
+      const response = await api.get(`/api/data-lake/records?${params}`);
       return response.data;
     },
     retry: (failureCount, error: any) => {
