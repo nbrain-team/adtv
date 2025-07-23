@@ -14,7 +14,7 @@ import { Client, SocialPost, Campaign, CampaignStatus } from './types';
 import * as Dialog from '@radix-ui/react-dialog';
 
 export const AdTrafficDashboard: React.FC = () => {
-  const [activeTab, setActiveTab] = useState('clients');
+  const [activeTab, setActiveTab] = useState('calendar');
   const [clients, setClients] = useState<Client[]>([]);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [posts, setPosts] = useState<SocialPost[]>([]);

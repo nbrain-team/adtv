@@ -88,7 +88,7 @@ const DataLakePage = () => {
 
   // Delete mutation
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => api.delete(`/data-lake/records/${id}`),
+    mutationFn: (id: number) => api.delete(`/api/data-lake/records/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['dataLakeRecords'] });
     }
@@ -100,7 +100,7 @@ const DataLakePage = () => {
       const params = new URLSearchParams({
         columns: visibleColumns.join(',')
       });
-      const response = await api.get(`/data-lake/export-csv?${params}`, {
+      const response = await api.get(`/api/data-lake/export-csv?${params}`, {
         responseType: 'blob'
       });
       
@@ -129,7 +129,7 @@ const DataLakePage = () => {
       const formData = new FormData();
       formData.append('file', file);
       
-      const response = await api.post('/data-lake/analyze-csv', formData, {
+      const response = await api.post('/api/data-lake/analyze-csv', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       
@@ -150,7 +150,7 @@ const DataLakePage = () => {
       const formData = new FormData();
       formData.append('file', csvFile);
       
-      const response = await api.post(`/data-lake/import-csv?mapping=${encodeURIComponent(JSON.stringify(columnMapping))}`, formData, {
+      const response = await api.post(`/api/data-lake/import-csv?mapping=${encodeURIComponent(JSON.stringify(columnMapping))}`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       
@@ -287,7 +287,7 @@ const DataLakePage = () => {
   // Update mutation
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: Record<string, any> }) => 
-      api.put(`/data-lake/records/${id}`, data),
+      api.put(`/api/data-lake/records/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['dataLakeRecords'] });
       setEditingCell(null);
@@ -370,7 +370,7 @@ const DataLakePage = () => {
                   try {
                     // Delete each selected record
                     await Promise.all(
-                      selectedRecords.map(id => api.delete(`/data-lake/records/${id}`))
+                      selectedRecords.map(id => api.delete(`/api/data-lake/records/${id}`))
                     );
                     alert(`Successfully deleted ${selectedRecords.length} records.`);
                     setSelectedRecords([]);

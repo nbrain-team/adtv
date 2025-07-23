@@ -208,7 +208,7 @@ async def create_campaign(
     background_tasks.add_task(
         services.process_campaign_video,
         campaign.id,
-        relative_video_path,
+        video_path,  # Pass full path instead of relative path
         client.id  # Pass client_id instead of client object
     )
     
