@@ -56,7 +56,21 @@ const ContactEnricherPage: React.FC = () => {
       fetchProjects();
     } catch (error: any) {
       console.error('Error uploading file:', error);
-      const errorMessage = error.response?.data?.detail || 'Failed to upload file';
+      console.error('Error response:', error.response);
+      console.error('Error response data:', error.response?.data);
+      
+      let errorMessage = 'Failed to upload file';
+      
+      if (error.response?.data?.detail) {
+        if (typeof error.response.data.detail === 'string') {
+          errorMessage = error.response.data.detail;
+        } else if (Array.isArray(error.response.data.detail)) {
+          errorMessage = error.response.data.detail.map((e: any) => e.msg || e.message || JSON.stringify(e)).join(', ');
+        } else if (typeof error.response.data.detail === 'object') {
+          errorMessage = JSON.stringify(error.response.data.detail);
+        }
+      }
+      
       alert(errorMessage);
     }
   };

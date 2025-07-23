@@ -30,9 +30,43 @@ async def upload_csv(
     if not file.filename.endswith('.csv'):
         raise HTTPException(status_code=400, detail="Only CSV files are supported")
     
-    # Read CSV
-    contents = await file.read()
-    df = pd.read_csv(io.StringIO(contents.decode('utf-8')))
+    # Read CSV with error handling
+    try:
+        contents = await file.read()
+        
+        # Try different encodings
+        encodings = ['utf-8', 'latin-1', 'cp1252', 'iso-8859-1']
+        df = None
+        
+        for encoding in encodings:
+            try:
+                df = pd.read_csv(io.StringIO(contents.decode(encoding)))
+                logger.info(f"Successfully read CSV with {encoding} encoding")
+                break
+            except (UnicodeDecodeError, pd.errors.EmptyDataError) as e:
+                logger.warning(f"Failed to read CSV with {encoding} encoding: {str(e)}")
+                continue
+        
+        if df is None:
+            raise HTTPException(
+                status_code=422, 
+                detail="Unable to read CSV file. Please ensure it's a valid CSV file with proper encoding."
+            )
+        
+        if df.empty:
+            raise HTTPException(
+                status_code=422,
+                detail="CSV file is empty or contains no data"
+            )
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error processing CSV: {str(e)}")
+        raise HTTPException(
+            status_code=422,
+            detail=f"Error processing CSV file: {str(e)}"
+        )
     
     # Create project
     project = models.EnrichmentProject(
