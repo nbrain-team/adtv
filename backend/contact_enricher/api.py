@@ -16,7 +16,7 @@ router = APIRouter(tags=["contact-enricher"])
 logger = logging.getLogger(__name__)
 
 
-@router.post("/projects/upload")
+@router.post("/projects/upload", response_model=schemas.EnrichmentProject)
 async def upload_csv(
     file: UploadFile = File(...),
     name: str = Form(...),
@@ -117,7 +117,7 @@ async def upload_csv(
         db.commit()
         raise HTTPException(status_code=500, detail=f"Error saving contacts: {str(e)}")
     
-    return schemas.ProjectResponse.from_orm(project)
+    return schemas.EnrichmentProject.from_orm(project)
 
 
 @router.options("/projects/upload")
