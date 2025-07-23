@@ -105,10 +105,9 @@ class EnrichmentProgress(BaseModel):
 
 
 class ExportRequest(BaseModel):
-    project_id: str
     include_original: bool = True
     only_enriched: bool = False
-    format: str = "csv"  # csv, json, excel
+    format: str = "csv"  # For future: could support json, xlsx, etc.
 
 
 class APIConfigUpdate(BaseModel):
