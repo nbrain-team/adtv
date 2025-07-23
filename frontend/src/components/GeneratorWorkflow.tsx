@@ -23,6 +23,15 @@ interface SavedProject {
     rowCount?: number;
 }
 
+// Agent data for email signatures
+const AGENTS = [
+    { id: '1', name: 'Kalena Conley', phone: '619-374-7405', email: 'kalena@adtvmedia.com' },
+    { id: '2', name: 'Evan Jones', phone: '619-374-2561', email: 'evan@adtvmedia.com' },
+    { id: '3', name: 'Sigrid Smith', phone: '619-292-8580', email: 'sigrid@adtvmedia.com' },
+    { id: '4', name: 'Amy Dodsworth', phone: '619-259-0014', email: 'amy@adtvmedia.com' },
+    { id: '5', name: 'Bailey Jacobs', phone: '619-333-0342', email: 'bailey@adtvmedia.com' },
+];
+
 // A modern, reusable file input component
 const FileInput = ({ onFileSelect, disabled }: { onFileSelect: (file: File) => void, disabled: boolean }) => {
     const inputRef = useRef<HTMLInputElement>(null);
@@ -92,6 +101,7 @@ export const GeneratorWorkflow = () => {
     const [projectName, setProjectName] = useState('');
     const [rowCount, setRowCount] = useState(0);
     const [savedProjects, setSavedProjects] = useState<SavedProject[]>([]);
+    const [selectedAgent, setSelectedAgent] = useState<string>('');
     
     // Ref for the textarea to handle cursor position
     const textAreaRef = useRef<HTMLTextAreaElement>(null);
@@ -189,9 +199,11 @@ export const GeneratorWorkflow = () => {
     const extractManualFields = (content: string): string[] => {
         const regex = /\[\[([^\]]+)\]\]/g;
         const fields: string[] = [];
+        const agentFields = ['AssociateName', 'ContactInfo', 'AssociatePhone', 'AssociateEmail'];
         let match;
         while ((match = regex.exec(content)) !== null) {
-            if (!fields.includes(match[1])) {
+            // Exclude agent-related fields as they'll be handled by the agent selector
+            if (!fields.includes(match[1]) && !agentFields.includes(match[1])) {
                 fields.push(match[1]);
             }
         }
@@ -226,10 +238,30 @@ export const GeneratorWorkflow = () => {
     // Replace manual fields in content
     const replaceManualFields = (content: string): string => {
         let updatedContent = content;
+        
+        // Replace manual fields from the form
         Object.entries(manualFields).forEach(([field, value]) => {
             const regex = new RegExp(`\\[\\[${field}\\]\\]`, 'g');
             updatedContent = updatedContent.replace(regex, value);
         });
+        
+        // Replace agent-specific fields
+        if (selectedAgent) {
+            const agent = AGENTS.find(a => a.id === selectedAgent);
+            if (agent) {
+                // Replace AssociateName
+                updatedContent = updatedContent.replace(/\[\[AssociateName\]\]/g, agent.name);
+                
+                // Replace ContactInfo (format: phone email)
+                const contactInfo = `${agent.phone} ${agent.email}`;
+                updatedContent = updatedContent.replace(/\[\[ContactInfo\]\]/g, contactInfo);
+                
+                // Also replace individual fields if they exist
+                updatedContent = updatedContent.replace(/\[\[AssociatePhone\]\]/g, agent.phone);
+                updatedContent = updatedContent.replace(/\[\[AssociateEmail\]\]/g, agent.email);
+            }
+        }
+        
         return updatedContent;
     };
 
@@ -684,12 +716,31 @@ export const GeneratorWorkflow = () => {
                 )}
 
                 {/* Template Workflow - Step 3: Fill Manual Fields */}
-                {workflowType === 'template' && currentStep === 3 && Object.keys(manualFields).length > 0 && (
+                {workflowType === 'template' && currentStep === 3 && (Object.keys(manualFields).length > 0 || !selectedAgent) && (
                     <Box>
                         <Heading as="h2" size="4" mb="1">Step 2: Fill in Template Fields</Heading>
                         <Text as="p" size="2" color="gray" mb="3">
                             Please fill in the following fields for your template:
                         </Text>
+                        
+                        {/* Agent Selector */}
+                        <Box mb="4">
+                            <Text size="2" weight="medium" mb="1">Select Agent</Text>
+                            <Select.Root value={selectedAgent} onValueChange={setSelectedAgent}>
+                                <Select.Trigger placeholder="Choose an agent for email signature..." />
+                                <Select.Content>
+                                    {AGENTS.map(agent => (
+                                        <Select.Item key={agent.id} value={agent.id}>
+                                            {agent.name} - {agent.phone}
+                                        </Select.Item>
+                                    ))}
+                                </Select.Content>
+                            </Select.Root>
+                            <Text size="1" color="gray" mt="1">
+                                This will populate [[AssociateName]] and [[ContactInfo]] in your emails
+                            </Text>
+                        </Box>
+                        
                         <Flex direction="column" gap="3">
                             {Object.keys(manualFields).map(field => (
                                 <Box key={field}>
@@ -708,7 +759,7 @@ export const GeneratorWorkflow = () => {
                         <Flex gap="3" mt="4">
                             <Button 
                                 onClick={() => setCurrentStep(4)}
-                                disabled={Object.values(manualFields).some(v => !v.trim())}
+                                disabled={Object.values(manualFields).some(v => !v.trim()) || !selectedAgent}
                             >
                                 Continue
                             </Button>
@@ -736,16 +787,12 @@ export const GeneratorWorkflow = () => {
                         <Button 
                             variant="ghost" 
                             onClick={() => {
-                                if (workflowType === 'template' && Object.keys(manualFields).length > 0) {
+                                if (workflowType === 'template') {
                                     setCurrentStep(3);
-                                } else if (workflowType === 'template') {
-                                    setCurrentStep(2);
                                 } else {
                                     setCurrentStep(1);
-                                    setWorkflowType(null);
                                 }
                             }}
-                            mt="3"
                         >
                             ← Back
                         </Button>
@@ -795,6 +842,24 @@ export const GeneratorWorkflow = () => {
                         <Text as="p" size="2" color="gray" mb="3">
                             Write your template. Click field names above to insert them.
                         </Text>
+                        
+                        {/* Agent Selector */}
+                        <Box mb="4">
+                            <Text size="2" weight="medium" mb="1">Select Agent</Text>
+                            <Select.Root value={selectedAgent} onValueChange={setSelectedAgent}>
+                                <Select.Trigger placeholder="Choose an agent for email signature..." />
+                                <Select.Content>
+                                    {AGENTS.map(agent => (
+                                        <Select.Item key={agent.id} value={agent.id}>
+                                            {agent.name} - {agent.phone}
+                                        </Select.Item>
+                                    ))}
+                                </Select.Content>
+                            </Select.Root>
+                            <Text size="1" color="gray" mt="1">
+                                This will populate [[AssociateName]] and [[ContactInfo]] in your emails
+                            </Text>
+                        </Box>
                         
                         <TextArea
                             id="core-content"
