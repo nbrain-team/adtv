@@ -198,12 +198,22 @@ def on_startup():
     # app.include_router(ad_traffic_router, prefix="/api/ad-traffic", tags=["ad-traffic"])
 
 # --- CORS Middleware ---
+allowed_origins = [
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "https://adtv.nbrain.ai",
+    "https://adtv-frontend.onrender.com",
+    "*"  # Keep wildcard as fallback
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # In production, restrict this to your frontend's domain
+    allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=3600,
 )
 
 # --- Routers ---

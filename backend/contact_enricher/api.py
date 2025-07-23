@@ -16,32 +16,35 @@ router = APIRouter(tags=["contact-enricher"])
 logger = logging.getLogger(__name__)
 
 
-@router.post("/projects/upload", response_model=schemas.CSVUploadResponse)
+@router.post("/projects/upload")
 async def upload_csv(
     file: UploadFile = File(...),
     name: str = Form(...),
-    description: str = Form(None),
+    description: Optional[str] = Form(None),
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """Upload a CSV file and create a new enrichment project"""
+    """Upload a CSV file for enrichment"""
+    logger.info(f"Starting file upload: {file.filename} for user {current_user.email}")
+    logger.info(f"Project name: {name}, description: {description}")
     
-    # Validate file type
     if not file.filename.endswith('.csv'):
-        raise HTTPException(status_code=400, detail="Only CSV files are supported")
+        raise HTTPException(status_code=422, detail="Only CSV files are allowed")
     
-    # Read CSV with error handling
+    # Read CSV file
     try:
         contents = await file.read()
+        logger.info(f"Read {len(contents)} bytes from file")
         
         # Try different encodings
-        encodings = ['utf-8', 'latin-1', 'cp1252', 'iso-8859-1']
         df = None
+        encodings = ['utf-8', 'latin-1', 'cp1252', 'iso-8859-1']
         
         for encoding in encodings:
             try:
                 df = pd.read_csv(io.StringIO(contents.decode(encoding)))
                 logger.info(f"Successfully read CSV with {encoding} encoding")
+                logger.info(f"CSV shape: {df.shape}, columns: {list(df.columns)}")
                 break
             except (UnicodeDecodeError, pd.errors.EmptyDataError) as e:
                 logger.warning(f"Failed to read CSV with {encoding} encoding: {str(e)}")
@@ -62,47 +65,60 @@ async def upload_csv(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error processing CSV: {str(e)}")
+        logger.error(f"Error processing CSV: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=422,
             detail=f"Error processing CSV file: {str(e)}"
         )
     
     # Create project
-    project = models.EnrichmentProject(
-        user_id=current_user.id,
-        name=name,
-        description=description,
-        original_filename=file.filename,
-        original_row_count=len(df),
-        status="pending"
-    )
-    db.add(project)
-    db.commit()
-    db.refresh(project)
+    try:
+        project = models.EnrichmentProject(
+            user_id=current_user.id,
+            name=name,
+            description=description,
+            original_filename=file.filename,
+            original_row_count=len(df),
+            status="pending"
+        )
+        db.add(project)
+        db.commit()
+        db.refresh(project)
+        logger.info(f"Created project {project.id} with {project.original_row_count} rows")
+    except Exception as e:
+        logger.error(f"Error creating project: {str(e)}", exc_info=True)
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error creating project: {str(e)}")
     
     # Save contacts
-    for _, row in df.iterrows():
-        contact = models.EnrichedContact(
-            project_id=project.id,
-            original_data=row.to_dict(),
-            name=row.get('Name'),
-            company=row.get('Company'),
-            city=row.get('City'),
-            state=row.get('State'),
-            agent_website=row.get('Agent_Website'),
-            facebook_profile=row.get('Facebook_Profile')
-        )
-        db.add(contact)
+    try:
+        contacts_created = 0
+        for _, row in df.iterrows():
+            contact = models.EnrichedContact(
+                project_id=project.id,
+                original_data=row.to_dict(),
+                name=row.get('Name'),
+                company=row.get('Company'),
+                city=row.get('City'),
+                state=row.get('State'),
+                website=row.get('Agent_Website'),
+                facebook=row.get('Facebook_Profile'),
+                status="pending"
+            )
+            db.add(contact)
+            contacts_created += 1
+        
+        db.commit()
+        logger.info(f"Created {contacts_created} contacts for project {project.id}")
+    except Exception as e:
+        logger.error(f"Error saving contacts: {str(e)}", exc_info=True)
+        db.rollback()
+        # Delete the project if contacts fail
+        db.delete(project)
+        db.commit()
+        raise HTTPException(status_code=500, detail=f"Error saving contacts: {str(e)}")
     
-    db.commit()
-    
-    return schemas.CSVUploadResponse(
-        project_id=project.id,
-        row_count=len(df),
-        columns=df.columns.tolist(),
-        preview_rows=df.head(5).to_dict('records')
-    )
+    return schemas.ProjectResponse.from_orm(project)
 
 
 @router.get("/projects", response_model=List[schemas.EnrichmentProject])
