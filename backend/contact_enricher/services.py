@@ -36,7 +36,7 @@ class GoogleSERPService:
         ]
     
     async def search_contact_info(self, name: str, company: str = None, city: str = None, 
-                                  website: str = None) -> Dict[str, Any]:
+                                  state: str = None, website: str = None) -> Dict[str, Any]:
         """Search for contact information using various query strategies"""
         results = {
             'emails': [],
@@ -45,7 +45,7 @@ class GoogleSERPService:
         }
         
         # Build search queries
-        queries = self._build_search_queries(name, company, city, website)
+        queries = self._build_search_queries(name, company, city, state, website)
         
         for query in queries:
             try:
@@ -119,9 +119,24 @@ class GoogleSERPService:
         
         return results
     
-    def _build_search_queries(self, name: str, company: str, city: str, website: str) -> List[str]:
+    def _build_search_queries(self, name: str, company: str, city: str, state: str, website: str) -> List[str]:
         """Build optimized search queries"""
         queries = []
+        
+        # MOST EFFECTIVE: Force Google to find pages with name AND email address format
+        if name and city:
+            if company and state:
+                # Full pattern: "Name" "@" City State Company
+                queries.append(f'"{name}" "@" {city} {state} {company}')
+            elif company:
+                # Pattern without state: "Name" "@" City Company
+                queries.append(f'"{name}" "@" {city} {company}')
+            elif state:
+                # Pattern without company: "Name" "@" City State
+                queries.append(f'"{name}" "@" {city} {state}')
+            else:
+                # Minimal pattern: "Name" "@" City
+                queries.append(f'"{name}" "@" {city}')
         
         # More specific real estate queries
         if city:
@@ -487,7 +502,7 @@ class ContactEnricher:
         # 1. Google SERP search
         if name:
             google_results = await self.google_service.search_contact_info(
-                name, company, city, website
+                name, company, city, state, website
             )
             enriched['enrichment_results']['google'] = google_results
         
