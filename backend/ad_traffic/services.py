@@ -227,7 +227,38 @@ async def process_campaign_video(
     logger.info(f"Starting video processing for campaign {campaign_id}")
     
     try:
-        # Import video_processor here to avoid circular imports
+        # Try ffmpeg-based processor first (more reliable)
+        try:
+            from . import video_processor_ffmpeg
+            logger.info("Using ffmpeg-based video processor")
+            
+            # Get campaign details
+            from core.database import SessionLocal
+            with SessionLocal() as db:
+                campaign = db.query(models.Campaign).filter_by(id=campaign_id).first()
+                if not campaign:
+                    logger.error(f"Campaign {campaign_id} not found in database")
+                    return
+                
+                platforms = campaign.platforms
+                duration_weeks = campaign.duration_weeks
+            
+            # Process with ffmpeg
+            await video_processor_ffmpeg.process_campaign(
+                campaign_id=campaign_id,
+                video_path=video_path,
+                platforms=platforms,
+                duration_weeks=duration_weeks,
+                client_id=client_id
+            )
+            
+            logger.info(f"Successfully completed processing for campaign {campaign_id} with ffmpeg")
+            return
+            
+        except ImportError:
+            logger.warning("ffmpeg-python not available, trying moviepy...")
+        
+        # Fallback to moviepy
         from . import video_processor
         
         # Create new db session for background task
