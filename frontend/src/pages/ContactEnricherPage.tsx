@@ -33,7 +33,7 @@ const ContactEnricherPage: React.FC = () => {
 
   const fetchProjects = async () => {
     try {
-      const response = await api.get('/contact-enricher/projects');
+      const response = await api.get('/api/contact-enricher/projects');
       setProjects(response.data);
     } catch (error) {
       console.error('Error fetching projects:', error);
@@ -49,7 +49,7 @@ const ContactEnricherPage: React.FC = () => {
     formData.append('description', description);
 
     try {
-      await api.post('/contact-enricher/projects/upload', formData);
+      await api.post('/api/contact-enricher/projects/upload', formData);
       setUploadOpen(false);
       fetchProjects();
     } catch (error) {
@@ -60,7 +60,7 @@ const ContactEnricherPage: React.FC = () => {
 
   const startEnrichment = async (projectId: string) => {
     try {
-      await api.post(`/contact-enricher/projects/${projectId}/enrich`);
+      await api.post(`/api/contact-enricher/projects/${projectId}/enrich`);
       fetchProjects();
     } catch (error) {
       console.error('Error starting enrichment:', error);
@@ -72,7 +72,7 @@ const ContactEnricherPage: React.FC = () => {
     if (!confirm('Are you sure you want to delete this project?')) return;
     
     try {
-      await api.delete(`/contact-enricher/projects/${projectId}`);
+      await api.delete(`/api/contact-enricher/projects/${projectId}`);
       fetchProjects();
     } catch (error) {
       console.error('Error deleting project:', error);
@@ -81,7 +81,7 @@ const ContactEnricherPage: React.FC = () => {
 
   const exportProject = async (projectId: string) => {
     try {
-      const response = await api.post(`/contact-enricher/projects/${projectId}/export`, {
+      const response = await api.post(`/api/contact-enricher/projects/${projectId}/export`, {
         include_original: true,
         only_enriched: false,
         format: 'csv'
@@ -324,7 +324,7 @@ const ProjectDetailsDialog: React.FC<{ project: EnrichmentProject }> = ({ projec
 
   const fetchContacts = async () => {
     try {
-      const response = await api.get(`/contact-enricher/projects/${project.id}/contacts`);
+      const response = await api.get(`/api/contact-enricher/projects/${project.id}/contacts`);
       setContacts(response.data);
     } catch (error) {
       console.error('Error fetching contacts:', error);

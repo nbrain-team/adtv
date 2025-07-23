@@ -6,12 +6,14 @@ import io
 import json
 import csv
 from datetime import datetime
+import logging
 
 from core.database import get_db, User
 from core.auth import get_current_active_user
 from . import models, schemas, services
 
 router = APIRouter(tags=["contact-enricher"])
+logger = logging.getLogger(__name__)
 
 
 @router.post("/projects/upload", response_model=schemas.CSVUploadResponse)
