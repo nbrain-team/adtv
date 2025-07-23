@@ -46,15 +46,18 @@ const ContactEnricherPage: React.FC = () => {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('name', name);
-    formData.append('description', description);
+    if (description && description.trim()) {
+      formData.append('description', description);
+    }
 
     try {
       await api.post('/api/contact-enricher/projects/upload', formData);
       setUploadOpen(false);
       fetchProjects();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error uploading file:', error);
-      alert('Failed to upload file');
+      const errorMessage = error.response?.data?.detail || 'Failed to upload file';
+      alert(errorMessage);
     }
   };
 
