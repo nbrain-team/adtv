@@ -43,11 +43,24 @@ const ContactEnricherPage: React.FC = () => {
   };
 
   const handleFileUpload = async (file: File, name: string, description: string) => {
+    console.log('Uploading file:', { 
+      fileName: file.name, 
+      fileSize: file.size, 
+      fileType: file.type,
+      name: name,
+      description: description 
+    });
+    
     const formData = new FormData();
     formData.append('file', file);
     formData.append('name', name);
     if (description && description.trim()) {
       formData.append('description', description);
+    }
+    
+    // Log FormData contents
+    for (let [key, value] of formData.entries()) {
+      console.log(`FormData ${key}:`, value);
     }
 
     try {
@@ -58,6 +71,7 @@ const ContactEnricherPage: React.FC = () => {
       console.error('Error uploading file:', error);
       console.error('Error response:', error.response);
       console.error('Error response data:', error.response?.data);
+      console.error('Error detail array:', error.response?.data?.detail);
       
       let errorMessage = 'Failed to upload file';
       
@@ -65,7 +79,13 @@ const ContactEnricherPage: React.FC = () => {
         if (typeof error.response.data.detail === 'string') {
           errorMessage = error.response.data.detail;
         } else if (Array.isArray(error.response.data.detail)) {
-          errorMessage = error.response.data.detail.map((e: any) => e.msg || e.message || JSON.stringify(e)).join(', ');
+          console.error('Validation errors:', error.response.data.detail);
+          errorMessage = error.response.data.detail.map((e: any) => {
+            if (e.msg) return e.msg;
+            if (e.message) return e.message;
+            if (typeof e === 'string') return e;
+            return JSON.stringify(e);
+          }).join(', ');
         } else if (typeof error.response.data.detail === 'object') {
           errorMessage = JSON.stringify(error.response.data.detail);
         }
