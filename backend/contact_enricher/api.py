@@ -101,8 +101,8 @@ async def upload_csv(
                 company=row.get('Company'),
                 city=row.get('City'),
                 state=row.get('State'),
-                website=row.get('Agent_Website'),
-                facebook=row.get('Facebook_Profile'),
+                agent_website=row.get('Agent_Website'),
+                facebook_profile=row.get('Facebook_Profile'),
                 status="pending"
             )
             db.add(contact)
