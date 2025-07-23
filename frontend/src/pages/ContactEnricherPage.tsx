@@ -18,27 +18,17 @@ interface EnrichmentProject {
   websites_scraped: number;
   created_at: string;
   completed_at: string | null;
-}
-
-interface APIConfig {
-  has_serp_key: boolean;
-  has_facebook_token: boolean;
-  serp_daily_limit: number;
-  serp_used_today: number;
+  error_message?: string;
 }
 
 const ContactEnricherPage: React.FC = () => {
   const [projects, setProjects] = useState<EnrichmentProject[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploadOpen, setUploadOpen] = useState(false);
-  const [configOpen, setConfigOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState<EnrichmentProject | null>(null);
-  const [apiConfig, setApiConfig] = useState<APIConfig | null>(null);
-  const [activeTab, setActiveTab] = useState('projects');
 
   useEffect(() => {
     fetchProjects();
-    fetchAPIConfig();
   }, []);
 
   const fetchProjects = async () => {
@@ -49,15 +39,6 @@ const ContactEnricherPage: React.FC = () => {
       console.error('Error fetching projects:', error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const fetchAPIConfig = async () => {
-    try {
-      const response = await api.get('/contact-enricher/api-config');
-      setApiConfig(response.data);
-    } catch (error) {
-      console.error('Error fetching API config:', error);
     }
   };
 
@@ -83,7 +64,7 @@ const ContactEnricherPage: React.FC = () => {
       fetchProjects();
     } catch (error) {
       console.error('Error starting enrichment:', error);
-      alert('Failed to start enrichment. Please check your API configuration.');
+      alert('Failed to start enrichment.');
     }
   };
 
@@ -147,6 +128,12 @@ const ContactEnricherPage: React.FC = () => {
             {getStatusBadge(project.status)}
           </Flex>
 
+          {project.status === 'failed' && project.error_message && (
+            <Card style={{ backgroundColor: '#fee', border: '1px solid #fcc' }}>
+              <Text size="2" color="red">{project.error_message}</Text>
+            </Card>
+          )}
+
           <Flex gap="4" wrap="wrap">
             <Flex align="center" gap="1">
               <FileText size={16} />
@@ -184,7 +171,6 @@ const ContactEnricherPage: React.FC = () => {
               <Button 
                 size="2" 
                 onClick={() => startEnrichment(project.id)}
-                disabled={!apiConfig?.has_serp_key}
               >
                 <Play size={16} />
                 Start Enrichment
@@ -217,26 +203,11 @@ const ContactEnricherPage: React.FC = () => {
     <Box p="4">
       <Flex justify="between" align="center" mb="4">
         <Heading size="8">Contact Enricher</Heading>
-        <Flex gap="2">
-          <Button onClick={() => setConfigOpen(true)} variant="soft">
-            <Settings size={16} />
-            API Settings
-          </Button>
-          <Button onClick={() => setUploadOpen(true)}>
-            <Upload size={16} />
-            Upload CSV
-          </Button>
-        </Flex>
+        <Button onClick={() => setUploadOpen(true)}>
+          <Upload size={16} />
+          Upload CSV
+        </Button>
       </Flex>
-
-      {!apiConfig?.has_serp_key && (
-        <Card style={{ marginBottom: '1rem', backgroundColor: '#fff3cd', border: '1px solid #ffeaa7' }}>
-          <Flex align="center" gap="2">
-            <Settings size={20} color="#f39c12" />
-            <Text>Please configure your API keys in Settings to start enriching contacts.</Text>
-          </Flex>
-        </Card>
-      )}
 
       {loading ? (
         <Flex justify="center" py="8">
@@ -266,18 +237,6 @@ const ContactEnricherPage: React.FC = () => {
         <Dialog.Content style={{ maxWidth: 450 }}>
           <Dialog.Title>Upload Contact List</Dialog.Title>
           <UploadDialog onUpload={handleFileUpload} onClose={() => setUploadOpen(false)} />
-        </Dialog.Content>
-      </Dialog.Root>
-
-      {/* API Config Dialog */}
-      <Dialog.Root open={configOpen} onOpenChange={setConfigOpen}>
-        <Dialog.Content style={{ maxWidth: 500 }}>
-          <Dialog.Title>API Configuration</Dialog.Title>
-          <APIConfigDialog 
-            config={apiConfig} 
-            onClose={() => setConfigOpen(false)} 
-            onUpdate={fetchAPIConfig}
-          />
         </Dialog.Content>
       </Dialog.Root>
 
@@ -348,74 +307,6 @@ const UploadDialog: React.FC<{
         </Button>
         <Button onClick={handleSubmit} disabled={!file || !name}>
           Upload & Create Project
-        </Button>
-      </Flex>
-    </Flex>
-  );
-};
-
-// API Config Dialog Component
-const APIConfigDialog: React.FC<{ 
-  config: APIConfig | null;
-  onClose: () => void;
-  onUpdate: () => void;
-}> = ({ config, onClose, onUpdate }) => {
-  const [serpKey, setSerpKey] = useState('');
-  const [fbToken, setFbToken] = useState('');
-
-  const handleSave = async () => {
-    try {
-      await api.put('/contact-enricher/api-config', {
-        serp_api_key: serpKey || undefined,
-        facebook_access_token: fbToken || undefined
-      });
-      onUpdate();
-      onClose();
-    } catch (error) {
-      console.error('Error saving config:', error);
-      alert('Failed to save configuration');
-    }
-  };
-
-  return (
-    <Flex direction="column" gap="4">
-      <Box>
-        <Heading size="3" mb="2">Google SERP API</Heading>
-        <Text size="2" color="gray" mb="2">
-          Used for searching contact information on Google
-        </Text>
-        <TextField.Root
-          type="password"
-          value={serpKey}
-          onChange={(e) => setSerpKey(e.target.value)}
-          placeholder={config?.has_serp_key ? '••••••••' : 'Enter SERP API Key'}
-        />
-        {config && (
-          <Text size="1" color="gray" mt="1">
-            Daily limit: {config.serp_used_today} / {config.serp_daily_limit}
-          </Text>
-        )}
-      </Box>
-
-      <Box>
-        <Heading size="3" mb="2">Facebook API (Optional)</Heading>
-        <Text size="2" color="gray" mb="2">
-          Used for fetching Facebook page data
-        </Text>
-        <TextField.Root
-          type="password"
-          value={fbToken}
-          onChange={(e) => setFbToken(e.target.value)}
-          placeholder={config?.has_facebook_token ? '••••••••' : 'Enter Facebook Access Token'}
-        />
-      </Box>
-
-      <Flex gap="3" mt="4" justify="end">
-        <Button variant="soft" onClick={onClose}>
-          Cancel
-        </Button>
-        <Button onClick={handleSave}>
-          Save Configuration
         </Button>
       </Flex>
     </Flex>

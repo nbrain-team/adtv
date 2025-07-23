@@ -119,23 +119,10 @@ async def start_enrichment(
     if project.status != "pending":
         raise HTTPException(status_code=400, detail="Project already processed")
     
-    # Get API config
-    api_config = db.query(models.EnrichmentAPIConfig).filter(
-        models.EnrichmentAPIConfig.user_id == current_user.id
-    ).first()
-    
-    if not api_config or not api_config.serp_api_key:
-        raise HTTPException(
-            status_code=400, 
-            detail="Please configure your API keys first"
-        )
-    
     # Start background enrichment
     background_tasks.add_task(
         enrich_project_contacts,
-        project_id,
-        api_config.serp_api_key,
-        api_config.facebook_access_token
+        project_id
     )
     
     project.status = "processing"
@@ -310,72 +297,26 @@ async def delete_project(
     return {"message": "Project deleted successfully"}
 
 
-@router.get("/api-config", response_model=Dict[str, Any])
-async def get_api_config(
-    current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
-):
-    """Get API configuration"""
-    config = db.query(models.EnrichmentAPIConfig).filter(
-        models.EnrichmentAPIConfig.user_id == current_user.id
-    ).first()
-    
-    if not config:
-        # Create default config
-        config = models.EnrichmentAPIConfig(user_id=current_user.id)
-        db.add(config)
-        db.commit()
-    
-    return {
-        "has_serp_key": bool(config.serp_api_key),
-        "has_facebook_token": bool(config.facebook_access_token),
-        "serp_daily_limit": config.serp_daily_limit,
-        "serp_used_today": config.serp_used_today,
-        "facebook_token_expires": config.facebook_token_expires
-    }
-
-
-@router.put("/api-config")
-async def update_api_config(
-    config_update: schemas.APIConfigUpdate,
-    current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
-):
-    """Update API configuration"""
-    config = db.query(models.EnrichmentAPIConfig).filter(
-        models.EnrichmentAPIConfig.user_id == current_user.id
-    ).first()
-    
-    if not config:
-        config = models.EnrichmentAPIConfig(user_id=current_user.id)
-        db.add(config)
-    
-    # Update fields
-    if config_update.serp_api_key is not None:
-        config.serp_api_key = config_update.serp_api_key
-    
-    if config_update.facebook_app_id is not None:
-        config.facebook_app_id = config_update.facebook_app_id
-    
-    if config_update.facebook_app_secret is not None:
-        config.facebook_app_secret = config_update.facebook_app_secret
-    
-    if config_update.facebook_access_token is not None:
-        config.facebook_access_token = config_update.facebook_access_token
-    
-    db.commit()
-    
-    return {"message": "API configuration updated"}
-
-
 # Background task function
-async def enrich_project_contacts(project_id: str, serp_api_key: str, 
-                                  facebook_token: Optional[str] = None):
+async def enrich_project_contacts(project_id: str):
     """Background task to enrich all contacts in a project"""
     from core.database import SessionLocal
     import asyncio
     
-    enricher = services.ContactEnricher(serp_api_key, facebook_token)
+    try:
+        enricher = services.ContactEnricher()
+    except ValueError as e:
+        # Handle missing API key
+        logger.error(f"Failed to initialize enricher: {str(e)}")
+        with SessionLocal() as db:
+            project = db.query(models.EnrichmentProject).filter(
+                models.EnrichmentProject.id == project_id
+            ).first()
+            if project:
+                project.status = "failed"
+                project.error_message = "SERP_API_KEY not configured in environment"
+                db.commit()
+        return
     
     with SessionLocal() as db:
         project = db.query(models.EnrichmentProject).filter(

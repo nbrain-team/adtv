@@ -23,6 +23,7 @@ class EnrichmentProject(Base):
     status = Column(String, default="pending")  # pending, processing, completed, failed
     processed_rows = Column(Integer, default=0)
     enriched_rows = Column(Integer, default=0)
+    error_message = Column(Text, nullable=True)  # Store error messages
     
     # Results
     emails_found = Column(Integer, default=0)

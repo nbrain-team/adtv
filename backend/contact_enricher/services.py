@@ -13,6 +13,7 @@ import asyncio
 import aiohttp
 from serpapi import GoogleSearch
 import facebook
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -391,7 +392,14 @@ class EmailValidator:
 class ContactEnricher:
     """Main service orchestrating all enrichment services"""
     
-    def __init__(self, serp_api_key: str, facebook_token: str = None):
+    def __init__(self):
+        # Get API keys from environment variables
+        serp_api_key = os.getenv("SERP_API_KEY")
+        facebook_token = os.getenv("FACEBOOK_ACCESS_TOKEN")
+        
+        if not serp_api_key:
+            raise ValueError("SERP_API_KEY environment variable not set")
+        
         self.google_service = GoogleSERPService(serp_api_key)
         self.facebook_service = FacebookService(facebook_token) if facebook_token else None
         self.website_scraper = WebsiteScraper()

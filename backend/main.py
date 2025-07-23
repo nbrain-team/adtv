@@ -142,6 +142,15 @@ def on_startup():
     except Exception as e:
         logger.warning(f"Contact enricher tables migration failed: {e}")
     
+    # Add error_message field to enrichment_projects
+    try:
+        from scripts.add_enricher_error_field import add_error_field
+        logger.info("Adding error_message field to enrichment_projects...")
+        add_error_field()
+        logger.info("error_message field added.")
+    except Exception as e:
+        logger.warning(f"Error field migration failed: {e}")
+    
     # Create all tables with error handling
     try:
         Base.metadata.create_all(bind=engine)
