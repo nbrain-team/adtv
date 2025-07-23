@@ -31,6 +31,19 @@ const ContactEnricherPage: React.FC = () => {
     fetchProjects();
   }, []);
 
+  useEffect(() => {
+    // Poll for updates when any project is processing
+    const processingProjects = projects.filter(p => p.status === 'processing');
+    
+    if (processingProjects.length > 0) {
+      const interval = setInterval(() => {
+        fetchProjects();
+      }, 3000); // Poll every 3 seconds
+      
+      return () => clearInterval(interval);
+    }
+  }, [projects]);
+
   const fetchProjects = async () => {
     try {
       const response = await api.get('/api/contact-enricher/projects');
@@ -240,10 +253,16 @@ const ContactEnricherPage: React.FC = () => {
     <Box p="4">
       <Flex justify="between" align="center" mb="4">
         <Heading size="8">Contact Enricher</Heading>
-        <Button onClick={() => setUploadOpen(true)}>
-          <Upload size={16} />
-          Upload CSV
-        </Button>
+        <Flex gap="2">
+          <Button onClick={fetchProjects} variant="soft">
+            <RefreshCw size={16} />
+            Refresh
+          </Button>
+          <Button onClick={() => setUploadOpen(true)}>
+            <Upload size={16} />
+            Upload CSV
+          </Button>
+        </Flex>
       </Flex>
 
       {loading ? (
