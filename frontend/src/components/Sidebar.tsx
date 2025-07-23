@@ -70,21 +70,13 @@ export const Sidebar = ({ onNewChat }: { onNewChat: () => void }) => {
                         <img src="/new-icons/15.png" alt="Realtor" />
                     </button>
                 )}
-                {hasPermission('ad-traffic') && (
-                    <button className="sidebar-icon" title="Ad Traffic" onClick={() => navigate('/ad-traffic')}>
-                        <img src="/new-icons/5.png" alt="Ad Traffic" />
-                    </button>
-                )}
-                {hasPermission('template-manager') && (
-                    <button className="sidebar-icon" title="Email Templates" onClick={() => navigate('/template-manager')}>
-                        <img src="/new-icons/9.png" alt="Email Templates" />
-                    </button>
-                )}
             </Flex>
             
-            <button className="sidebar-icon" title="Profile" onClick={() => navigate('/profile')} style={{ marginBottom: '1rem' }}>
-                <img src="/new-icons/16.png" alt="Profile" />
-            </button>
+            <Flex direction="column" align="center" gap="8" style={{ marginBottom: '1rem' }}>
+                <button className="sidebar-icon" title="Profile" onClick={() => navigate('/profile')}>
+                    <img src="/new-icons/16.png" alt="Profile" />
+                </button>
+            </Flex>
         </Flex>
     );
 }; 

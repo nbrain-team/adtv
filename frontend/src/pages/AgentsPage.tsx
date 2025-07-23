@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Box, Flex, Text, Heading, Card, Grid } from '@radix-ui/themes';
 import { ArrowLeftIcon } from '@radix-ui/react-icons';
-import { Mail, Home, Bot, Database, Search, Rocket } from 'lucide-react';
+import { Mail, Home, Bot, Database, Search, Rocket, BarChart } from 'lucide-react';
 import { GeneratorWorkflow } from '../components/GeneratorWorkflow';
 import { RealtorImporterWorkflow } from '../components/RealtorImporter/RealtorImporterWorkflow';
 import { TemplateAgentCreator } from '../components/TemplateAgentCreator';
@@ -59,6 +59,13 @@ const agents: Agent[] = [
     component: <Box p="4"><Text>Redirecting to Contact Enricher...</Text></Box>, // Placeholder component
   },
   {
+    id: 'ad-traffic',
+    name: 'Ad Traffic Analyzer',
+    description: 'Analyze and optimize your digital advertising performance across platforms.',
+    icon: <img src="/new-icons/5.png" alt="Ad Traffic" style={{ width: '3rem', height: '3rem' }} />,
+    component: <Box p="4"><Text>Redirecting to Ad Traffic Analyzer...</Text></Box>, // Placeholder component
+  },
+  {
     id: 'more-coming',
     name: 'More Agents Coming Soon',
     description: 'We\'re constantly building new AI agents to help automate your marketing workflows.',
@@ -79,6 +86,9 @@ const AgentsPage = () => {
     } else if (agent && agent.id === 'contact-enricher') {
       // Navigate to contact enricher page
       navigate('/contact-enricher');
+    } else if (agent && agent.id === 'ad-traffic') {
+      // Navigate to ad traffic page
+      navigate('/ad-traffic');
     } else if (agent && agent.id !== 'more-coming') {
       setSelectedAgent(agent);
     } else if (agent?.id === 'more-coming') {
