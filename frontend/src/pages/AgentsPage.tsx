@@ -60,7 +60,7 @@ const agents: Agent[] = [
   },
   {
     id: 'ad-traffic',
-    name: 'Ad Traffic Analyzer',
+    name: 'ADTV Traffic',
     description: 'Analyze and optimize your digital advertising performance across platforms.',
     icon: <img src="/new-icons/5.png" alt="Ad Traffic" style={{ width: '3rem', height: '3rem' }} />,
     component: <Box p="4"><Text>Redirecting to Ad Traffic Analyzer...</Text></Box>, // Placeholder component
