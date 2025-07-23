@@ -120,6 +120,20 @@ async def upload_csv(
     return schemas.ProjectResponse.from_orm(project)
 
 
+@router.options("/projects/upload")
+async def upload_csv_options():
+    from fastapi.responses import Response
+    return Response(
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Max-Age": "3600"
+        }
+    )
+
+
 @router.get("/projects", response_model=List[schemas.EnrichmentProject])
 async def get_projects(
     current_user: User = Depends(get_current_active_user),
