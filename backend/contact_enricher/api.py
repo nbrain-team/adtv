@@ -369,7 +369,7 @@ async def test_serp_api(
 ):
     """Test SERP API configuration"""
     import os
-    from serpapi import GoogleSearch
+    import requests
     
     serp_key = os.getenv("SERP_API_KEY")
     if not serp_key:
@@ -379,25 +379,37 @@ async def test_serp_api(
         }
     
     try:
-        # Test with a simple search
-        search = GoogleSearch({
-            "q": "test",
-            "api_key": serp_key,
-            "num": 1
-        })
-        
-        results = search.get_dict()
-        
-        return {
-            "status": "success",
-            "message": "SERP API is working correctly",
-            "search_metadata": results.get("search_metadata", {}),
-            "remaining_searches": results.get("search_metadata", {}).get("credits_remaining")
+        # Test with a simple search using Serper.dev
+        headers = {
+            'X-API-KEY': serp_key,
+            'Content-Type': 'application/json'
         }
+        
+        payload = {
+            'q': 'test',
+            'num': 1
+        }
+        
+        response = requests.post('https://google.serper.dev/search', 
+                                json=payload, headers=headers)
+        
+        if response.status_code == 200:
+            results = response.json()
+            return {
+                "status": "success",
+                "message": "Serper.dev API is working correctly",
+                "results_count": len(results.get("organic", [])),
+                "api_credits": response.headers.get("X-API-CREDITS-REMAINING", "Unknown")
+            }
+        else:
+            return {
+                "status": "error",
+                "message": f"Serper.dev API error: {response.status_code} - {response.text}"
+            }
     except Exception as e:
         return {
             "status": "error",
-            "message": f"SERP API error: {str(e)}"
+            "message": f"Serper.dev API error: {str(e)}"
         }
 
 

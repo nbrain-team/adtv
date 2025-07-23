@@ -11,18 +11,19 @@ import phonenumbers
 from urllib.parse import urlparse, urljoin
 import asyncio
 import aiohttp
-from serpapi import GoogleSearch
 import facebook
 import os
+import json
 
 logger = logging.getLogger(__name__)
 
 
 class GoogleSERPService:
-    """Service for searching Google via SERP API"""
+    """Service for searching Google via Serper.dev API"""
     
     def __init__(self, api_key: str):
         self.api_key = api_key
+        self.base_url = "https://google.serper.dev/search"
         self.email_pattern = re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b')
         # Enhanced phone pattern to catch more formats
         self.phone_patterns = [
@@ -49,16 +50,26 @@ class GoogleSERPService:
         
         for query in queries:
             try:
-                search = GoogleSearch({
-                    "q": query,
-                    "api_key": self.api_key,
-                    "num": 10
-                })
+                # Call Serper.dev API
+                headers = {
+                    'X-API-KEY': self.api_key,
+                    'Content-Type': 'application/json'
+                }
                 
-                search_results = search.get_dict()
+                payload = {
+                    'q': query,
+                    'num': 10
+                }
+                
+                response = requests.post(self.base_url, json=payload, headers=headers)
+                if response.status_code != 200:
+                    logger.error(f"Serper.dev API error: {response.status_code} - {response.text}")
+                    continue
+                    
+                search_results = response.json()
                 
                 # Extract from organic results
-                for result in search_results.get('organic_results', []):
+                for result in search_results.get('organic', []):
                     snippet = result.get('snippet', '')
                     title = result.get('title', '')
                     link = result.get('link', '')
@@ -86,8 +97,8 @@ class GoogleSERPService:
                     
                     results['sources'].append(link)
                 
-                # Also check people also ask
-                for paa in search_results.get('people_also_ask', []):
+                # Also check people also ask if available
+                for paa in search_results.get('peopleAlsoAsk', []):
                     snippet = paa.get('snippet', '')
                     emails = self.email_pattern.findall(snippet)
                     phones = self._find_phone_numbers(snippet)
@@ -110,7 +121,7 @@ class GoogleSERPService:
                             })
                 
             except Exception as e:
-                logger.error(f"Error searching Google for {query}: {str(e)}")
+                logger.error(f"Error searching with Serper.dev for {query}: {str(e)}")
                 continue
         
         # Deduplicate and get best results
