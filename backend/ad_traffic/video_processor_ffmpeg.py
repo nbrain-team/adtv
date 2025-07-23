@@ -44,16 +44,15 @@ def get_video_info(video_path: str) -> Tuple[float, int, int]:
 def extract_clip(video_path: str, output_path: str, start_time: float, duration: float):
     """Extract a clip from video using ffmpeg"""
     try:
-        (
+        stdout, stderr = (
             ffmpeg
             .input(video_path, ss=start_time, t=duration)
             .output(output_path, vcodec='libx264', acodec='aac', video_bitrate='1M', audio_bitrate='128k', format='mp4', movflags='faststart')
             .overwrite_output()
             .run(capture_stdout=True, capture_stderr=True)
         )
-        logger.debug(f"FFmpeg stdout: {stdout.decode()}")
-        logger.debug(f"FFmpeg stderr: {stderr.decode()}")
-        )
+        logger.debug(f"FFmpeg stdout: {stdout.decode() if stdout else ''}")
+        logger.debug(f"FFmpeg stderr: {stderr.decode() if stderr else ''}")
         logger.info(f"Successfully extracted clip: {output_path}")
     except ffmpeg.Error as e:
         logger.error(f"FFmpeg error: {e.stderr.decode()}")
