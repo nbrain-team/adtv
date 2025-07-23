@@ -152,6 +152,17 @@ const ContactEnricherPage: React.FC = () => {
     }
   };
 
+  const testSerpApi = async () => {
+    try {
+      const response = await api.get('/api/contact-enricher/test-serp-api');
+      console.log('SERP API Test:', response.data);
+      alert(`SERP API Test: ${response.data.status}\n${response.data.message}`);
+    } catch (error) {
+      console.error('Error testing SERP API:', error);
+      alert('Failed to test SERP API');
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     const colors: Record<string, any> = {
       pending: 'orange',
@@ -257,6 +268,10 @@ const ContactEnricherPage: React.FC = () => {
           <Button onClick={fetchProjects} variant="soft">
             <RefreshCw size={16} />
             Refresh
+          </Button>
+          <Button onClick={testSerpApi} variant="soft">
+            <Settings size={16} />
+            Test API
           </Button>
           <Button onClick={() => setUploadOpen(true)}>
             <Upload size={16} />

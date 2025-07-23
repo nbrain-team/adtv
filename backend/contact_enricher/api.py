@@ -333,6 +333,45 @@ async def delete_project(
     return {"message": "Project deleted successfully"}
 
 
+@router.get("/test-serp-api")
+async def test_serp_api(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Test SERP API configuration"""
+    import os
+    from serpapi import GoogleSearch
+    
+    serp_key = os.getenv("SERP_API_KEY")
+    if not serp_key:
+        return {
+            "status": "error",
+            "message": "SERP_API_KEY not found in environment variables"
+        }
+    
+    try:
+        # Test with a simple search
+        search = GoogleSearch({
+            "q": "test",
+            "api_key": serp_key,
+            "num": 1
+        })
+        
+        results = search.get_dict()
+        
+        return {
+            "status": "success",
+            "message": "SERP API is working correctly",
+            "search_metadata": results.get("search_metadata", {}),
+            "remaining_searches": results.get("search_metadata", {}).get("credits_remaining")
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"SERP API error: {str(e)}"
+        }
+
+
 # Background task function
 async def enrich_project_contacts(project_id: str):
     """Background task to enrich all contacts in a project"""
@@ -394,10 +433,21 @@ async def enrich_project_contacts(project_id: str):
                 await asyncio.sleep(2)  # 2 seconds between enrichments
                 
             except Exception as e:
+                logger.error(f"Error enriching contact {contact.name}: {str(e)}")
                 contact.errors.append({
                     'timestamp': datetime.utcnow().isoformat(),
                     'error': str(e)
                 })
+                
+                # If this is a critical error (like API key issues), mark project as failed
+                error_str = str(e).lower()
+                if any(critical in error_str for critical in ['api key', 'unauthorized', 'forbidden', 'invalid key']):
+                    project.status = "failed"
+                    project.error_message = f"API Error: {str(e)}"
+                    db.commit()
+                    logger.error(f"Critical error, stopping enrichment: {str(e)}")
+                    return
+                
                 db.commit()
                 continue
         
