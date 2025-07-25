@@ -418,6 +418,11 @@ async def enrich_project_contacts(project_id: str):
     """Background task to enrich all contacts in a project"""
     from core.database import SessionLocal
     import asyncio
+    import os
+    
+    # Get max concurrent workers from env, default to 5
+    max_workers = int(os.getenv('ENRICHER_MAX_CONCURRENT', '5'))
+    logger.info(f"Starting enrichment with {max_workers} concurrent workers")
     
     try:
         enricher = services.ContactEnricher()
@@ -434,6 +439,47 @@ async def enrich_project_contacts(project_id: str):
                 db.commit()
         return
     
+    # Create a semaphore to limit concurrent requests
+    semaphore = asyncio.Semaphore(max_workers)
+    
+    async def process_single_contact(contact_data, contact_id, enricher):
+        """Process a single contact with rate limiting"""
+        async with semaphore:
+            try:
+                # Enrich contact
+                enriched_data = await enricher.enrich_contact(contact_data)
+                
+                # Update contact in its own database session
+                with SessionLocal() as contact_db:
+                    contact = contact_db.query(models.EnrichedContact).filter(
+                        models.EnrichedContact.id == contact_id
+                    ).first()
+                    
+                    if contact:
+                        update_contact_with_enrichment(contact, enriched_data)
+                        contact_db.commit()
+                        
+                        # Return stats for aggregation
+                        return {
+                            'success': True,
+                            'email_found': bool(contact.email_found),
+                            'phone_found': bool(contact.phone_found),
+                            'facebook_followers': bool(contact.facebook_followers),
+                            'website_scraped': bool(contact.website_scraped)
+                        }
+                
+                # Add delay per thread (not global) to respect rate limits
+                await asyncio.sleep(2)
+                
+            except Exception as e:
+                logger.error(f"Error enriching contact {contact_id}: {str(e)}")
+                # Still apply rate limit even on errors
+                await asyncio.sleep(2)
+                return {'success': False, 'error': str(e)}
+            
+            return {'success': False}
+    
+    # Main processing
     with SessionLocal() as db:
         project = db.query(models.EnrichmentProject).filter(
             models.EnrichmentProject.id == project_id
@@ -446,56 +492,40 @@ async def enrich_project_contacts(project_id: str):
             models.EnrichedContact.project_id == project_id
         ).all()
         
-        for i, contact in enumerate(contacts):
-            try:
-                # Enrich contact
-                enriched_data = await enricher.enrich_contact(contact.original_data)
-                
-                # Update contact with enriched data
-                update_contact_with_enrichment(contact, enriched_data)
-                
-                # Update project stats
-                project.processed_rows = i + 1
-                if contact.email_found:
-                    project.emails_found += 1
-                if contact.phone_found:
-                    project.phones_found += 1
-                if contact.facebook_followers:
-                    project.facebook_data_found += 1
-                if contact.website_scraped:
-                    project.websites_scraped += 1
-                
-                project.enriched_rows += 1
-                project.updated_at = datetime.utcnow()
-                
-                db.commit()
-                
-                # Rate limiting
-                await asyncio.sleep(1)  # Reduced from 2 seconds to 1 second
-                
-            except Exception as e:
-                logger.error(f"Error enriching contact {contact.name}: {str(e)}")
-                contact.errors.append({
-                    'timestamp': datetime.utcnow().isoformat(),
-                    'error': str(e)
-                })
-                
-                # If this is a critical error (like API key issues), mark project as failed
-                error_str = str(e).lower()
-                if any(critical in error_str for critical in ['api key', 'unauthorized', 'forbidden', 'invalid key']):
-                    project.status = "failed"
-                    project.error_message = f"API Error: {str(e)}"
-                    db.commit()
-                    logger.error(f"Critical error, stopping enrichment: {str(e)}")
-                    return
-                
-                db.commit()
-                continue
+        # Create list of contact data to process
+        contact_tasks = []
+        for contact in contacts:
+            task = process_single_contact(
+                contact.original_data,
+                contact.id,
+                enricher
+            )
+            contact_tasks.append(task)
         
-        # Mark project as completed
+        # Process all contacts concurrently
+        logger.info(f"Processing {len(contacts)} contacts with {max_workers} workers")
+        results = await asyncio.gather(*contact_tasks)
+        
+        # Aggregate results and update project
+        successful = sum(1 for r in results if r.get('success', False))
+        emails_found = sum(1 for r in results if r.get('email_found', False))
+        phones_found = sum(1 for r in results if r.get('phone_found', False))
+        facebook_data = sum(1 for r in results if r.get('facebook_followers', False))
+        websites_scraped = sum(1 for r in results if r.get('website_scraped', False))
+        
+        # Update project with final stats
+        project.processed_rows = len(contacts)
+        project.enriched_rows = successful
+        project.emails_found = emails_found
+        project.phones_found = phones_found
+        project.facebook_data_found = facebook_data
+        project.websites_scraped = websites_scraped
         project.status = "completed"
         project.completed_at = datetime.utcnow()
+        project.updated_at = datetime.utcnow()
         db.commit()
+        
+        logger.info(f"Enrichment completed: {successful}/{len(contacts)} successful")
 
 
 def update_contact_with_enrichment(contact: models.EnrichedContact, 
