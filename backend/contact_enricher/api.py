@@ -493,13 +493,15 @@ async def enrich_project_contacts(project_id: str):
                             'website_scraped': bool(contact.website_scraped)
                         }
                 
-                # Add delay per thread (not global) to respect rate limits
-                await asyncio.sleep(2)
+                # Contact not found in database
+                return {
+                    'success': False,
+                    'contact_id': contact_id,
+                    'error': 'Contact not found in database'
+                }
                 
             except Exception as e:
                 logger.error(f"Error enriching contact {contact_id}: {str(e)}")
-                # Still apply rate limit even on errors
-                await asyncio.sleep(2)
                 return {'success': False, 'error': str(e)}
             
             return {'success': False}
