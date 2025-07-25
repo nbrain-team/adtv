@@ -285,4 +285,46 @@ async def check_video_processor_status(
         "preferred_processor": available_processors[0] if available_processors else "None available",
         "upload_directory": os.path.exists("uploads"),
         "clips_directory": os.path.exists("uploads/clips")
+    }
+
+
+@router.get("/video-processor-status-public")
+async def check_video_processor_status_public():
+    """Public endpoint to check video processor configuration"""
+    import os
+    
+    # Check Cloudinary config
+    cloudinary_configured = all([
+        os.getenv('CLOUDINARY_CLOUD_NAME'),
+        os.getenv('CLOUDINARY_API_KEY'),
+        os.getenv('CLOUDINARY_API_SECRET')
+    ])
+    
+    # Check available processors
+    processors = []
+    
+    try:
+        from . import video_processor_cloudinary
+        if cloudinary_configured:
+            processors.append("Cloudinary")
+    except:
+        pass
+    
+    try:
+        from . import video_processor_ffmpeg
+        processors.append("FFmpeg")
+    except:
+        pass
+    
+    try:
+        from . import video_processor
+        processors.append("MoviePy")
+    except:
+        pass
+    
+    return {
+        "status": "ok",
+        "cloudinary_configured": cloudinary_configured,
+        "available_processors": processors,
+        "processor_count": len(processors)
     } 
