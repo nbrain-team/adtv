@@ -445,8 +445,8 @@ async def enrich_project_contacts(project_id: str):
     import asyncio
     import os
     
-    # Get max concurrent workers from env, default to 2 (was 5)
-    max_workers = int(os.getenv('ENRICHER_MAX_CONCURRENT', '2'))
+    # Get max concurrent workers from env, default to 4 (was 2)
+    max_workers = int(os.getenv('ENRICHER_MAX_CONCURRENT', '4'))
     logger.info(f"Starting enrichment with {max_workers} concurrent workers")
     
     try:

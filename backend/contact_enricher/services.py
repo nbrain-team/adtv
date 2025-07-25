@@ -58,7 +58,7 @@ class GoogleSERPService:
                 
                 payload = {
                     'q': query,
-                    'num': 10
+                    'num': 20
                 }
                 
                 response = requests.post(self.base_url, json=payload, headers=headers)
