@@ -266,6 +266,8 @@ async def export_project(
     db: Session = Depends(get_db)
 ):
     """Export enriched data as CSV"""
+    logger.info(f"Export requested for project {project_id} by user {current_user.email}")
+    
     project = db.query(models.EnrichmentProject).filter(
         models.EnrichmentProject.id == project_id,
         models.EnrichmentProject.user_id == current_user.id
@@ -273,6 +275,8 @@ async def export_project(
     
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+    
+    logger.info(f"Exporting project '{project.name}' with status '{project.status}', {project.processed_rows} rows processed")
     
     # Get contacts
     query = db.query(models.EnrichedContact).filter(
@@ -286,6 +290,8 @@ async def export_project(
         )
     
     contacts = query.all()
+    
+    logger.info(f"Found {len(contacts)} contacts to export, only_enriched={export_request.only_enriched}")
     
     # Build CSV
     output = io.StringIO()
@@ -534,16 +540,24 @@ async def enrich_project_contacts(project_id: str):
             all_results.extend(batch_results)
             
             # Update progress after each batch
-            if i > 0 and i % 100 == 0:  # Update every 100 contacts
-                processed_so_far = len(all_results)
-                with SessionLocal() as progress_db:
-                    prog_update = progress_db.query(models.EnrichmentProject).filter(
-                        models.EnrichmentProject.id == project_id
-                    ).first()
-                    if prog_update:
-                        prog_update.processed_rows = processed_so_far
-                        progress_db.commit()
-                logger.info(f"Progress: {processed_so_far}/{len(contacts)} contacts processed")
+            processed_so_far = len(all_results)
+            
+            # Calculate current stats from results so far
+            emails_found = sum(1 for r in all_results if r.get('email_found', False))
+            phones_found = sum(1 for r in all_results if r.get('phone_found', False))
+            
+            with SessionLocal() as progress_db:
+                prog_update = progress_db.query(models.EnrichmentProject).filter(
+                    models.EnrichmentProject.id == project_id
+                ).first()
+                if prog_update:
+                    prog_update.processed_rows = processed_so_far
+                    prog_update.emails_found = emails_found
+                    prog_update.phones_found = phones_found
+                    prog_update.updated_at = datetime.utcnow()
+                    progress_db.commit()
+            
+            logger.info(f"Progress: {processed_so_far}/{len(contacts)} contacts, {emails_found} emails, {phones_found} phones")
         
         results = all_results
         
