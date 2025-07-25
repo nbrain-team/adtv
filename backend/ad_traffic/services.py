@@ -7,6 +7,7 @@ import os
 
 from . import models, schemas
 from core.database import User
+from core.database import SessionLocal
 
 
 # Client services
