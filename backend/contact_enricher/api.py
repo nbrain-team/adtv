@@ -413,6 +413,25 @@ async def test_serp_api(
         }
 
 
+@router.get("/check-enrichment-status")
+async def check_enrichment_status(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Check enrichment system status"""
+    import os
+    
+    return {
+        "serp_api_key_set": bool(os.getenv("SERP_API_KEY")),
+        "max_concurrent": os.getenv("ENRICHER_MAX_CONCURRENT", "5"),
+        "facebook_token_set": bool(os.getenv("FACEBOOK_ACCESS_TOKEN")),
+        "active_projects": db.query(models.EnrichmentProject).filter(
+            models.EnrichmentProject.status == "processing"
+        ).count(),
+        "total_projects": db.query(models.EnrichmentProject).count()
+    }
+
+
 # Background task function
 async def enrich_project_contacts(project_id: str):
     """Background task to enrich all contacts in a project"""
@@ -420,8 +439,8 @@ async def enrich_project_contacts(project_id: str):
     import asyncio
     import os
     
-    # Get max concurrent workers from env, default to 5
-    max_workers = int(os.getenv('ENRICHER_MAX_CONCURRENT', '5'))
+    # Get max concurrent workers from env, default to 2 (was 5)
+    max_workers = int(os.getenv('ENRICHER_MAX_CONCURRENT', '2'))
     logger.info(f"Starting enrichment with {max_workers} concurrent workers")
     
     try:
@@ -504,7 +523,29 @@ async def enrich_project_contacts(project_id: str):
         
         # Process all contacts concurrently
         logger.info(f"Processing {len(contacts)} contacts with {max_workers} workers")
-        results = await asyncio.gather(*contact_tasks)
+        
+        # Process in batches to update progress periodically
+        batch_size = 50
+        all_results = []
+        
+        for i in range(0, len(contact_tasks), batch_size):
+            batch = contact_tasks[i:i+batch_size]
+            batch_results = await asyncio.gather(*batch)
+            all_results.extend(batch_results)
+            
+            # Update progress after each batch
+            if i > 0 and i % 100 == 0:  # Update every 100 contacts
+                processed_so_far = len(all_results)
+                with SessionLocal() as progress_db:
+                    prog_update = progress_db.query(models.EnrichmentProject).filter(
+                        models.EnrichmentProject.id == project_id
+                    ).first()
+                    if prog_update:
+                        prog_update.processed_rows = processed_so_far
+                        progress_db.commit()
+                logger.info(f"Progress: {processed_so_far}/{len(contacts)} contacts processed")
+        
+        results = all_results
         
         # Aggregate results and update project
         successful = sum(1 for r in results if r.get('success', False))
