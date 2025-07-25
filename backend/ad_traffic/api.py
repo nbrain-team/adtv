@@ -235,4 +235,54 @@ def get_campaign_posts(
 ):
     """Get all posts associated with a campaign"""
     posts = services.get_campaign_posts(db, campaign_id, current_user.id)
-    return posts 
+    return posts
+
+
+@router.get("/check-video-processor")
+async def check_video_processor_status(
+    current_user: User = Depends(get_current_active_user)
+):
+    """Check video processor configuration and status"""
+    import os
+    
+    # Check Cloudinary config
+    cloudinary_status = {
+        "cloud_name_set": bool(os.getenv('CLOUDINARY_CLOUD_NAME')),
+        "api_key_set": bool(os.getenv('CLOUDINARY_API_KEY')),
+        "api_secret_set": bool(os.getenv('CLOUDINARY_API_SECRET')),
+        "fully_configured": all([
+            os.getenv('CLOUDINARY_CLOUD_NAME'),
+            os.getenv('CLOUDINARY_API_KEY'),
+            os.getenv('CLOUDINARY_API_SECRET')
+        ])
+    }
+    
+    # Check available processors
+    available_processors = []
+    
+    try:
+        from . import video_processor_cloudinary
+        if cloudinary_status["fully_configured"]:
+            available_processors.append("Cloudinary (Cloud-based)")
+    except ImportError:
+        pass
+    
+    try:
+        from . import video_processor_ffmpeg
+        available_processors.append("FFmpeg (Local)")
+    except ImportError:
+        pass
+    
+    try:
+        from . import video_processor
+        available_processors.append("MoviePy (Local)")
+    except ImportError:
+        pass
+    
+    return {
+        "cloudinary_configuration": cloudinary_status,
+        "available_processors": available_processors,
+        "preferred_processor": available_processors[0] if available_processors else "None available",
+        "upload_directory": os.path.exists("uploads"),
+        "clips_directory": os.path.exists("uploads/clips")
+    } 

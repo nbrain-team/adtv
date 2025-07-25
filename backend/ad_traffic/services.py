@@ -237,12 +237,23 @@ async def process_campaign_video(campaign_id: str, video_path: str, client_id: s
     # 1. Try Cloudinary (most reliable)
     try:
         from . import video_processor_cloudinary
-        if all([os.getenv('CLOUDINARY_CLOUD_NAME'), 
-                os.getenv('CLOUDINARY_API_KEY'), 
-                os.getenv('CLOUDINARY_API_SECRET')]):
+        
+        # Log Cloudinary config status
+        cloud_name = os.getenv('CLOUDINARY_CLOUD_NAME')
+        api_key = os.getenv('CLOUDINARY_API_KEY')
+        api_secret = os.getenv('CLOUDINARY_API_SECRET')
+        
+        logger.info(f"Cloudinary config check - Cloud Name: {'SET' if cloud_name else 'NOT SET'}")
+        logger.info(f"Cloudinary config check - API Key: {'SET' if api_key else 'NOT SET'}")
+        logger.info(f"Cloudinary config check - API Secret: {'SET' if api_secret else 'NOT SET'}")
+        
+        if all([cloud_name, api_key, api_secret]):
             processors.append(("Cloudinary", video_processor_cloudinary))
-            logger.info("Cloudinary processor available")
-    except ImportError:
+            logger.info("Cloudinary processor available and configured")
+        else:
+            logger.warning("Cloudinary environment variables not fully configured")
+    except ImportError as e:
+        logger.error(f"Failed to import Cloudinary processor: {str(e)}")
         pass
     
     # 2. Try FFmpeg
