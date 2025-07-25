@@ -3,6 +3,7 @@ from sqlalchemy import and_
 from typing import List, Optional
 from datetime import datetime
 import uuid
+import os
 
 from . import models, schemas
 from core.database import User
@@ -215,86 +216,69 @@ def get_campaign_posts(db: Session, campaign_id: str, user_id: str) -> List[mode
 
 
 # Background processing
-async def process_campaign_video(
-    campaign_id: str,
-    video_path: str,
-    client_id: str
-):
-    """Process campaign video"""
+async def process_campaign_video(campaign_id: str, video_path: str, client_id: str):
+    """Process campaign video using best available processor"""
     import logging
     logger = logging.getLogger(__name__)
     
-    logger.info(f"Starting video processing for campaign {campaign_id}")
-    
-    try:
-        # Try ffmpeg-based processor first (more reliable)
-        try:
-            from . import video_processor_ffmpeg
-            logger.info("Using ffmpeg-based video processor")
-            
-            # Get campaign details
-            from core.database import SessionLocal
-            with SessionLocal() as db:
-                campaign = db.query(models.Campaign).filter_by(id=campaign_id).first()
-                if not campaign:
-                    logger.error(f"Campaign {campaign_id} not found in database")
-                    return
-                
-                platforms = campaign.platforms
-                duration_weeks = campaign.duration_weeks
-            
-            # Process with ffmpeg
-            await video_processor_ffmpeg.process_campaign(
-                campaign_id=campaign_id,
-                video_path=video_path,
-                platforms=platforms,
-                duration_weeks=duration_weeks,
-                client_id=client_id
-            )
-            
-            logger.info(f"Successfully completed processing for campaign {campaign_id} with ffmpeg")
+    with SessionLocal() as db:
+        campaign = db.query(models.Campaign).filter(models.Campaign.id == campaign_id).first()
+        if not campaign:
+            logger.error(f"Campaign {campaign_id} not found")
             return
-            
-        except ImportError:
-            logger.warning("ffmpeg-python not available, trying moviepy...")
         
-        # Fallback to moviepy
+        platforms = [p.value for p in campaign.platforms]
+        duration_weeks = campaign.duration_weeks
+    
+    # Try processors in order of preference
+    processors = []
+    
+    # 1. Try Cloudinary (most reliable)
+    try:
+        from . import video_processor_cloudinary
+        if all([os.getenv('CLOUDINARY_CLOUD_NAME'), 
+                os.getenv('CLOUDINARY_API_KEY'), 
+                os.getenv('CLOUDINARY_API_SECRET')]):
+            processors.append(("Cloudinary", video_processor_cloudinary))
+            logger.info("Cloudinary processor available")
+    except ImportError:
+        pass
+    
+    # 2. Try FFmpeg
+    try:
+        from . import video_processor_ffmpeg
+        processors.append(("FFmpeg", video_processor_ffmpeg))
+        logger.info("FFmpeg processor available")
+    except ImportError:
+        pass
+    
+    # 3. Try MoviePy as last resort
+    try:
         from . import video_processor
-        
-        # Create new db session for background task
-        from core.database import SessionLocal
-        
-        with SessionLocal() as db:
-            # Get campaign details
-            campaign = db.query(models.Campaign).filter_by(id=campaign_id).first()
-            if not campaign:
-                logger.error(f"Campaign {campaign_id} not found in database")
-                return
-            
-            logger.info(f"Processing video for campaign: {campaign.name}, platforms: {campaign.platforms}")
-        
-        # Process the video and create clips/posts
-        # video_processor.process_campaign creates its own db session
-        await video_processor.process_campaign(
-            campaign_id=campaign_id,
-            video_path=video_path,
-            platforms=campaign.platforms,
-            duration_weeks=campaign.duration_weeks,
-            client_id=client_id
-        )
-        
-        logger.info(f"Successfully completed processing for campaign {campaign_id}")
-        
-    except Exception as e:
-        logger.error(f"Error processing campaign {campaign_id}: {str(e)}", exc_info=True)
-        
-        # Update campaign with error
-        from core.database import SessionLocal
-        
-        with SessionLocal() as db:
-            campaign = db.query(models.Campaign).filter_by(id=campaign_id).first()
-            if campaign:
-                campaign.status = models.CampaignStatus.FAILED
-                campaign.error_message = str(e)
-                db.commit()
-                logger.info(f"Updated campaign {campaign_id} status to FAILED") 
+        processors.append(("MoviePy", video_processor))
+        logger.info("MoviePy processor available")
+    except ImportError:
+        pass
+    
+    # Process with first available processor
+    for processor_name, processor in processors:
+        try:
+            logger.info(f"Processing video with {processor_name}")
+            await processor.process_campaign(
+                campaign_id, video_path, platforms, duration_weeks, client_id
+            )
+            logger.info(f"Successfully processed video with {processor_name}")
+            return
+        except Exception as e:
+            logger.error(f"Error with {processor_name}: {str(e)}")
+            continue
+    
+    # If all processors fail, mark campaign as failed
+    with SessionLocal() as db:
+        campaign = db.query(models.Campaign).filter(models.Campaign.id == campaign_id).first()
+        if campaign:
+            campaign.status = models.CampaignStatus.FAILED
+            campaign.error_message = "All video processors failed"
+            db.commit()
+    
+    logger.error("All video processors failed") 

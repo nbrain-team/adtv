@@ -134,59 +134,33 @@ class GoogleSERPService:
         """Build optimized search queries"""
         queries = []
         
-        # MOST EFFECTIVE: Force Google to find pages with name AND email address format
-        if name and city:
-            if company and state:
-                # Full pattern: "Name" "@" City State Company
+        # Only use the two specific query patterns requested
+        if name:
+            # Email query: "Name" "@" City State Company
+            if city and state and company:
                 queries.append(f'"{name}" "@" {city} {state} {company}')
-            elif company:
-                # Pattern without state: "Name" "@" City Company
-                queries.append(f'"{name}" "@" {city} {company}')
-            elif state:
-                # Pattern without company: "Name" "@" City State
+            elif city and state:
                 queries.append(f'"{name}" "@" {city} {state}')
-            else:
-                # Minimal pattern: "Name" "@" City
+            elif city and company:
+                queries.append(f'"{name}" "@" {city} {company}')
+            elif city:
                 queries.append(f'"{name}" "@" {city}')
+            else:
+                queries.append(f'"{name}" "@"')
+            
+            # Phone query: "Name" "cell" OR "mobile" OR "phone" City State Company
+            if city and state and company:
+                queries.append(f'"{name}" "cell" OR "mobile" OR "phone" {city} {state} {company}')
+            elif city and state:
+                queries.append(f'"{name}" "cell" OR "mobile" OR "phone" {city} {state}')
+            elif city and company:
+                queries.append(f'"{name}" "cell" OR "mobile" OR "phone" {city} {company}')
+            elif city:
+                queries.append(f'"{name}" "cell" OR "mobile" OR "phone" {city}')
+            else:
+                queries.append(f'"{name}" "cell" OR "mobile" OR "phone"')
         
-        # More specific real estate queries
-        if city:
-            queries.append(f'"{name}" realtor {city} email phone')
-            queries.append(f'"{name}" real estate agent {city} contact information')
-            queries.append(f'"{name}" {city} realty email')
-            queries.append(f'"{name}" {city} homes for sale contact')
-        
-        if company:
-            queries.append(f'"{name}" "{company}" email contact phone')
-            queries.append(f'"{name}" "{company}" realtor profile')
-            queries.append(f'"{name}" site:{company.lower().replace(" ", "")}.com')
-        
-        # LinkedIn and professional networks
-        queries.append(f'site:linkedin.com/in "{name}" realtor email')
-        queries.append(f'site:zillow.com "{name}" contact')
-        queries.append(f'site:realtor.com "{name}" phone email')
-        
-        # Website-specific search
-        if website and website != 'Not Found':
-            domain = urlparse(website).netloc
-            if domain:
-                queries.append(f'site:{domain} contact email phone')
-                queries.append(f'site:{domain} "{name}"')
-                queries.append(f'site:{domain} about team staff')
-        
-        # General queries
-        queries.append(f'"{name}" email phone contact')
-        queries.append(f'"{name}" mobile cell phone number')
-        
-        # Remove duplicates and limit
-        seen = set()
-        unique_queries = []
-        for q in queries:
-            if q not in seen:
-                seen.add(q)
-                unique_queries.append(q)
-        
-        return unique_queries[:5]  # Increased from 3 to 5 queries
+        return queries
     
     def _is_valid_email(self, email: str, name: str) -> bool:
         """Check if email is likely valid for the person"""
