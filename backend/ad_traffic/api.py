@@ -255,31 +255,61 @@ async def delete_campaign(
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """Delete a campaign and all associated data"""
+    """Delete a campaign and all associated data, regardless of status"""
+    import logging
+    logger = logging.getLogger(__name__)
+    
     # Verify campaign ownership
     campaign = services.get_campaign_with_clips(db, campaign_id, current_user.id)
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
     
+    logger.info(f"Deleting campaign {campaign_id} with status {campaign.status}")
+    
+    # If campaign is processing, mark it as cancelled first
+    if campaign.status == models.CampaignStatus.PROCESSING:
+        campaign.status = models.CampaignStatus.FAILED
+        campaign.error_message = "Cancelled by user"
+        db.commit()
+        logger.info(f"Marked processing campaign {campaign_id} as cancelled")
+    
     # Delete associated posts first
-    posts = db.query(models.SocialPost).filter(
+    posts_deleted = db.query(models.SocialPost).filter(
         models.SocialPost.campaign_id == campaign_id
-    ).all()
-    for post in posts:
-        db.delete(post)
+    ).delete()
+    logger.info(f"Deleted {posts_deleted} posts for campaign {campaign_id}")
     
     # Delete video clips
-    clips = db.query(models.VideoClip).filter(
+    clips_deleted = db.query(models.VideoClip).filter(
         models.VideoClip.campaign_id == campaign_id
-    ).all()
-    for clip in clips:
-        db.delete(clip)
+    ).delete()
+    logger.info(f"Deleted {clips_deleted} video clips for campaign {campaign_id}")
+    
+    # Try to delete the video file if it exists
+    try:
+        if campaign.original_video_url:
+            backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            video_path = os.path.join(backend_dir, campaign.original_video_url)
+            if os.path.exists(video_path):
+                os.remove(video_path)
+                logger.info(f"Deleted video file: {video_path}")
+            
+            # Also try to delete the campaign directory
+            campaign_dir = os.path.dirname(video_path)
+            if os.path.exists(campaign_dir) and os.path.isdir(campaign_dir):
+                try:
+                    os.rmdir(campaign_dir)  # Only removes if empty
+                    logger.info(f"Deleted campaign directory: {campaign_dir}")
+                except OSError:
+                    pass  # Directory not empty, that's okay
+    except Exception as e:
+        logger.warning(f"Could not delete video files: {str(e)}")
     
     # Delete the campaign
     db.delete(campaign)
     db.commit()
     
-    return {"message": "Campaign deleted successfully"}
+    return {"message": f"Campaign {campaign_id} deleted successfully", "posts_deleted": posts_deleted, "clips_deleted": clips_deleted}
 
 
 @router.get("/check-video-processor")

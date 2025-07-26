@@ -79,6 +79,12 @@ async def process_campaign(
             num_clips = min(3, int(duration / clip_duration))
             
             for i in range(num_clips):
+                # Check if campaign was cancelled/deleted
+                db.refresh(campaign)
+                if campaign.status == models.CampaignStatus.FAILED and campaign.error_message == "Cancelled by user":
+                    logger.info(f"Campaign {campaign_id} was cancelled, stopping processing")
+                    return
+                
                 start_time = i * clip_duration
                 end_time = min(start_time + clip_duration, duration)
                 
