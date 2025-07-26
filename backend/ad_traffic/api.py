@@ -238,6 +238,39 @@ def get_campaign_posts(
     return posts
 
 
+@router.delete("/campaigns/{campaign_id}")
+async def delete_campaign(
+    campaign_id: str,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Delete a campaign and all associated data"""
+    # Verify campaign ownership
+    campaign = services.get_campaign_with_clips(db, campaign_id, current_user.id)
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    # Delete associated posts first
+    posts = db.query(models.SocialPost).filter(
+        models.SocialPost.campaign_id == campaign_id
+    ).all()
+    for post in posts:
+        db.delete(post)
+    
+    # Delete video clips
+    clips = db.query(models.VideoClip).filter(
+        models.VideoClip.campaign_id == campaign_id
+    ).all()
+    for clip in clips:
+        db.delete(clip)
+    
+    # Delete the campaign
+    db.delete(campaign)
+    db.commit()
+    
+    return {"message": "Campaign deleted successfully"}
+
+
 @router.get("/check-video-processor")
 async def check_video_processor_status(
     current_user: User = Depends(get_current_active_user)
@@ -327,4 +360,41 @@ async def check_video_processor_status_public():
         "cloudinary_configured": cloudinary_configured,
         "available_processors": processors,
         "processor_count": len(processors)
+    }
+
+
+@router.get("/campaigns/{campaign_id}/debug")
+async def debug_campaign_status(
+    campaign_id: str,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Debug endpoint to check campaign processing status"""
+    campaign = db.query(models.Campaign).filter(
+        models.Campaign.id == campaign_id
+    ).first()
+    
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    # Get video clips count
+    clips_count = db.query(models.VideoClip).filter(
+        models.VideoClip.campaign_id == campaign_id
+    ).count()
+    
+    # Get posts count
+    posts_count = db.query(models.SocialPost).filter(
+        models.SocialPost.campaign_id == campaign_id
+    ).count()
+    
+    return {
+        "campaign_id": campaign.id,
+        "status": campaign.status.value,
+        "progress": campaign.progress,
+        "error_message": campaign.error_message,
+        "created_at": campaign.created_at.isoformat(),
+        "updated_at": campaign.updated_at.isoformat() if campaign.updated_at else None,
+        "clips_count": clips_count,
+        "posts_count": posts_count,
+        "original_video_url": campaign.original_video_url
     } 

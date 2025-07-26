@@ -47,22 +47,31 @@ async def process_campaign(
                 logger.error(f"Campaign {campaign_id} not found")
                 return
             
+            logger.info(f"Setting campaign {campaign_id} to PROCESSING status")
             campaign.status = models.CampaignStatus.PROCESSING
             campaign.progress = 10
             db.commit()
+            logger.info(f"Campaign {campaign_id} progress set to 10%")
             
             # Upload video to Cloudinary
-            logger.info(f"Uploading video to Cloudinary...")
-            upload_result = cloudinary.uploader.upload_large(
-                video_path,
-                resource_type="video",
-                public_id=f"campaigns/{campaign_id}/main_video",
-                overwrite=True
-            )
-            
-            video_url = upload_result['secure_url']
-            duration = upload_result.get('duration', 90)  # Video duration in seconds
-            logger.info(f"Video uploaded successfully. Duration: {duration}s")
+            logger.info(f"Uploading video to Cloudinary from path: {video_path}")
+            try:
+                upload_result = cloudinary.uploader.upload_large(
+                    video_path,
+                    resource_type="video",
+                    public_id=f"campaigns/{campaign_id}/main_video",
+                    overwrite=True
+                )
+                
+                video_url = upload_result['secure_url']
+                duration = upload_result.get('duration', 90)  # Video duration in seconds
+                logger.info(f"Video uploaded successfully. URL: {video_url}, Duration: {duration}s")
+            except Exception as e:
+                logger.error(f"Failed to upload video to Cloudinary: {str(e)}")
+                campaign.status = models.CampaignStatus.FAILED
+                campaign.error_message = f"Video upload failed: {str(e)}"
+                db.commit()
+                raise
             
             # Generate clips using Cloudinary transformations
             clips = []
