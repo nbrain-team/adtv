@@ -203,7 +203,6 @@ export const CampaignsList: React.FC<CampaignsListProps> = ({
                   <Button 
                     size="2" 
                     variant="ghost"
-                    disabled={campaign.status === CampaignStatus.PROCESSING}
                   >
                     <EyeOpenIcon /> 
                     {campaign.status === CampaignStatus.PROCESSING ? 'Processing...' : 'View'}
@@ -212,7 +211,6 @@ export const CampaignsList: React.FC<CampaignsListProps> = ({
                     size="2" 
                     variant="ghost" 
                     color="red"
-                    disabled={campaign.status === CampaignStatus.PROCESSING}
                     onClick={(e) => {
                       e.stopPropagation();
                       setCampaignToDelete(campaign);
