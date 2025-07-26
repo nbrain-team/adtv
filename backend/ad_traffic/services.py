@@ -222,6 +222,12 @@ async def process_campaign_video(campaign_id: str, video_path: str, client_id: s
     import logging
     logger = logging.getLogger(__name__)
     
+    logger.info("=" * 50)
+    logger.info(f"STARTING VIDEO PROCESSING FOR CAMPAIGN: {campaign_id}")
+    logger.info(f"Video path: {video_path}")
+    logger.info(f"Client ID: {client_id}")
+    logger.info("=" * 50)
+    
     with SessionLocal() as db:
         campaign = db.query(models.Campaign).filter(models.Campaign.id == campaign_id).first()
         if not campaign:

@@ -203,14 +203,25 @@ async def create_campaign(
     
     campaign = services.create_campaign(db, campaign_data, client_id, relative_video_path)
     
+    # Import logging
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    logger.info(f"Created campaign {campaign.id} for client {client_id}")
+    logger.info(f"Video saved to: {video_path}")
+    logger.info(f"File exists: {os.path.exists(video_path)}")
+    logger.info(f"File size: {os.path.getsize(video_path) if os.path.exists(video_path) else 'N/A'}")
+    
     # Start background processing
     # Don't pass the db session to background task - it will create its own
+    logger.info(f"Adding background task for campaign {campaign.id}")
     background_tasks.add_task(
         services.process_campaign_video,
         campaign.id,
         video_path,  # Pass full path instead of relative path
         client.id  # Pass client_id instead of client object
     )
+    logger.info("Background task added successfully")
     
     return campaign
 
@@ -397,4 +408,57 @@ async def debug_campaign_status(
         "clips_count": clips_count,
         "posts_count": posts_count,
         "original_video_url": campaign.original_video_url
-    } 
+    }
+
+
+@router.post("/campaigns/{campaign_id}/reprocess")
+async def reprocess_campaign(
+    campaign_id: str,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Manually trigger reprocessing of a campaign"""
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    # Get campaign
+    campaign = db.query(models.Campaign).join(
+        models.AdTrafficClient
+    ).filter(
+        models.Campaign.id == campaign_id,
+        models.AdTrafficClient.user_id == current_user.id
+    ).first()
+    
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    # Build video path
+    backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    video_path = os.path.join(backend_dir, campaign.original_video_url)
+    
+    logger.info(f"Reprocessing campaign {campaign_id}")
+    logger.info(f"Video path: {video_path}")
+    logger.info(f"Video exists: {os.path.exists(video_path)}")
+    
+    if not os.path.exists(video_path):
+        raise HTTPException(status_code=404, detail=f"Video file not found at {video_path}")
+    
+    # Reset campaign status
+    campaign.status = models.CampaignStatus.PROCESSING
+    campaign.progress = 0
+    campaign.error_message = None
+    db.commit()
+    
+    # Get platforms
+    platforms = [p.value for p in campaign.platforms]
+    
+    # Trigger processing
+    background_tasks.add_task(
+        services.process_campaign_video,
+        campaign.id,
+        video_path,
+        campaign.client_id
+    )
+    
+    return {"message": "Reprocessing started", "campaign_id": campaign_id} 
