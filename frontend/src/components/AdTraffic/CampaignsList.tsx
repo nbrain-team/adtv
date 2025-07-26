@@ -31,7 +31,7 @@ export const CampaignsList: React.FC<CampaignsListProps> = ({
       if (campaigns.some(c => c.status === CampaignStatus.PROCESSING)) {
         fetchCampaigns();
       }
-    }, 5000);
+    }, 10000);
     
     return () => clearInterval(interval);
   }, [campaigns, clientId]);
@@ -203,6 +203,7 @@ export const CampaignsList: React.FC<CampaignsListProps> = ({
                   <Button 
                     size="2" 
                     variant="ghost"
+                    disabled={campaign.status === CampaignStatus.PROCESSING}
                   >
                     <EyeOpenIcon /> 
                     {campaign.status === CampaignStatus.PROCESSING ? 'Processing...' : 'View'}
