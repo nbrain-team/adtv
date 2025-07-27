@@ -244,7 +244,8 @@ async def process_campaign_video(campaign_id: str, video_path: str, client_id: s
     # Try processors in order of preference
     processors = []
     
-    # 1. Try Cloudinary (most reliable)
+    # 1. Try Cloudinary (most reliable) - REQUIRED if configured
+    cloudinary_configured = False
     try:
         from . import video_processor_cloudinary
         
@@ -260,47 +261,74 @@ async def process_campaign_video(campaign_id: str, video_path: str, client_id: s
         if all([cloud_name, api_key, api_secret]):
             processors.append(("Cloudinary", video_processor_cloudinary))
             logger.info("Cloudinary processor available and configured")
+            cloudinary_configured = True
         else:
             logger.warning("Cloudinary environment variables not fully configured")
     except ImportError as e:
         logger.error(f"Failed to import Cloudinary processor: {str(e)}")
         pass
     
-    # 2. Try FFmpeg
-    try:
-        from . import video_processor_ffmpeg
-        processors.append(("FFmpeg", video_processor_ffmpeg))
-        logger.info("FFmpeg processor available")
-    except ImportError:
-        pass
-    
-    # 3. Try MoviePy as last resort
-    try:
-        from . import video_processor
-        processors.append(("MoviePy", video_processor))
-        logger.info("MoviePy processor available")
-    except ImportError:
-        pass
-    
-    # Process with first available processor
-    for processor_name, processor in processors:
+    # If Cloudinary is configured, use ONLY Cloudinary
+    if cloudinary_configured:
+        logger.info("Using Cloudinary as the exclusive video processor")
+        # Only try Cloudinary
+        for processor_name, processor in processors:
+            try:
+                logger.info(f"Processing video with {processor_name}")
+                await processor.process_campaign(
+                    campaign_id, video_path, platforms, duration_weeks, client_id
+                )
+                logger.info(f"Successfully processed video with {processor_name}")
+                return
+            except Exception as e:
+                logger.error(f"Error with {processor_name}: {str(e)}")
+                # Mark campaign as failed
+                with SessionLocal() as db:
+                    campaign = db.query(models.Campaign).filter(models.Campaign.id == campaign_id).first()
+                    if campaign:
+                        campaign.status = models.CampaignStatus.FAILED
+                        campaign.error_message = str(e)
+                        db.commit()
+                raise
+    else:
+        # Fallback to other processors only if Cloudinary is not configured
+        logger.info("Cloudinary not configured, trying fallback processors...")
+        
+        # 2. Try FFmpeg
         try:
-            logger.info(f"Processing video with {processor_name}")
-            await processor.process_campaign(
-                campaign_id, video_path, platforms, duration_weeks, client_id
-            )
-            logger.info(f"Successfully processed video with {processor_name}")
-            return
-        except Exception as e:
-            logger.error(f"Error with {processor_name}: {str(e)}")
-            continue
-    
-    # If all processors fail, mark campaign as failed
-    with SessionLocal() as db:
-        campaign = db.query(models.Campaign).filter(models.Campaign.id == campaign_id).first()
-        if campaign:
-            campaign.status = models.CampaignStatus.FAILED
-            campaign.error_message = "All video processors failed"
-            db.commit()
-    
-    logger.error("All video processors failed") 
+            from . import video_processor_ffmpeg
+            processors.append(("FFmpeg", video_processor_ffmpeg))
+            logger.info("FFmpeg processor available")
+        except ImportError:
+            pass
+        
+        # 3. Try MoviePy as last resort
+        try:
+            from . import video_processor
+            processors.append(("MoviePy", video_processor))
+            logger.info("MoviePy processor available")
+        except ImportError:
+            pass
+        
+        # Process with first available processor
+        for processor_name, processor in processors:
+            try:
+                logger.info(f"Processing video with {processor_name}")
+                await processor.process_campaign(
+                    campaign_id, video_path, platforms, duration_weeks, client_id
+                )
+                logger.info(f"Successfully processed video with {processor_name}")
+                return
+            except Exception as e:
+                logger.error(f"Error with {processor_name}: {str(e)}")
+                continue
+        
+        # If all processors fail, mark campaign as failed
+        with SessionLocal() as db:
+            campaign = db.query(models.Campaign).filter(models.Campaign.id == campaign_id).first()
+            if campaign:
+                campaign.status = models.CampaignStatus.FAILED
+                campaign.error_message = "All video processors failed"
+                db.commit()
+        
+        logger.error("All video processors failed") 
