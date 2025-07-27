@@ -5,6 +5,7 @@ from datetime import datetime
 import uuid
 import os
 import shutil
+import asyncio
 
 from core.database import get_db, User
 from core.auth import get_current_active_user
@@ -169,14 +170,31 @@ async def create_campaign(
     db: Session = Depends(get_db)
 ):
     """Create a new video campaign"""
-    # Verify client ownership
-    client = services.get_client(db, client_id, current_user.id)
-    if not client:
-        raise HTTPException(status_code=404, detail="Client not found")
+    import logging
+    logger = logging.getLogger(__name__)
     
-    # Validate video file
-    if not video.content_type.startswith("video/"):
-        raise HTTPException(status_code=400, detail="Invalid video file")
+    logger.info(f"=== CAMPAIGN CREATION STARTED ===")
+    logger.info(f"Client ID: {client_id}")
+    logger.info(f"Campaign name: {name}")
+    logger.info(f"Duration: {duration_weeks} weeks")
+    logger.info(f"Platforms: {platforms}")
+    logger.info(f"Video filename: {video.filename}")
+    logger.info(f"Video content type: {video.content_type}")
+    
+    try:
+        # Verify client ownership
+        client = services.get_client(db, client_id, current_user.id)
+        if not client:
+            logger.error(f"Client {client_id} not found for user {current_user.id}")
+            raise HTTPException(status_code=404, detail="Client not found")
+        
+        # Validate video file
+        if not video.content_type.startswith("video/"):
+            logger.error(f"Invalid video content type: {video.content_type}")
+            raise HTTPException(status_code=400, detail="Invalid video file")
+    except Exception as e:
+        logger.error(f"Error during campaign validation: {str(e)}")
+        raise
     
     # Save video file
     # Make sure we're saving to the backend/uploads directory
@@ -215,13 +233,28 @@ async def create_campaign(
     # Start background processing
     # Don't pass the db session to background task - it will create its own
     logger.info(f"Adding background task for campaign {campaign.id}")
-    background_tasks.add_task(
-        services.process_campaign_video,
-        campaign.id,
-        video_path,  # Pass full path instead of relative path
-        client.id  # Pass client_id instead of client object
-    )
-    logger.info("Background task added successfully")
+    
+    # Check if we should process inline (for debugging/testing)
+    process_inline = os.getenv('PROCESS_VIDEO_INLINE', 'false').lower() == 'true'
+    
+    if process_inline:
+        logger.info("Processing video inline (not in background)")
+        # Import asyncio to run the async function
+        import asyncio
+        loop = asyncio.get_event_loop()
+        loop.create_task(services.process_campaign_video(
+            campaign.id,
+            video_path,
+            client.id
+        ))
+    else:
+        background_tasks.add_task(
+            services.process_campaign_video,
+            campaign.id,
+            video_path,  # Pass full path instead of relative path
+            client.id  # Pass client_id instead of client object
+        )
+        logger.info("Background task added successfully")
     
     return campaign
 
@@ -492,3 +525,33 @@ async def reprocess_campaign(
     )
     
     return {"message": "Reprocessing started", "campaign_id": campaign_id} 
+
+
+@router.get("/test-video-processing")
+async def test_video_processing(
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_active_user)
+):
+    """Test endpoint to verify video processing is working"""
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    logger.info("TEST: Video processing test started")
+    
+    # Create a simple test function
+    async def test_task():
+        logger.info("TEST: Background task is running!")
+        await asyncio.sleep(2)
+        logger.info("TEST: Background task completed!")
+    
+    # Add the task
+    background_tasks.add_task(test_task)
+    
+    return {
+        "message": "Test background task added - check logs for 'TEST:' messages",
+        "cloudinary_configured": all([
+            os.getenv('CLOUDINARY_CLOUD_NAME'),
+            os.getenv('CLOUDINARY_API_KEY'),
+            os.getenv('CLOUDINARY_API_SECRET')
+        ])
+    } 
