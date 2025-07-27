@@ -234,7 +234,11 @@ async def process_campaign_video(campaign_id: str, video_path: str, client_id: s
             logger.error(f"Campaign {campaign_id} not found")
             return
         
-        platforms = [p.value for p in campaign.platforms]
+        # Fix: platforms might already be strings from the database
+        if campaign.platforms and isinstance(campaign.platforms[0], str):
+            platforms = campaign.platforms
+        else:
+            platforms = [p.value for p in campaign.platforms]
         duration_weeks = campaign.duration_weeks
     
     # Try processors in order of preference
