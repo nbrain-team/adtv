@@ -99,4 +99,55 @@ async def stream_answer(query: str, matches: list, history: List[Dict[str, str]]
 
     except Exception as e:
         logger.error(f"An exception occurred during the LLM stream: {e}", exc_info=True)
-        yield "Sorry, an error occurred while processing your request." 
+        yield "Sorry, an error occurred while processing your request."
+
+
+async def generate_text(prompt: str) -> str:
+    """
+    Generate text using the LLM based on a prompt.
+    Used for social media captions and other text generation.
+    """
+    logger.info("Generating text with LLM")
+    try:
+        llm = ChatGoogleGenerativeAI(
+            model="gemini-1.5-flash",  # Faster model for simple text generation
+            google_api_key=os.environ["GEMINI_API_KEY"],
+            max_output_tokens=1024,
+            temperature=0.8
+        )
+        
+        messages = [HumanMessage(content=prompt)]
+        response = await llm.ainvoke(messages)
+        return response.content
+    except Exception as e:
+        logger.error(f"Error generating text: {e}", exc_info=True)
+        raise
+
+
+async def analyze_image(image_base64: str, prompt: str) -> str:
+    """
+    Analyze an image using vision-capable LLM.
+    Used for video frame analysis to generate contextual captions.
+    """
+    logger.info("Analyzing image with vision LLM")
+    try:
+        llm = ChatGoogleGenerativeAI(
+            model="gemini-1.5-flash",  # Supports vision
+            google_api_key=os.environ["GEMINI_API_KEY"],
+            max_output_tokens=512,
+            temperature=0.5
+        )
+        
+        # Format message with image
+        message_content = [
+            {"type": "text", "text": prompt},
+            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}}
+        ]
+        
+        messages = [HumanMessage(content=message_content)]
+        response = await llm.ainvoke(messages)
+        return response.content
+    except Exception as e:
+        logger.error(f"Error analyzing image: {e}", exc_info=True)
+        # Return a generic description if vision analysis fails
+        return "Video content" 

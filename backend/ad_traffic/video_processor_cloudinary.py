@@ -137,8 +137,8 @@ async def process_campaign(
             
             logger.info(f"Created {len(clips)} video clips")
             
-            # Generate AI captions and create posts
-            await generate_captions_and_posts(clips, platforms, duration_weeks, client_id, campaign, db)
+            # Analyze video content and generate AI captions
+            await analyze_and_generate_captions(clips, platforms, duration_weeks, client_id, campaign, db, upload_result)
             
             # Update campaign status
             campaign.status = models.CampaignStatus.READY
@@ -153,19 +153,80 @@ async def process_campaign(
             raise
 
 
-async def generate_captions_and_posts(clips, platforms, duration_weeks, client_id, campaign, db):
-    """Generate AI-powered captions and create social posts"""
-    for db_clip in clips:
-        # Generate engaging caption
-        prompt = f"""Generate a social media caption for this video clip in an engaging, authentic style.
+async def analyze_and_generate_captions(clips, platforms, duration_weeks, client_id, campaign, db, cloudinary_upload):
+    """Analyze video content and generate contextual AI-powered captions"""
+    import base64
+    
+    # Get video metadata for context
+    video_context = f"""
+Video Title: {campaign.name}
+Duration: {cloudinary_upload.get('duration', 0)} seconds
+Platforms: {', '.join(platforms)}
+"""
+    
+    for i, db_clip in enumerate(clips):
+        try:
+            # Extract a frame from the middle of the clip for analysis
+            frame_time = db_clip.start_time + (db_clip.duration / 2)
+            
+            # Generate a frame URL using Cloudinary transformation
+            frame_url, _ = cloudinary_url(
+                cloudinary_upload['public_id'],
+                resource_type="video",
+                transformation=[
+                    {'start_offset': frame_time},
+                    {'width': 800, 'height': 450, 'crop': 'fill'},
+                    {'quality': 'auto', 'fetch_format': 'jpg'}
+                ]
+            )
+            
+            # Download and encode the frame for vision analysis
+            response = requests.get(frame_url)
+            if response.status_code == 200:
+                frame_base64 = base64.b64encode(response.content).decode('utf-8')
+                
+                # Use vision-capable LLM to analyze the frame
+                vision_prompt = f"""Analyze this video frame and describe what's happening in the scene. 
+Focus on:
+- Main subjects or people
+- Actions taking place  
+- Setting/location
+- Key objects or details
+- Overall mood/tone
 
-Clip details:
-Title: {db_clip.title}
-Description: {db_clip.description}
-Duration: {db_clip.duration} seconds
+This is frame from timestamp {frame_time:.1f}s of a video titled "{campaign.name}"."""
+                
+                try:
+                    # Get frame analysis from vision model
+                    frame_description = await llm_handler.analyze_image(frame_base64, vision_prompt)
+                    logger.info(f"Frame analysis for clip {i+1}: {frame_description[:100]}...")
+                except:
+                    frame_description = f"Clip showing content from {db_clip.start_time:.0f}s to {db_clip.end_time:.0f}s"
+            else:
+                frame_description = f"Video segment {i+1}"
+                
+        except Exception as e:
+            logger.warning(f"Could not analyze frame for clip {i+1}: {str(e)}")
+            frame_description = f"Video segment {i+1}"
+        
+        # Generate contextual caption based on actual content
+        prompt = f"""Generate an engaging social media caption for this specific video clip.
 
-Make it conversational, include relevant emojis, a call to action, and 5-7 relevant hashtags.
-Keep it under 280 characters for Twitter compatibility.
+CONTEXT:
+{video_context}
+
+WHAT'S IN THIS CLIP:
+{frame_description}
+
+Clip timing: {db_clip.start_time:.0f}s - {db_clip.end_time:.0f}s (clip {i+1} of {len(clips)})
+
+Create a caption that:
+- Directly relates to what's shown in this specific clip
+- Uses natural, conversational language
+- Includes 2-3 relevant emojis
+- Has a clear call to action
+- Ends with 5-7 hashtags relevant to the content
+- Stays under 280 characters for Twitter
 
 Caption:"""
         
@@ -177,9 +238,14 @@ Caption:"""
             import re
             hashtags = re.findall(r'#\w+', caption)
             db_clip.suggested_hashtags = hashtags[:10]
-        except:
+            
+            # Update clip with content description
+            db_clip.description = frame_description[:200]  # Store abbreviated description
+            
+        except Exception as e:
+            logger.error(f"Error generating caption for clip {i+1}: {str(e)}")
             # Fallback caption
-            db_clip.suggested_caption = f"🎬 {db_clip.title} - Don't miss this! 🔥\n\n#VideoContent #SocialMedia #MustWatch"
+            db_clip.suggested_caption = f"🎬 {campaign.name} - Part {i+1} 🔥\n\nDon't miss this moment!\n\n#VideoContent #SocialMedia #MustWatch"
             db_clip.suggested_hashtags = ["#video", "#content", "#socialmedia", "#viral", "#trending"]
     
     db.commit()
