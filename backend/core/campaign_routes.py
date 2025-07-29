@@ -102,7 +102,7 @@ class ContactUpdate(BaseModel):
     excluded: Optional[bool] = None
 
 # Campaign CRUD
-@router.post("/campaigns", response_model=CampaignResponse)
+@router.post("/", response_model=CampaignResponse)
 async def create_campaign(
     campaign_data: CampaignCreate,
     current_user: User = Depends(auth.get_current_active_user),
@@ -121,7 +121,7 @@ async def create_campaign(
     
     return campaign
 
-@router.get("/campaigns", response_model=List[CampaignResponse])
+@router.get("/", response_model=List[CampaignResponse])
 async def get_campaigns(
     skip: int = 0,
     limit: int = 20,
@@ -135,7 +135,7 @@ async def get_campaigns(
     
     return campaigns
 
-@router.get("/campaigns/{campaign_id}", response_model=CampaignResponse)
+@router.get("/{campaign_id}", response_model=CampaignResponse)
 async def get_campaign(
     campaign_id: str,
     current_user: User = Depends(auth.get_current_active_user),
@@ -152,7 +152,7 @@ async def get_campaign(
     
     return campaign
 
-@router.put("/campaigns/{campaign_id}", response_model=CampaignResponse)
+@router.put("/{campaign_id}", response_model=CampaignResponse)
 async def update_campaign(
     campaign_id: str,
     campaign_data: CampaignUpdate,
@@ -177,7 +177,7 @@ async def update_campaign(
     
     return campaign
 
-@router.delete("/campaigns/{campaign_id}")
+@router.delete("/{campaign_id}")
 async def delete_campaign(
     campaign_id: str,
     current_user: User = Depends(auth.get_current_active_user),
@@ -198,7 +198,7 @@ async def delete_campaign(
     return {"message": "Campaign deleted successfully"}
 
 # Contact management
-@router.post("/campaigns/{campaign_id}/upload-contacts")
+@router.post("/{campaign_id}/upload-contacts")
 async def upload_contacts(
     campaign_id: str,
     file: UploadFile = File(...),
@@ -251,7 +251,7 @@ async def upload_contacts(
         "status": "enriching"
     }
 
-@router.get("/campaigns/{campaign_id}/contacts", response_model=List[ContactResponse])
+@router.get("/{campaign_id}/contacts", response_model=List[ContactResponse])
 async def get_campaign_contacts(
     campaign_id: str,
     skip: int = 0,
@@ -278,7 +278,7 @@ async def get_campaign_contacts(
     
     return contacts
 
-@router.put("/campaigns/{campaign_id}/contacts/bulk-update")
+@router.put("/{campaign_id}/contacts/bulk-update")
 async def bulk_update_contacts(
     campaign_id: str,
     update_data: BulkContactUpdate,
@@ -307,7 +307,7 @@ async def bulk_update_contacts(
     
     return {"message": f"Updated {len(update_data.contact_ids)} contacts"}
 
-@router.put("/campaigns/{campaign_id}/contacts/{contact_id}")
+@router.put("/{campaign_id}/contacts/{contact_id}")
 async def update_contact(
     campaign_id: str,
     contact_id: str,
@@ -344,7 +344,7 @@ async def update_contact(
     return {"message": "Contact updated successfully"}
 
 # Campaign templates
-@router.post("/campaign-templates", response_model=CampaignTemplateResponse)
+@router.post("/templates", response_model=CampaignTemplateResponse)
 async def create_template(
     template_data: CampaignTemplateCreate,
     current_user: User = Depends(auth.get_current_active_user),
@@ -361,7 +361,7 @@ async def create_template(
     
     return template
 
-@router.get("/campaign-templates", response_model=List[CampaignTemplateResponse])
+@router.get("/templates", response_model=List[CampaignTemplateResponse])
 async def get_templates(
     current_user: User = Depends(auth.get_current_active_user),
     db: Session = Depends(get_db)
@@ -373,7 +373,7 @@ async def get_templates(
     
     return templates
 
-@router.delete("/campaign-templates/{template_id}")
+@router.delete("/templates/{template_id}")
 async def delete_template(
     template_id: str,
     current_user: User = Depends(auth.get_current_active_user),
@@ -394,7 +394,7 @@ async def delete_template(
     return {"message": "Template deleted successfully"}
 
 # Campaign actions
-@router.post("/campaigns/{campaign_id}/generate-emails")
+@router.post("/{campaign_id}/generate-emails")
 async def generate_emails(
     campaign_id: str,
     background_tasks: BackgroundTasks,
@@ -424,7 +424,7 @@ async def generate_emails(
     
     return {"message": "Email generation started", "status": "generating_emails"}
 
-@router.get("/campaigns/{campaign_id}/analytics")
+@router.get("/{campaign_id}/analytics")
 async def get_campaign_analytics(
     campaign_id: str,
     current_user: User = Depends(auth.get_current_active_user),
