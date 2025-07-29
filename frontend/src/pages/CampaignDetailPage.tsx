@@ -49,6 +49,7 @@ interface Contact {
     email?: string;
     company?: string;
     title?: string;
+    phone?: string;
     neighborhood?: string;
     enrichment_status: string;
     email_status: string;
@@ -316,7 +317,10 @@ const CampaignDetailPage = () => {
             contact.first_name?.toLowerCase().includes(searchLower) ||
             contact.last_name?.toLowerCase().includes(searchLower) ||
             contact.email?.toLowerCase().includes(searchLower) ||
-            contact.company?.toLowerCase().includes(searchLower)
+            contact.company?.toLowerCase().includes(searchLower) ||
+            contact.title?.toLowerCase().includes(searchLower) ||
+            contact.phone?.toLowerCase().includes(searchLower) ||
+            contact.neighborhood?.toLowerCase().includes(searchLower)
         );
     });
 
@@ -572,20 +576,24 @@ const CampaignDetailPage = () => {
                                     </Flex>
                                 </Flex>
 
-                                <ScrollArea style={{ height: '600px' }}>
-                                    <Table.Root>
+                                <Box style={{ overflowX: 'auto' }}>
+                                    <Table.Root style={{ minWidth: '1200px' }}>
                                         <Table.Header>
                                             <Table.Row>
-                                                <Table.ColumnHeaderCell>
+                                                <Table.ColumnHeaderCell style={{ position: 'sticky', left: 0, backgroundColor: 'var(--color-background)', zIndex: 1 }}>
                                                     <Checkbox
                                                         checked={selectedContacts.size === filteredContacts.length && filteredContacts.length > 0}
                                                         onCheckedChange={toggleAllContacts}
                                                     />
                                                 </Table.ColumnHeaderCell>
-                                                <Table.ColumnHeaderCell>Name</Table.ColumnHeaderCell>
+                                                <Table.ColumnHeaderCell>First Name</Table.ColumnHeaderCell>
+                                                <Table.ColumnHeaderCell>Last Name</Table.ColumnHeaderCell>
                                                 <Table.ColumnHeaderCell>Email</Table.ColumnHeaderCell>
+                                                <Table.ColumnHeaderCell>Phone</Table.ColumnHeaderCell>
                                                 <Table.ColumnHeaderCell>Company</Table.ColumnHeaderCell>
-                                                <Table.ColumnHeaderCell>Enrichment</Table.ColumnHeaderCell>
+                                                <Table.ColumnHeaderCell>Title</Table.ColumnHeaderCell>
+                                                <Table.ColumnHeaderCell>Neighborhood</Table.ColumnHeaderCell>
+                                                <Table.ColumnHeaderCell>Enrichment Status</Table.ColumnHeaderCell>
                                                 <Table.ColumnHeaderCell>Email Status</Table.ColumnHeaderCell>
                                                 <Table.ColumnHeaderCell>Actions</Table.ColumnHeaderCell>
                                             </Table.Row>
@@ -593,17 +601,23 @@ const CampaignDetailPage = () => {
                                         <Table.Body>
                                             {filteredContacts.map(contact => (
                                                 <Table.Row key={contact.id}>
-                                                    <Table.Cell>
+                                                    <Table.Cell style={{ position: 'sticky', left: 0, backgroundColor: 'var(--color-background)', zIndex: 1 }}>
                                                         <Checkbox
                                                             checked={selectedContacts.has(contact.id)}
                                                             onCheckedChange={() => toggleContactSelection(contact.id)}
                                                         />
                                                     </Table.Cell>
                                                     <Table.Cell>
-                                                        {contact.first_name} {contact.last_name}
+                                                        {contact.first_name || '-'}
                                                     </Table.Cell>
-                                                    <Table.Cell>{contact.email}</Table.Cell>
-                                                    <Table.Cell>{contact.company}</Table.Cell>
+                                                    <Table.Cell>
+                                                        {contact.last_name || '-'}
+                                                    </Table.Cell>
+                                                    <Table.Cell>{contact.email || '-'}</Table.Cell>
+                                                    <Table.Cell>{contact.phone || '-'}</Table.Cell>
+                                                    <Table.Cell>{contact.company || '-'}</Table.Cell>
+                                                    <Table.Cell>{contact.title || '-'}</Table.Cell>
+                                                    <Table.Cell>{contact.neighborhood || '-'}</Table.Cell>
                                                     <Table.Cell>
                                                         <Badge 
                                                             color={
@@ -653,7 +667,7 @@ const CampaignDetailPage = () => {
                                             ))}
                                         </Table.Body>
                                     </Table.Root>
-                                </ScrollArea>
+                                </Box>
                             </Card>
                         </Tabs.Content>
 
