@@ -160,6 +160,10 @@ class GoogleSERPService:
             else:
                 queries.append(f'"{name}" "cell" OR "mobile" OR "phone"')
         
+        # Log the queries being built (temporary for debugging)
+        logger.info(f"Building search queries for: name='{name}', city='{city}', state='{state}', company='{company}'")
+        logger.info(f"Generated queries: {queries}")
+        
         return queries
     
     def _is_valid_email(self, email: str, name: str) -> bool:

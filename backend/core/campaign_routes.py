@@ -651,14 +651,20 @@ def enrich_campaign_contacts(campaign_id: str, user_id: str):
                 
                 # Enrich contact using the exact same format as contact enricher
                 state = getattr(contact, '_state', '') or 'CA'  # Use stored state or default to CA
-                enriched_data = loop.run_until_complete(enricher.enrich_contact({
+                
+                # Prepare data in the exact format expected by ContactEnricher
+                contact_data = {
                     'Name': f"{contact.first_name} {contact.last_name}".strip(),
                     'Company': contact.company or '',
                     'Email': contact.email or '',
                     'Phone': contact.phone or '',
                     'City': contact.neighborhood or '',  # Use neighborhood as city for location-based searches
                     'State': state
-                }))
+                }
+                
+                logger.info(f"Enriching with data: {contact_data}")
+                
+                enriched_data = loop.run_until_complete(enricher.enrich_contact(contact_data))
                 
                 # Extract enrichment results using the same logic as contact enricher
                 if enriched_data and 'enrichment_results' in enriched_data:
