@@ -197,22 +197,22 @@ def on_startup():
         logger.warning(f"Campaign fields migration failed: {e}")
     
     # Fix campaign foreign key constraint
-    try:
-        from scripts.fix_campaign_foreign_key import fix_campaign_foreign_key
-        logger.info("Fixing campaign foreign key constraint...")
-        fix_campaign_foreign_key()
-        logger.info("Campaign foreign key constraint fixed.")
-    except Exception as e:
-        logger.warning(f"Campaign foreign key fix failed: {e}")
+    logger.info("Fixing campaign foreign key constraint...")
+    from scripts.fix_campaign_foreign_key import fix_campaign_foreign_key
+    fix_campaign_foreign_key()
+    logger.info("Campaign foreign key constraint fixed.")
+    
+    # Fix campaign analytics table
+    logger.info("Fixing campaign analytics table...")
+    from scripts.fix_campaign_analytics_table import fix_campaign_analytics_table
+    fix_campaign_analytics_table()
+    logger.info("Campaign analytics table fixed.")
     
     # Add neighborhood field to campaign_contacts
-    try:
-        from scripts.add_neighborhood_to_contacts import add_neighborhood_field
-        logger.info("Adding neighborhood field to campaign_contacts...")
-        add_neighborhood_field()
-        logger.info("Neighborhood field added.")
-    except Exception as e:
-        logger.warning(f"Neighborhood field migration failed: {e}")
+    logger.info("Adding neighborhood field to campaign_contacts...")
+    from scripts.add_neighborhood_to_contacts import add_neighborhood_field
+    add_neighborhood_field()
+    logger.info("Neighborhood field added.")
     
     # Ensure danny@nbrain.ai has ad-traffic permission
     try:

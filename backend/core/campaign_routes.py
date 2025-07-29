@@ -259,6 +259,17 @@ async def upload_contacts(
                 contact_data['first_name'] = name_parts[0] if name_parts else ''
                 contact_data['last_name'] = name_parts[1] if len(name_parts) > 1 else ''
             
+            # Clean up neighborhood data - remove state abbreviation if present
+            if contact_data['neighborhood']:
+                # Handle format like "Madison AL" -> "Madison"
+                neighborhood_parts = contact_data['neighborhood'].strip().rsplit(' ', 1)
+                if len(neighborhood_parts) == 2 and len(neighborhood_parts[1]) == 2 and neighborhood_parts[1].isupper():
+                    # Looks like "Neighborhood ST" format
+                    contact_data['neighborhood'] = neighborhood_parts[0]
+                    contact_data['state'] = neighborhood_parts[1]  # Store state for enrichment
+                else:
+                    contact_data['state'] = ''
+            
             # Skip rows where all key fields are empty (name or company required)
             if not any([contact_data['first_name'], contact_data['last_name'], contact_data['company']]):
                 logger.debug(f"Skipping row {row_num} - no name or company data")
@@ -279,6 +290,8 @@ async def upload_contacts(
                 phone=contact_data['phone'],  # Can be empty
                 neighborhood=contact_data['neighborhood']
             )
+            # Store state temporarily for enrichment
+            contact._state = contact_data.get('state', '')
             contacts.append(contact)
         
         if not contacts:
@@ -627,13 +640,14 @@ def enrich_campaign_contacts(campaign_id: str, user_id: str):
                 db.commit()
                 
                 # Enrich contact - map to expected field names
+                state = getattr(contact, '_state', '') or 'CA'  # Use stored state or default to CA
                 enriched_data = loop.run_until_complete(enricher.enrich_contact({
                     'Name': f"{contact.first_name} {contact.last_name}".strip(),
                     'Company': contact.company or '',
                     'Email': contact.email or '',
                     'Phone': contact.phone or '',
                     'City': contact.neighborhood or '',  # Use neighborhood as city for location-based searches
-                    'State': 'CA'  # Default to CA for now, could be extracted from campaign
+                    'State': state
                 }))
                 
                 # Extract enrichment results
