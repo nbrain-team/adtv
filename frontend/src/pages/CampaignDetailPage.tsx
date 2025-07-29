@@ -17,6 +17,14 @@ import api from '../api';
 import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 
+// Add spinning animation CSS
+const spinAnimation = `
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+`;
+
 interface Campaign {
     id: string;
     name: string;
@@ -368,6 +376,7 @@ const CampaignDetailPage = () => {
 
     return (
         <MainLayout onNewChat={() => {}}>
+            <style dangerouslySetInnerHTML={{ __html: spinAnimation }} />
             <Box style={{ height: '100vh', backgroundColor: 'var(--gray-1)', overflow: 'auto' }}>
                 {/* Header */}
                 <Box style={{ padding: '1.5rem 2rem', borderBottom: '1px solid var(--gray-4)', backgroundColor: 'white' }}>
@@ -393,6 +402,130 @@ const CampaignDetailPage = () => {
                     </Flex>
                 </Box>
 
+                {/* Progress Steps Bar */}
+                <Box style={{ padding: '1rem 2rem', backgroundColor: 'white', borderBottom: '1px solid var(--gray-4)' }}>
+                    {(() => {
+                        const steps = [
+                            { 
+                                id: 1,
+                                name: 'Create Campaign', 
+                                status: 'completed',
+                                action: null
+                            },
+                            { 
+                                id: 2,
+                                name: 'Upload & Enrich', 
+                                status: campaign.total_contacts > 0 ? 
+                                    (campaign.status === 'enriching' ? 'active' : 'completed') : 'pending',
+                                action: campaign.total_contacts === 0 ? () => setActiveTab('overview') : null
+                            },
+                            { 
+                                id: 3,
+                                name: 'Create Emails', 
+                                status: campaign.status === 'generating_emails' ? 'active' :
+                                       campaign.emails_generated > 0 ? 'completed' : 
+                                       campaign.status === 'ready_for_personalization' ? 'ready' : 'pending',
+                                action: campaign.status === 'ready_for_personalization' ? () => setActiveTab('emails') : null
+                            },
+                            { 
+                                id: 4,
+                                name: 'Review & Approve', 
+                                status: campaign.emails_generated > 0 ? 
+                                    (campaign.status === 'ready_to_send' ? 'ready' : 'pending') : 'pending',
+                                action: campaign.emails_generated > 0 ? () => setActiveTab('contacts') : null
+                            },
+                            {
+                                id: 5,
+                                name: 'Send Emails',
+                                status: campaign.status === 'sending' ? 'active' :
+                                       campaign.emails_sent > 0 ? 'completed' : 
+                                       campaign.status === 'ready_to_send' ? 'ready' : 'pending',
+                                action: campaign.status === 'ready_to_send' ? () => setActiveTab('contacts') : null
+                            }
+                        ];
+
+                        const currentStep = steps.findIndex(s => s.status === 'active' || s.status === 'ready') + 1 || steps.length;
+                        const completedSteps = steps.filter(s => s.status === 'completed').length;
+
+                        return (
+                            <Box>
+                                <Flex align="center" gap="3" style={{ position: 'relative' }}>
+                                    {/* Progress line background */}
+                                    <Box style={{
+                                        position: 'absolute',
+                                        top: '20px',
+                                        left: '40px',
+                                        right: '40px',
+                                        height: '4px',
+                                        backgroundColor: 'var(--gray-3)',
+                                        zIndex: 0
+                                    }}>
+                                        {/* Progress line fill */}
+                                        <Box style={{
+                                            height: '100%',
+                                            width: `${(completedSteps / (steps.length - 1)) * 100}%`,
+                                            backgroundColor: 'var(--green-9)',
+                                            transition: 'width 0.3s ease'
+                                        }} />
+                                    </Box>
+
+                                    {steps.map((step, index) => (
+                                        <Box key={step.id} style={{ flex: 1, position: 'relative', zIndex: 1 }}>
+                                            <Flex direction="column" align="center" gap="1">
+                                                <Button
+                                                    size="3"
+                                                    variant={step.status === 'completed' ? 'solid' : 
+                                                            step.status === 'active' || step.status === 'ready' ? 'soft' : 'ghost'}
+                                                    color={step.status === 'completed' ? 'green' :
+                                                          step.status === 'active' ? 'blue' :
+                                                          step.status === 'ready' ? 'blue' : 'gray'}
+                                                    style={{
+                                                        width: '40px',
+                                                        height: '40px',
+                                                        borderRadius: '50%',
+                                                        padding: 0,
+                                                        cursor: step.action ? 'pointer' : 'default',
+                                                        boxShadow: step.status === 'active' ? '0 0 0 4px var(--blue-3)' : 'none'
+                                                    }}
+                                                    onClick={step.action || undefined}
+                                                    disabled={!step.action}
+                                                >
+                                                    {step.status === 'completed' ? '✓' : step.id}
+                                                </Button>
+                                                <Text size="1" weight="medium" align="center">
+                                                    {step.name}
+                                                </Text>
+                                                {step.status === 'ready' && (
+                                                    <Badge size="1" color="blue">Ready</Badge>
+                                                )}
+                                            </Flex>
+                                        </Box>
+                                    ))}
+                                </Flex>
+
+                                {/* Next Step Call to Action */}
+                                {(() => {
+                                    const nextStep = steps.find(s => s.status === 'ready' || (s.status === 'pending' && s.action));
+                                    if (nextStep) {
+                                        return (
+                                            <Box mt="3" style={{ textAlign: 'center' }}>
+                                                <Button 
+                                                    size="2" 
+                                                    onClick={nextStep.action || undefined}
+                                                    disabled={!nextStep.action}
+                                                >
+                                                    Continue to {nextStep.name}
+                                                </Button>
+                                            </Box>
+                                        );
+                                    }
+                                    return null;
+                                })()}
+                            </Box>
+                        );
+                    })()}
+                </Box>
+
                 {/* Error Message */}
                 {error && (
                     <Box style={{ padding: '1rem 2rem' }}>
@@ -411,7 +544,7 @@ const CampaignDetailPage = () => {
                         <Tabs.List>
                             <Tabs.Trigger value="overview">Overview</Tabs.Trigger>
                             <Tabs.Trigger value="contacts">Contacts ({campaign.total_contacts})</Tabs.Trigger>
-                            <Tabs.Trigger value="emails">Email Template</Tabs.Trigger>
+                            <Tabs.Trigger value="emails">Generate Emails</Tabs.Trigger>
                             <Tabs.Trigger value="analytics">Analytics</Tabs.Trigger>
                             <Tabs.Trigger value="map">Map View</Tabs.Trigger>
                         </Tabs.List>
@@ -710,87 +843,152 @@ const CampaignDetailPage = () => {
                             </Card>
                         </Tabs.Content>
 
-                        {/* Email Template Tab */}
+                        {/* Generate Emails Tab */}
                         <Tabs.Content value="emails">
                             <Card>
-                                <Heading size="4" mb="4">Email Template</Heading>
+                                <Heading size="4" mb="4">Generate Personalized Emails</Heading>
                                 
-                                <Flex direction="column" gap="4">
-                                    <Box>
-                                        <Flex align="center" justify="between" mb="2">
-                                            <Text as="label" size="2" weight="medium">
-                                                Select Template
-                                            </Text>
-                                            <Button 
-                                                size="1" 
-                                                variant="ghost"
-                                                onClick={() => navigate('/template-manager')}
+                                {campaign.status === 'ready_for_personalization' ? (
+                                    <Flex direction="column" gap="4">
+                                        <Callout.Root color="blue">
+                                            <Callout.Icon>
+                                                <InfoCircledIcon />
+                                            </Callout.Icon>
+                                            <Callout.Text>
+                                                {campaign.enriched_contacts} contacts are ready for email personalization. 
+                                                Configure your email template below and generate personalized emails.
+                                            </Callout.Text>
+                                        </Callout.Root>
+
+                                        <Box>
+                                            <Flex align="center" justify="between" mb="2">
+                                                <Text as="label" size="2" weight="medium">
+                                                    Select Email Template
+                                                </Text>
+                                                <Button 
+                                                    size="1" 
+                                                    variant="ghost"
+                                                    onClick={() => navigate('/template-manager')}
+                                                >
+                                                    Manage Templates
+                                                </Button>
+                                            </Flex>
+                                            <Select.Root 
+                                                value={selectedTemplateId} 
+                                                onValueChange={handleTemplateSelect}
                                             >
-                                                Manage Templates
+                                                <Select.Trigger placeholder="Choose a template or start from scratch..." />
+                                                <Select.Content>
+                                                    <Select.Item value="">Start from scratch</Select.Item>
+                                                    <Select.Separator />
+                                                    {availableTemplates.map(template => (
+                                                        <Select.Item key={template.id} value={template.id}>
+                                                            <Flex direction="column" gap="1">
+                                                                <Text size="2" weight="medium">{template.name}</Text>
+                                                                <Text size="1" color="gray">{template.goal}</Text>
+                                                            </Flex>
+                                                        </Select.Item>
+                                                    ))}
+                                                </Select.Content>
+                                            </Select.Root>
+                                        </Box>
+                                        
+                                        <Box>
+                                            <Text as="label" size="2" mb="1" weight="medium">
+                                                Email Subject
+                                            </Text>
+                                            <TextField.Root
+                                                value={emailSubject}
+                                                onChange={(e) => setEmailSubject(e.target.value)}
+                                                placeholder="Join us for an exclusive event..."
+                                            />
+                                        </Box>
+                                        
+                                        <Box>
+                                            <Text as="label" size="2" mb="1" weight="medium">
+                                                Email Template
+                                            </Text>
+                                            <TextArea
+                                                value={emailTemplate}
+                                                onChange={(e) => setEmailTemplate(e.target.value)}
+                                                placeholder="Dear {first_name},\n\nWe're excited to invite you to our upcoming event..."
+                                                rows={15}
+                                            />
+                                            <Text size="1" color="gray" mt="1">
+                                                Available variables: {'{first_name}'}, {'{last_name}'}, {'{company}'}, {'{title}'}, {'{event_date}'}, {'{event_time}'}, {'{hotel_name}'}, {'{hotel_address}'}, {'{calendly_link}'}
+                                            </Text>
+                                        </Box>
+                                        
+                                        <Flex gap="3">
+                                            <Button 
+                                                onClick={() => api.put(`/api/campaigns/${campaignId}`, { 
+                                                    email_template: emailTemplate, 
+                                                    email_subject: emailSubject 
+                                                })}
+                                                variant="soft"
+                                            >
+                                                Save Template
+                                            </Button>
+                                            <Button 
+                                                onClick={handleGenerateEmails}
+                                                disabled={!emailTemplate || !emailSubject}
+                                            >
+                                                <EnvelopeClosedIcon />
+                                                Generate {campaign.enriched_contacts} Personalized Emails
                                             </Button>
                                         </Flex>
-                                        <Select.Root 
-                                            value={selectedTemplateId} 
-                                            onValueChange={handleTemplateSelect}
-                                        >
-                                            <Select.Trigger placeholder="Choose a template or start from scratch..." />
-                                            <Select.Content>
-                                                <Select.Item value="">Start from scratch</Select.Item>
-                                                <Select.Separator />
-                                                {availableTemplates.map(template => (
-                                                    <Select.Item key={template.id} value={template.id}>
-                                                        <Flex direction="column" gap="1">
-                                                            <Text size="2" weight="medium">{template.name}</Text>
-                                                            <Text size="1" color="gray">{template.goal}</Text>
-                                                        </Flex>
-                                                    </Select.Item>
-                                                ))}
-                                            </Select.Content>
-                                        </Select.Root>
-                                    </Box>
-                                    
-                                    <Box>
-                                        <Text as="label" size="2" mb="1" weight="medium">
-                                            Email Subject
-                                        </Text>
-                                        <TextField.Root
-                                            value={emailSubject}
-                                            onChange={(e) => setEmailSubject(e.target.value)}
-                                            placeholder="Join us for an exclusive event..."
-                                        />
-                                    </Box>
-                                    
-                                    <Box>
-                                        <Text as="label" size="2" mb="1" weight="medium">
-                                            Email Template
-                                        </Text>
-                                        <TextArea
-                                            value={emailTemplate}
-                                            onChange={(e) => setEmailTemplate(e.target.value)}
-                                            placeholder="Dear {first_name},\n\nWe're excited to invite you to our upcoming event..."
-                                            rows={15}
-                                        />
-                                        <Text size="1" color="gray" mt="1">
-                                            Available variables: {'{first_name}'}, {'{last_name}'}, {'{company}'}, {'{title}'}, {'{event_date}'}, {'{event_time}'}, {'{hotel_name}'}, {'{hotel_address}'}, {'{calendly_link}'}
-                                        </Text>
-                                    </Box>
-                                    
-                                    <Flex gap="3">
-                                        <Button 
-                                            onClick={() => api.put(`/api/campaigns/${campaignId}`, { 
-                                                email_template: emailTemplate, 
-                                                email_subject: emailSubject 
-                                            })}
-                                        >
-                                            Save Template
-                                        </Button>
-                                        {campaign.status === 'ready_for_personalization' && (
-                                            <Button onClick={handleGenerateEmails}>
-                                                Generate Emails
-                                            </Button>
-                                        )}
                                     </Flex>
-                                </Flex>
+                                ) : campaign.status === 'generating_emails' ? (
+                                    <Flex direction="column" align="center" justify="center" style={{ minHeight: '400px' }}>
+                                        <ReloadIcon style={{ width: '48px', height: '48px', animation: 'spin 1s linear infinite' }} />
+                                        <Heading size="4" mt="4">Generating Personalized Emails...</Heading>
+                                        <Text size="2" color="gray" mt="2">
+                                            This may take a few minutes. You can navigate away and come back.
+                                        </Text>
+                                    </Flex>
+                                ) : campaign.emails_generated > 0 ? (
+                                    <Box>
+                                        <Callout.Root color="green" mb="4">
+                                            <Callout.Icon>
+                                                <CheckIcon />
+                                            </Callout.Icon>
+                                            <Callout.Text>
+                                                Successfully generated {campaign.emails_generated} personalized emails. 
+                                                Review them in the Contacts tab.
+                                            </Callout.Text>
+                                        </Callout.Root>
+                                        
+                                        <Box p="4" style={{ backgroundColor: 'var(--gray-2)', borderRadius: '8px' }}>
+                                            <Text size="2" weight="medium" mb="2">Current Email Template:</Text>
+                                            <Box mb="3">
+                                                <Text size="2" color="gray">Subject:</Text>
+                                                <Text size="3">{campaign.email_subject || emailSubject}</Text>
+                                            </Box>
+                                            <Box>
+                                                <Text size="2" color="gray">Template:</Text>
+                                                <Text size="2" style={{ whiteSpace: 'pre-wrap' }}>
+                                                    {campaign.email_template || emailTemplate}
+                                                </Text>
+                                            </Box>
+                                        </Box>
+                                        
+                                        <Button 
+                                            mt="4"
+                                            onClick={() => navigate(`/campaigns/${campaignId}`)}
+                                        >
+                                            Go to Contacts Tab to Review
+                                        </Button>
+                                    </Box>
+                                ) : (
+                                    <Callout.Root color="gray">
+                                        <Callout.Icon>
+                                            <InfoCircledIcon />
+                                        </Callout.Icon>
+                                        <Callout.Text>
+                                            Please complete contact enrichment before generating emails.
+                                        </Callout.Text>
+                                    </Callout.Root>
+                                )}
                             </Card>
                         </Tabs.Content>
 
