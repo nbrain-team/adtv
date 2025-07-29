@@ -81,6 +81,7 @@ interface EmailTemplate {
     name: string;
     subject: string;
     body: string;
+    content?: string; // Some templates use content instead of body
     goal: string;
 }
 
@@ -237,9 +238,10 @@ const CampaignDetailPage = () => {
             const response = await api.get(`/api/campaigns/${campaignId}/enrichment-status`);
             setEnrichmentStatus(response.data);
             
-            // If enrichment is complete, refresh the campaign
+            // If enrichment is complete, refresh the campaign and contacts
             if (response.data.progress_percentage === 100) {
                 fetchCampaign();
+                fetchContacts();
             }
         } catch (err) {
             console.error('Failed to fetch enrichment status:', err);
@@ -262,8 +264,36 @@ const CampaignDetailPage = () => {
         const template = availableTemplates.find(t => t.id === templateId);
         if (template) {
             setSelectedTemplateId(templateId);
-            setEmailSubject(template.subject);
-            setEmailTemplate(template.body);
+            
+            // Replace template variables with campaign data
+            let processedBody = template.body || template.content || '';
+            let processedSubject = template.subject || `Invitation to ${campaign?.name}`;
+            
+            // Replace common variables
+            const replacements: Record<string, string> = {
+                '{{State}}': 'your state',
+                '{{City}}': campaign?.target_cities?.split('\n')[0] || 'your city',
+                '{{MM}}': campaign?.owner_name || '',
+                '[[YourName]]': campaign?.owner_name || '',
+                '[[DestinationCity]]': campaign?.target_cities?.split('\n')[0] || '',
+                '[[DaysUntilEvent]]': (() => {
+                    if (campaign?.event_date) {
+                        const days = Math.ceil((new Date(campaign.event_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+                        return days > 0 ? days.toString() : 'upcoming';
+                    }
+                    return 'upcoming';
+                })(),
+                '[[ExampleCities]]': campaign?.target_cities?.replace(/\n/g, ', ') || ''
+            };
+            
+            // Apply replacements
+            Object.entries(replacements).forEach(([key, value]) => {
+                processedBody = processedBody.replace(new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), value);
+                processedSubject = processedSubject.replace(new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), value);
+            });
+            
+            setEmailTemplate(processedBody);
+            setEmailSubject(processedSubject);
         }
     };
 
@@ -915,7 +945,9 @@ const CampaignDetailPage = () => {
                                                 rows={15}
                                             />
                                             <Text size="1" color="gray" mt="1">
-                                                Available variables: {'{first_name}'}, {'{last_name}'}, {'{company}'}, {'{title}'}, {'{event_date}'}, {'{event_time}'}, {'{hotel_name}'}, {'{hotel_address}'}, {'{calendly_link}'}
+                                                Available variables: {'{first_name}'}, {'{last_name}'}, {'{company}'}, {'{title}'},
+                                                {'{event_date}'}, {'{event_time}'}, {'{hotel_name}'}, {'{hotel_address}'}, {'{calendly_link}'},
+                                                {'{owner_name}'}, {'{campaign_name}'}, {'{target_cities}'}
                                             </Text>
                                         </Box>
                                         

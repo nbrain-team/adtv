@@ -16,4 +16,7 @@ python scripts/add_user_management_fields.py || echo "User management fields may
 echo "Running campaign analytics fields migration..."
 python scripts/add_campaign_analytics_fields.py || echo "Campaign analytics fields may already exist"
 
+echo "Adding system email templates..."
+python scripts/add_system_email_templates.py || echo "System email templates may already exist"
+
 echo "Build complete!" 

@@ -877,27 +877,68 @@ def generate_campaign_emails(campaign_id: str, user_id: str):
         for contact in contacts:
             try:
                 # Generate personalized email
-                # TODO: Use actual email template and personalization logic
+                # Build the personalization context
+                event_time = campaign.event_times[0] if campaign.event_times else ''
+                
+                # Build template with all variables replaced
+                template_with_vars = campaign.email_template or 'Create a professional invitation email'
+                subject_with_vars = campaign.email_subject or f'Invitation: {campaign.name}'
+                
+                # Replace campaign-level variables
+                replacements = {
+                    '{event_date}': campaign.event_date.strftime('%B %d, %Y'),
+                    '{event_time}': event_time,
+                    '{hotel_name}': campaign.hotel_name or '',
+                    '{hotel_address}': campaign.hotel_address or '',
+                    '{calendly_link}': campaign.calendly_link or '',
+                    '{owner_name}': campaign.owner_name,
+                    '{campaign_name}': campaign.name,
+                    '{target_cities}': campaign.target_cities or '',
+                    # Contact-specific variables (will be replaced by LLM)
+                    '{first_name}': f"{contact.first_name}",
+                    '{last_name}': f"{contact.last_name}",
+                    '{company}': contact.enriched_company or contact.company or '',
+                    '{title}': contact.enriched_title or contact.title or ''
+                }
+                
+                # Apply replacements
+                for key, value in replacements.items():
+                    template_with_vars = template_with_vars.replace(key, value)
+                    subject_with_vars = subject_with_vars.replace(key, value)
+                
                 prompt = f"""
-                Generate a personalized email for:
-                Name: {contact.first_name} {contact.last_name}
-                Company: {contact.enriched_company or contact.company}
-                Title: {contact.enriched_title or contact.title}
+                You are writing a personalized email for an event campaign.
+                
+                Recipient Information:
+                - Name: {contact.first_name} {contact.last_name}
+                - Company: {contact.enriched_company or contact.company}
+                - Title: {contact.enriched_title or contact.title}
+                - Location: {contact.neighborhood or contact.enriched_location or ''}
                 
                 Event Details:
-                Type: {campaign.event_type}
-                Date: {campaign.event_date}
-                {'Hotel: ' + campaign.hotel_name if campaign.hotel_name else ''}
-                {'Calendly: ' + campaign.calendly_link if campaign.calendly_link else ''}
+                - Event Type: {campaign.event_type}
+                - Event Date: {campaign.event_date.strftime('%B %d, %Y')}
+                - Event Time: {event_time}
+                {'- Hotel: ' + campaign.hotel_name if campaign.hotel_name else ''}
+                {'- Address: ' + campaign.hotel_address if campaign.hotel_address else ''}
+                {'- Calendly Link: ' + campaign.calendly_link if campaign.calendly_link else ''}
                 
-                Template: {campaign.email_template or 'Create a professional invitation email'}
+                Email Template:
+                {template_with_vars}
+                
+                Instructions:
+                1. Use the template as a guide but personalize it for this specific recipient
+                2. Keep the same tone and structure as the template
+                3. Make it feel personal and relevant to their location and role
+                4. Do not add any placeholder brackets or variables
+                5. Return only the email body text, no subject line
                 """
                 
                 # Generate email using async function
                 email_content = loop.run_until_complete(generate_text(prompt))
                 
                 contact.personalized_email = email_content
-                contact.personalized_subject = campaign.email_subject or f"Invitation: {campaign.name}"
+                contact.personalized_subject = subject_with_vars
                 contact.email_status = 'generated'
                 generated_count += 1
                 
