@@ -189,6 +189,8 @@ const CampaignDetailPage = () => {
     const [availableTemplates, setAvailableTemplates] = useState<EmailTemplate[]>([]);
     const [selectedTemplateId, setSelectedTemplateId] = useState<string>('scratch');
     const [isLoadingTemplates, setIsLoadingTemplates] = useState(false);
+    const [isEditingCampaign, setIsEditingCampaign] = useState(false);
+    const [editedCampaign, setEditedCampaign] = useState<Campaign | null>(null);
 
     useEffect(() => {
         if (campaignId) {
@@ -216,6 +218,7 @@ const CampaignDetailPage = () => {
         if (campaign) {
             setEmailTemplate(campaign.email_template || '');
             setEmailSubject(campaign.email_subject || '');
+            setEditedCampaign(campaign);
         }
     }, [campaign]);
 
@@ -312,6 +315,34 @@ const CampaignDetailPage = () => {
             setEmailTemplate(processedBody);
             setEmailSubject(processedSubject);
         }
+    };
+
+    const handleSaveCampaign = async () => {
+        if (!editedCampaign) return;
+        
+        try {
+            const updateData = {
+                name: editedCampaign.name,
+                launch_date: editedCampaign.launch_date,
+                event_date: editedCampaign.event_date,
+                event_times: editedCampaign.event_times,
+                target_cities: editedCampaign.target_cities,
+                hotel_name: editedCampaign.hotel_name,
+                hotel_address: editedCampaign.hotel_address,
+                calendly_link: editedCampaign.calendly_link
+            };
+            
+            await api.put(`/api/campaigns/${campaignId}`, updateData);
+            setCampaign(editedCampaign);
+            setIsEditingCampaign(false);
+        } catch (err) {
+            setError('Failed to update campaign');
+        }
+    };
+
+    const handleCancelEdit = () => {
+        setEditedCampaign(campaign);
+        setIsEditingCampaign(false);
     };
 
     const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -437,7 +468,7 @@ const CampaignDetailPage = () => {
                         </Badge>
                     </Flex>
                     
-                    <Flex gap="4" style={{ color: 'var(--gray-10)' }}>
+                    <Flex gap="4" style={{ color: 'var(--gray-12)' }}>
                         <Flex align="center" gap="2">
                             <PersonIcon />
                             <Text size="2">{campaign.owner_name}</Text>
@@ -609,48 +640,214 @@ const CampaignDetailPage = () => {
                             <Box style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
                                 {/* Campaign Details */}
                                 <Card>
-                                    <Heading size="4" mb="4">Campaign Details</Heading>
+                                    <Flex align="center" justify="between" mb="4">
+                                        <Heading size="4">Campaign Details</Heading>
+                                        {!isEditingCampaign ? (
+                                            <Button 
+                                                variant="ghost" 
+                                                size="2"
+                                                onClick={() => setIsEditingCampaign(true)}
+                                            >
+                                                <Pencil1Icon />
+                                                Edit
+                                            </Button>
+                                        ) : (
+                                            <Flex gap="2">
+                                                <Button 
+                                                    size="2"
+                                                    onClick={handleSaveCampaign}
+                                                >
+                                                    <CheckIcon />
+                                                    Save
+                                                </Button>
+                                                <Button 
+                                                    size="2" 
+                                                    variant="soft"
+                                                    onClick={handleCancelEdit}
+                                                >
+                                                    <Cross2Icon />
+                                                    Cancel
+                                                </Button>
+                                            </Flex>
+                                        )}
+                                    </Flex>
+                                    
                                     <Flex direction="column" gap="3">
+                                        {/* Campaign Name */}
                                         <Box>
-                                            <Text size="2" color="gray">Launch Date:</Text>
-                                            <Text size="3" weight="medium">
-                                                {new Date(campaign.launch_date).toLocaleDateString()}
-                                            </Text>
+                                            <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>Campaign Name</Text>
+                                            {!isEditingCampaign ? (
+                                                <Text size="2" style={{ color: 'var(--gray-12)' }}>
+                                                    {campaign.name}
+                                                </Text>
+                                            ) : (
+                                                <TextField.Root
+                                                    value={editedCampaign?.name || ''}
+                                                    onChange={(e) => setEditedCampaign({
+                                                        ...editedCampaign!,
+                                                        name: e.target.value
+                                                    })}
+                                                    style={{ marginTop: '0.25rem' }}
+                                                />
+                                            )}
                                         </Box>
+                                        
+                                        {/* Launch Date */}
                                         <Box>
-                                            <Text size="2" color="gray">Event Date:</Text>
-                                            <Text size="3" weight="medium">
-                                                {new Date(campaign.event_date).toLocaleDateString()}
-                                            </Text>
+                                            <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>Launch Date</Text>
+                                            {!isEditingCampaign ? (
+                                                <Text size="2" style={{ color: 'var(--gray-12)' }}>
+                                                    {new Date(campaign.launch_date).toLocaleDateString()}
+                                                </Text>
+                                            ) : (
+                                                <input
+                                                    type="date"
+                                                    value={editedCampaign?.launch_date ? 
+                                                        new Date(editedCampaign.launch_date).toISOString().split('T')[0] : ''
+                                                    }
+                                                    onChange={(e) => setEditedCampaign({
+                                                        ...editedCampaign!,
+                                                        launch_date: new Date(e.target.value).toISOString()
+                                                    })}
+                                                    style={{ 
+                                                        marginTop: '0.25rem',
+                                                        padding: '0.5rem',
+                                                        borderRadius: '4px',
+                                                        border: '1px solid var(--gray-6)',
+                                                        width: '100%'
+                                                    }}
+                                                />
+                                            )}
                                         </Box>
-                                        {campaign.event_times && campaign.event_times.length > 0 && (
-                                            <Box>
-                                                <Text size="2" color="gray">Event Times:</Text>
-                                                <Text size="3" weight="medium">
-                                                    {campaign.event_times.join(', ')}
+                                        
+                                        {/* Event Date */}
+                                        <Box>
+                                            <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>Event Date</Text>
+                                            {!isEditingCampaign ? (
+                                                <Text size="2" style={{ color: 'var(--gray-12)' }}>
+                                                    {new Date(campaign.event_date).toLocaleDateString()}
                                                 </Text>
-                                            </Box>
-                                        )}
-                                        {campaign.target_cities && (
+                                            ) : (
+                                                <input
+                                                    type="date"
+                                                    value={editedCampaign?.event_date ? 
+                                                        new Date(editedCampaign.event_date).toISOString().split('T')[0] : ''
+                                                    }
+                                                    onChange={(e) => setEditedCampaign({
+                                                        ...editedCampaign!,
+                                                        event_date: new Date(e.target.value).toISOString()
+                                                    })}
+                                                    style={{ 
+                                                        marginTop: '0.25rem',
+                                                        padding: '0.5rem',
+                                                        borderRadius: '4px',
+                                                        border: '1px solid var(--gray-6)',
+                                                        width: '100%'
+                                                    }}
+                                                />
+                                            )}
+                                        </Box>
+                                        
+                                        {/* Event Times */}
+                                        {(campaign.event_times && campaign.event_times.length > 0) || isEditingCampaign ? (
                                             <Box>
-                                                <Text size="2" color="gray">Target Cities:</Text>
-                                                <Text size="3" weight="medium" style={{ whiteSpace: 'pre-wrap' }}>
-                                                    {campaign.target_cities}
-                                                </Text>
+                                                <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>Event Times</Text>
+                                                {!isEditingCampaign ? (
+                                                    <Text size="2" style={{ color: 'var(--gray-12)' }}>
+                                                        {campaign.event_times?.join(', ')}
+                                                    </Text>
+                                                ) : (
+                                                    <TextField.Root
+                                                        value={editedCampaign?.event_times?.join(', ') || ''}
+                                                        onChange={(e) => setEditedCampaign({
+                                                            ...editedCampaign!,
+                                                            event_times: e.target.value.split(',').map(t => t.trim()).filter(t => t)
+                                                        })}
+                                                        placeholder="e.g., 10:00 AM, 2:00 PM"
+                                                        style={{ marginTop: '0.25rem' }}
+                                                    />
+                                                )}
                                             </Box>
-                                        )}
+                                        ) : null}
+                                        
+                                        {/* Target Cities */}
+                                        {campaign.target_cities || isEditingCampaign ? (
+                                            <Box>
+                                                <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>Target Cities</Text>
+                                                {!isEditingCampaign ? (
+                                                    <Text size="2" style={{ color: 'var(--gray-12)', whiteSpace: 'pre-wrap' }}>
+                                                        {campaign.target_cities}
+                                                    </Text>
+                                                ) : (
+                                                    <TextArea
+                                                        value={editedCampaign?.target_cities || ''}
+                                                        onChange={(e) => setEditedCampaign({
+                                                            ...editedCampaign!,
+                                                            target_cities: e.target.value
+                                                        })}
+                                                        placeholder="Enter cities, one per line"
+                                                        rows={3}
+                                                        style={{ marginTop: '0.25rem' }}
+                                                    />
+                                                )}
+                                            </Box>
+                                        ) : null}
+                                        
+                                        {/* Event Type Specific Fields */}
                                         {campaign.event_type === 'in_person' ? (
                                             <>
                                                 <Box>
-                                                    <Text size="2" color="gray">Hotel:</Text>
-                                                    <Text size="3" weight="medium">{campaign.hotel_name}</Text>
-                                                    <Text size="3">{campaign.hotel_address}</Text>
+                                                    <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>Hotel Name</Text>
+                                                    {!isEditingCampaign ? (
+                                                        <Text size="2" style={{ color: 'var(--gray-12)' }}>
+                                                            {campaign.hotel_name || '-'}
+                                                        </Text>
+                                                    ) : (
+                                                        <TextField.Root
+                                                            value={editedCampaign?.hotel_name || ''}
+                                                            onChange={(e) => setEditedCampaign({
+                                                                ...editedCampaign!,
+                                                                hotel_name: e.target.value
+                                                            })}
+                                                            style={{ marginTop: '0.25rem' }}
+                                                        />
+                                                    )}
+                                                </Box>
+                                                <Box>
+                                                    <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>Hotel Address</Text>
+                                                    {!isEditingCampaign ? (
+                                                        <Text size="2" style={{ color: 'var(--gray-12)' }}>
+                                                            {campaign.hotel_address || '-'}
+                                                        </Text>
+                                                    ) : (
+                                                        <TextField.Root
+                                                            value={editedCampaign?.hotel_address || ''}
+                                                            onChange={(e) => setEditedCampaign({
+                                                                ...editedCampaign!,
+                                                                hotel_address: e.target.value
+                                                            })}
+                                                            style={{ marginTop: '0.25rem' }}
+                                                        />
+                                                    )}
                                                 </Box>
                                             </>
                                         ) : (
                                             <Box>
-                                                <Text size="2" color="gray">Calendly Link:</Text>
-                                                <Text size="3" weight="medium">{campaign.calendly_link}</Text>
+                                                <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>Calendly Link</Text>
+                                                {!isEditingCampaign ? (
+                                                    <Text size="2" style={{ color: 'var(--gray-12)' }}>
+                                                        {campaign.calendly_link || '-'}
+                                                    </Text>
+                                                ) : (
+                                                    <TextField.Root
+                                                        value={editedCampaign?.calendly_link || ''}
+                                                        onChange={(e) => setEditedCampaign({
+                                                            ...editedCampaign!,
+                                                            calendly_link: e.target.value
+                                                        })}
+                                                        style={{ marginTop: '0.25rem' }}
+                                                    />
+                                                )}
                                             </Box>
                                         )}
                                     </Flex>
