@@ -39,8 +39,10 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     last_login = Column(DateTime(timezone=True), nullable=True)
 
-    conversations = relationship("ChatSession", back_populates="user")
-    template_agents = relationship("TemplateAgent", back_populates="creator", cascade="all, delete-orphan")
+    # User relationships
+    conversations = relationship("ChatSession", back_populates="user", cascade="all, delete-orphan")
+    data_lake_records = relationship("DataLakeRecord", back_populates="user", cascade="all, delete-orphan")
+    template_agents = relationship("TemplateAgent", back_populates="user", cascade="all, delete-orphan")
     email_templates = relationship("EmailTemplate", back_populates="creator", cascade="all, delete-orphan")
     campaigns = relationship("Campaign", back_populates="user", cascade="all, delete-orphan")
     campaign_templates = relationship("CampaignTemplate", back_populates="user", cascade="all, delete-orphan")
