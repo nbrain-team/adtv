@@ -7,6 +7,14 @@ import { RealtorImporterWorkflow } from '../components/RealtorImporter/RealtorIm
 import { TemplateAgentCreator } from '../components/TemplateAgentCreator';
 import { MainLayout } from '../components/MainLayout';
 import { useNavigate } from 'react-router-dom';
+import { 
+    ChatBubbleIcon, 
+    FileTextIcon, 
+    RocketIcon, 
+    EnvelopeClosedIcon,
+    MagicWandIcon,
+    TargetIcon
+} from '@radix-ui/react-icons';
 
 // Define the structure for an agent
 interface Agent {
@@ -59,6 +67,13 @@ const agents: Agent[] = [
     component: <Box p="4"><Text>Redirecting to Contact Enricher...</Text></Box>, // Placeholder component
   },
   {
+    id: 'event-campaign',
+    name: 'Event Campaign Builder',
+    description: 'End-to-end campaign management with contact enrichment, email personalization, and analytics.',
+    icon: <BarChart {...iconProps} />,
+    component: <Box p="4"><Text>Redirecting to Campaign Builder...</Text></Box>, // Placeholder component
+  },
+  {
     id: 'ad-traffic',
     name: 'ADTV Traffic',
     description: 'Analyze and optimize your digital advertising performance across platforms.',
@@ -89,6 +104,9 @@ const AgentsPage = () => {
     } else if (agent && agent.id === 'ad-traffic') {
       // Navigate to ad traffic page
       navigate('/ad-traffic');
+    } else if (agent && agent.id === 'event-campaign') {
+      // Navigate to campaigns page
+      navigate('/campaigns');
     } else if (agent && agent.id !== 'more-coming') {
       setSelectedAgent(agent);
     } else if (agent?.id === 'more-coming') {
