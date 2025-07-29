@@ -16,59 +16,33 @@ def fix_campaign_analytics_table():
             inspector = inspect(engine)
             
             # Check if campaign_analytics table exists
-            if 'campaign_analytics' not in inspector.get_table_names():
-                print("Creating campaign_analytics table...")
-                conn.execute(text("""
-                    CREATE TABLE campaign_analytics (
-                        id VARCHAR PRIMARY KEY,
-                        campaign_id VARCHAR REFERENCES campaigns(id),
-                        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        contacts_uploaded INTEGER DEFAULT 0,
-                        contacts_enriched INTEGER DEFAULT 0,
-                        enrichment_success_rate FLOAT DEFAULT 0.0,
-                        emails_generated INTEGER DEFAULT 0,
-                        emails_sent INTEGER DEFAULT 0,
-                        enrichment_start_time TIMESTAMP,
-                        enrichment_end_time TIMESTAMP,
-                        email_generation_start_time TIMESTAMP,
-                        email_generation_end_time TIMESTAMP,
-                        sending_start_time TIMESTAMP,
-                        sending_end_time TIMESTAMP
-                    )
-                """))
+            if 'campaign_analytics' in inspector.get_table_names():
+                print("Dropping existing campaign_analytics table to fix foreign key...")
+                conn.execute(text("DROP TABLE IF EXISTS campaign_analytics CASCADE"))
                 conn.commit()
-                print("✅ Created campaign_analytics table")
-            else:
-                # Get existing columns
-                existing_columns = [col['name'] for col in inspector.get_columns('campaign_analytics')]
-                
-                # Add missing columns
-                columns_to_add = {
-                    'timestamp': 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP',
-                    'contacts_uploaded': 'INTEGER DEFAULT 0',
-                    'contacts_enriched': 'INTEGER DEFAULT 0',
-                    'enrichment_success_rate': 'FLOAT DEFAULT 0.0',
-                    'emails_generated': 'INTEGER DEFAULT 0',
-                    'emails_sent': 'INTEGER DEFAULT 0',
-                    'enrichment_start_time': 'TIMESTAMP',
-                    'enrichment_end_time': 'TIMESTAMP',
-                    'email_generation_start_time': 'TIMESTAMP',
-                    'email_generation_end_time': 'TIMESTAMP',
-                    'sending_start_time': 'TIMESTAMP',
-                    'sending_end_time': 'TIMESTAMP'
-                }
-                
-                for col_name, col_type in columns_to_add.items():
-                    if col_name not in existing_columns:
-                        print(f"Adding {col_name} column...")
-                        conn.execute(text(f"""
-                            ALTER TABLE campaign_analytics
-                            ADD COLUMN {col_name} {col_type}
-                        """))
-                        conn.commit()
-                        print(f"✅ Added {col_name} column")
-                    else:
-                        print(f"ℹ️  {col_name} column already exists")
+                print("✅ Dropped old campaign_analytics table")
+            
+            print("Creating campaign_analytics table with correct foreign key...")
+            conn.execute(text("""
+                CREATE TABLE campaign_analytics (
+                    id VARCHAR PRIMARY KEY,
+                    campaign_id VARCHAR REFERENCES campaigns(id) ON DELETE CASCADE,
+                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    contacts_uploaded INTEGER DEFAULT 0,
+                    contacts_enriched INTEGER DEFAULT 0,
+                    enrichment_success_rate FLOAT DEFAULT 0.0,
+                    emails_generated INTEGER DEFAULT 0,
+                    emails_sent INTEGER DEFAULT 0,
+                    enrichment_start_time TIMESTAMP,
+                    enrichment_end_time TIMESTAMP,
+                    email_generation_start_time TIMESTAMP,
+                    email_generation_end_time TIMESTAMP,
+                    sending_start_time TIMESTAMP,
+                    sending_end_time TIMESTAMP
+                )
+            """))
+            conn.commit()
+            print("✅ Created campaign_analytics table with correct foreign key to campaigns table")
                         
     except Exception as e:
         print(f"❌ Error fixing campaign_analytics table: {e}")
