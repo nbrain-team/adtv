@@ -196,6 +196,15 @@ def on_startup():
     except Exception as e:
         logger.warning(f"Campaign fields migration failed: {e}")
     
+    # Fix campaign foreign key constraint
+    try:
+        from scripts.fix_campaign_foreign_key import fix_campaign_foreign_key
+        logger.info("Fixing campaign foreign key constraint...")
+        fix_campaign_foreign_key()
+        logger.info("Campaign foreign key constraint fixed.")
+    except Exception as e:
+        logger.warning(f"Campaign foreign key fix failed: {e}")
+    
     # Ensure danny@nbrain.ai has ad-traffic permission
     try:
         with SessionLocal() as db:
