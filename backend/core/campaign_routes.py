@@ -11,7 +11,7 @@ import json
 from . import auth
 from .database import get_db, User, Campaign, CampaignContact, CampaignTemplate, CampaignAnalytics, engine
 from contact_enricher.services import ContactEnricher
-from core.llm_handler import LLMHandler
+from core.llm_handler import generate_text
 
 router = APIRouter()
 
@@ -564,6 +564,7 @@ def enrich_campaign_contacts(campaign_id: str, user_id: str):
 def generate_campaign_emails(campaign_id: str, user_id: str):
     """Background task to generate personalized emails"""
     from sqlalchemy.orm import sessionmaker
+    import asyncio
     SessionLocal = sessionmaker(bind=engine)
     db = SessionLocal()
     
@@ -588,7 +589,10 @@ def generate_campaign_emails(campaign_id: str, user_id: str):
             CampaignContact.email_status == 'pending'
         ).all()
         
-        llm_handler = LLMHandler()
+        # Create event loop for async operations
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
         generated_count = 0
         
         for contact in contacts:
@@ -610,8 +614,8 @@ def generate_campaign_emails(campaign_id: str, user_id: str):
                 Template: {campaign.email_template or 'Create a professional invitation email'}
                 """
                 
-                # Generate email
-                email_content = llm_handler.generate_response(prompt)
+                # Generate email using async function
+                email_content = loop.run_until_complete(generate_text(prompt))
                 
                 contact.personalized_email = email_content
                 contact.personalized_subject = campaign.email_subject or f"Invitation: {campaign.name}"
@@ -624,6 +628,9 @@ def generate_campaign_emails(campaign_id: str, user_id: str):
             
             contact.updated_at = datetime.utcnow()
             db.commit()
+        
+        # Close the event loop
+        loop.close()
         
         # Update campaign stats
         campaign.emails_generated = generated_count
