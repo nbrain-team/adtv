@@ -1,5 +1,5 @@
 import os
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, JSON, Boolean, ForeignKey, func, Enum as SAEnum, BigInteger, Text
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, JSON, Boolean, ForeignKey, func, Enum as SAEnum, BigInteger, Text, Float
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from datetime import datetime
@@ -42,6 +42,8 @@ class User(Base):
     conversations = relationship("ChatSession", back_populates="user")
     template_agents = relationship("TemplateAgent", back_populates="creator", cascade="all, delete-orphan")
     email_templates = relationship("EmailTemplate", back_populates="creator", cascade="all, delete-orphan")
+    campaigns = relationship("Campaign", back_populates="user", cascade="all, delete-orphan")
+    campaign_templates = relationship("CampaignTemplate", back_populates="user", cascade="all, delete-orphan")
     # Note: ad_traffic_clients relationship is defined on the AdTrafficClient model to avoid circular imports
 
 
@@ -133,17 +135,141 @@ class TemplateAgent(Base):
     __tablename__ = "template_agents"
     
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, ForeignKey("users.id"))
     name = Column(String, nullable=False)
-    example_input = Column(String, nullable=False)  # Using String instead of Text
-    example_output = Column(String, nullable=False)
-    prompt_template = Column(String, nullable=False)  # Generated prompt
-    created_by = Column(String, ForeignKey("users.id"))
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now())
-    is_active = Column(Boolean, default=True)
+    description = Column(Text)
+    prompt_template = Column(Text, nullable=False)
+    example_input = Column(Text)
+    example_output = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationship
-    creator = relationship("User", back_populates="template_agents")
+    user = relationship("User", back_populates="template_agents")
+
+# Campaign Models
+class Campaign(Base):
+    __tablename__ = "campaigns"
+    
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, ForeignKey("users.id"))
+    name = Column(String, nullable=False)
+    owner_name = Column(String, nullable=False)  # Selected from dropdown
+    owner_email = Column(String, nullable=False)
+    launch_date = Column(DateTime, nullable=False)
+    event_type = Column(String, nullable=False)  # 'virtual' or 'in_person'
+    event_date = Column(DateTime, nullable=False)
+    hotel_name = Column(String)
+    hotel_address = Column(String)
+    calendly_link = Column(String)
+    status = Column(String, default='draft')  # draft, enriching, ready_for_personalization, emails_generated, ready_to_send, sending, sent
+    
+    # Analytics
+    total_contacts = Column(Integer, default=0)
+    enriched_contacts = Column(Integer, default=0)
+    failed_enrichments = Column(Integer, default=0)
+    emails_generated = Column(Integer, default=0)
+    emails_sent = Column(Integer, default=0)
+    
+    # Email template
+    email_template = Column(Text)
+    email_subject = Column(String)
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    user = relationship("User", back_populates="campaigns")
+    contacts = relationship("CampaignContact", back_populates="campaign", cascade="all, delete-orphan")
+    analytics = relationship("CampaignAnalytics", back_populates="campaign", cascade="all, delete-orphan")
+
+class CampaignContact(Base):
+    __tablename__ = "campaign_contacts"
+    
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    campaign_id = Column(String, ForeignKey("campaigns.id"))
+    
+    # Original data
+    first_name = Column(String)
+    last_name = Column(String)
+    email = Column(String)
+    company = Column(String)
+    title = Column(String)
+    phone = Column(String)
+    
+    # Enriched data
+    enriched_company = Column(String)
+    enriched_title = Column(String)
+    enriched_phone = Column(String)
+    enriched_linkedin = Column(String)
+    enriched_website = Column(String)
+    enriched_industry = Column(String)
+    enriched_company_size = Column(String)
+    enriched_location = Column(String)
+    
+    # Email personalization
+    personalized_email = Column(Text)
+    personalized_subject = Column(String)
+    
+    # Status tracking
+    enrichment_status = Column(String, default='pending')  # pending, processing, success, failed
+    enrichment_error = Column(Text)
+    email_status = Column(String, default='pending')  # pending, generated, sent, failed
+    email_sent_at = Column(DateTime)
+    
+    # Flags
+    excluded = Column(Boolean, default=False)
+    manually_edited = Column(Boolean, default=False)
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    campaign = relationship("Campaign", back_populates="contacts")
+
+class CampaignTemplate(Base):
+    __tablename__ = "campaign_templates"
+    
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, ForeignKey("users.id"))
+    name = Column(String, nullable=False)
+    description = Column(Text)
+    
+    # Template data
+    event_type = Column(String)
+    email_template = Column(Text)
+    email_subject = Column(String)
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    user = relationship("User", back_populates="campaign_templates")
+
+class CampaignAnalytics(Base):
+    __tablename__ = "campaign_analytics"
+    
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    campaign_id = Column(String, ForeignKey("campaigns.id"))
+    timestamp = Column(DateTime, default=datetime.utcnow)
+    
+    # Metrics at this point in time
+    contacts_uploaded = Column(Integer, default=0)
+    contacts_enriched = Column(Integer, default=0)
+    enrichment_success_rate = Column(Float, default=0.0)
+    emails_generated = Column(Integer, default=0)
+    emails_sent = Column(Integer, default=0)
+    
+    # Time tracking
+    enrichment_start_time = Column(DateTime)
+    enrichment_end_time = Column(DateTime)
+    email_generation_start_time = Column(DateTime)
+    email_generation_end_time = Column(DateTime)
+    sending_start_time = Column(DateTime)
+    sending_end_time = Column(DateTime)
+    
+    # Relationships
+    campaign = relationship("Campaign", back_populates="analytics")
 
 
 class EmailTemplate(Base):

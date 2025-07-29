@@ -13,6 +13,8 @@ import LandingPage from './pages/LandingPage';
 import AgentsPage from './pages/AgentsPage';
 import DataLakePage from './pages/DataLakePage';
 import ProfilePage from './pages/ProfilePage';
+import CampaignsPage from './pages/CampaignsPage';
+import CampaignDetailPage from './pages/CampaignDetailPage';
 import TemplateManagerPage from './pages/TemplateManagerPage';
 import AdTrafficPage from './pages/AdTrafficPage';
 import ContactEnricherPage from './pages/ContactEnricherPage';
@@ -66,6 +68,16 @@ function App() {
             <Route path="/data-lake" element={
               <ProtectedRoute requiredPermission="data-lake">
                 <DataLakePage />
+              </ProtectedRoute>
+            } />
+            <Route path="/campaigns" element={
+              <ProtectedRoute requiredPermission="campaigns">
+                <CampaignsPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/campaigns/:campaignId" element={
+              <ProtectedRoute requiredPermission="campaigns">
+                <CampaignDetailPage />
               </ProtectedRoute>
             } />
             <Route path="/profile" element={

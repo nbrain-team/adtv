@@ -1,3 +1,4 @@
+import React from 'react';
 import { Flex } from '@radix-ui/themes';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -68,6 +69,16 @@ export const Sidebar = ({ onNewChat }: { onNewChat: () => void }) => {
                 {hasPermission('realtor') && (
                     <button className="sidebar-icon" title="Realtor" onClick={() => navigate('/realtor')}>
                         <img src="/new-icons/15.png" alt="Realtor" />
+                    </button>
+                )}
+                {userProfile?.permissions?.['data-lake'] && (
+                    <button className="sidebar-icon" title="Data Lake" onClick={() => navigate('/data-lake')}>
+                        <img src="/new-icons/14.png" alt="Data Lake" />
+                    </button>
+                )}
+                {userProfile?.permissions?.['campaigns'] && (
+                    <button className="sidebar-icon" title="Marketing Campaigns" onClick={() => navigate('/campaigns')}>
+                        <img src="/new-icons/12.png" alt="Marketing Campaigns" />
                     </button>
                 )}
             </Flex>

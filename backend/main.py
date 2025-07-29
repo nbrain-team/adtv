@@ -29,6 +29,7 @@ from core.personalizer_routes import router as personalizer_router
 from db_setup import update_db_schema, migrate_data
 from ad_traffic.api import router as ad_traffic_router
 from contact_enricher.api import router as contact_enricher_router
+from core.campaign_routes import router as campaign_routes
 
 
 load_dotenv()
@@ -227,6 +228,7 @@ app.include_router(email_template_router, prefix="/api/email-templates", tags=["
 app.include_router(ad_traffic_router, prefix="/api/ad-traffic", tags=["ad-traffic"])
 app.include_router(personalizer_router, prefix="/api/personalizer", tags=["personalizer"])
 app.include_router(contact_enricher_router, prefix="/api/contact-enricher", tags=["contact-enricher"])
+app.include_router(campaign_routes, prefix="/api/campaigns", tags=["campaigns"])
 
 # Mount uploads directory for static file serving
 import os
