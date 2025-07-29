@@ -187,7 +187,7 @@ const CampaignDetailPage = () => {
     const [emailSubject, setEmailSubject] = useState('');
     const [enrichmentStatus, setEnrichmentStatus] = useState<any>(null);
     const [availableTemplates, setAvailableTemplates] = useState<EmailTemplate[]>([]);
-    const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+    const [selectedTemplateId, setSelectedTemplateId] = useState<string>('scratch');
     const [isLoadingTemplates, setIsLoadingTemplates] = useState(false);
 
     useEffect(() => {
@@ -267,6 +267,14 @@ const CampaignDetailPage = () => {
     };
 
     const handleTemplateSelect = (templateId: string) => {
+        if (templateId === 'scratch') {
+            // Clear template for starting from scratch
+            setSelectedTemplateId('scratch');
+            setEmailTemplate('');
+            setEmailSubject('');
+            return;
+        }
+        
         const template = availableTemplates.find(t => t.id === templateId);
         if (template) {
             setSelectedTemplateId(templateId);
@@ -926,7 +934,7 @@ const CampaignDetailPage = () => {
                                             >
                                                 <Select.Trigger placeholder="Choose a template or start from scratch..." />
                                                 <Select.Content>
-                                                    <Select.Item value="">Start from scratch</Select.Item>
+                                                    <Select.Item value="scratch">Start from scratch</Select.Item>
                                                     <Select.Separator />
                                                     {availableTemplates.map(template => (
                                                         <Select.Item key={template.id} value={template.id}>
