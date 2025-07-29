@@ -137,12 +137,13 @@ class TemplateAgent(Base):
     __tablename__ = "template_agents"
     
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    user_id = Column(String, ForeignKey("users.id"))
+    created_by = Column(String, ForeignKey("users.id"))  # Changed from user_id to created_by
     name = Column(String, nullable=False)
     description = Column(Text)
     prompt_template = Column(Text, nullable=False)
     example_input = Column(Text)
     example_output = Column(Text)
+    is_active = Column(Boolean, default=True)  # Added is_active field
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
