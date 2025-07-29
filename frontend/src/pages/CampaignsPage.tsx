@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Box, Flex, Heading, Text, Card, Button, Badge, Dialog, TextField, Select, TextArea, Callout } from '@radix-ui/themes';
-import { PlusIcon, CalendarIcon, PersonIcon, EnvelopeClosedIcon, BarChartIcon, InfoCircledIcon } from '@radix-ui/react-icons';
+import { Box, Flex, Heading, Text, Card, Button, Badge, Dialog, TextField, Select, TextArea, Callout, IconButton, AlertDialog } from '@radix-ui/themes';
+import { PlusIcon, CalendarIcon, PersonIcon, EnvelopeClosedIcon, BarChartIcon, InfoCircledIcon, TrashIcon } from '@radix-ui/react-icons';
 import { MainLayout } from '../components/MainLayout';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
@@ -67,6 +67,7 @@ const CampaignsPage = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [showCreateDialog, setShowCreateDialog] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [deletingCampaignId, setDeletingCampaignId] = useState<string | null>(null);
     const navigate = useNavigate();
 
     // Form state
@@ -139,6 +140,16 @@ const CampaignsPage = () => {
         }
     };
 
+    const handleDeleteCampaign = async (campaignId: string) => {
+        try {
+            await api.delete(`/api/campaigns/${campaignId}`);
+            setCampaigns(campaigns.filter(c => c.id !== campaignId));
+            setDeletingCampaignId(null);
+        } catch (err) {
+            setError('Failed to delete campaign');
+        }
+    };
+
     const getProgressPercentage = (campaign: Campaign) => {
         if (campaign.total_contacts === 0) return 0;
         return Math.round((campaign.enriched_contacts / campaign.total_contacts) * 100);
@@ -185,8 +196,33 @@ const CampaignsPage = () => {
                                 <Card 
                                     key={campaign.id} 
                                     style={{ cursor: 'pointer', transition: 'all 0.2s', position: 'relative' }}
-                                    onClick={() => navigate(`/campaigns/${campaign.id}`)}
+                                    onClick={(e) => {
+                                        // Don't navigate if clicking on delete button
+                                        if ((e.target as HTMLElement).closest('[data-delete-button]')) {
+                                            return;
+                                        }
+                                        navigate(`/campaigns/${campaign.id}`);
+                                    }}
                                 >
+                                    <IconButton
+                                        data-delete-button
+                                        size="2"
+                                        color="red"
+                                        variant="ghost"
+                                        style={{
+                                            position: 'absolute',
+                                            top: '1rem',
+                                            right: '1rem',
+                                            zIndex: 10
+                                        }}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setDeletingCampaignId(campaign.id);
+                                        }}
+                                    >
+                                        <TrashIcon />
+                                    </IconButton>
+                                    
                                     <Flex direction="column" gap="3">
                                         <Flex align="center" justify="between">
                                             <Heading size="4">{campaign.name}</Heading>
@@ -435,6 +471,33 @@ const CampaignsPage = () => {
                         </Flex>
                     </Dialog.Content>
                 </Dialog.Root>
+
+                <AlertDialog.Root open={!!deletingCampaignId} onOpenChange={(open) => !open && setDeletingCampaignId(null)}>
+                    <AlertDialog.Content style={{ maxWidth: 450 }}>
+                        <AlertDialog.Title>Delete Campaign</AlertDialog.Title>
+                        <AlertDialog.Description size="2">
+                            Are you sure you want to delete this campaign? This action cannot be undone.
+                            All contacts and data associated with this campaign will be permanently deleted.
+                        </AlertDialog.Description>
+
+                        <Flex gap="3" mt="4" justify="end">
+                            <AlertDialog.Cancel>
+                                <Button variant="soft" color="gray">
+                                    Cancel
+                                </Button>
+                            </AlertDialog.Cancel>
+                            <AlertDialog.Action>
+                                <Button 
+                                    variant="solid" 
+                                    color="red"
+                                    onClick={() => deletingCampaignId && handleDeleteCampaign(deletingCampaignId)}
+                                >
+                                    Delete Campaign
+                                </Button>
+                            </AlertDialog.Action>
+                        </Flex>
+                    </AlertDialog.Content>
+                </AlertDialog.Root>
             </Box>
         </MainLayout>
     );

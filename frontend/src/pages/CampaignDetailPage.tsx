@@ -51,6 +51,16 @@ interface Contact {
     title?: string;
     phone?: string;
     neighborhood?: string;
+    // Enriched data
+    enriched_company?: string;
+    enriched_title?: string;
+    enriched_phone?: string;
+    enriched_linkedin?: string;
+    enriched_website?: string;
+    enriched_industry?: string;
+    enriched_company_size?: string;
+    enriched_location?: string;
+    // Status
     enrichment_status: string;
     email_status: string;
     excluded: boolean;
@@ -636,9 +646,9 @@ const CampaignDetailPage = () => {
                                                         {contact.last_name || '-'}
                                                     </Table.Cell>
                                                     <Table.Cell>{contact.email || '-'}</Table.Cell>
-                                                    <Table.Cell>{contact.phone || '-'}</Table.Cell>
-                                                    <Table.Cell>{contact.company || '-'}</Table.Cell>
-                                                    <Table.Cell>{contact.title || '-'}</Table.Cell>
+                                                    <Table.Cell>{contact.enriched_phone || contact.phone || '-'}</Table.Cell>
+                                                    <Table.Cell>{contact.enriched_company || contact.company || '-'}</Table.Cell>
+                                                    <Table.Cell>{contact.enriched_title || contact.title || '-'}</Table.Cell>
                                                     <Table.Cell>{contact.neighborhood || '-'}</Table.Cell>
                                                     <Table.Cell>
                                                         <Badge 
@@ -650,6 +660,13 @@ const CampaignDetailPage = () => {
                                                         >
                                                             {contact.enrichment_status}
                                                         </Badge>
+                                                        {contact.enrichment_status === 'success' && (
+                                                            <Flex gap="1" mt="1">
+                                                                {contact.email && <Badge size="1" color="blue">Email</Badge>}
+                                                                {contact.enriched_phone && <Badge size="1" color="green">Phone</Badge>}
+                                                                {contact.enriched_linkedin && <Badge size="1" color="cyan">LinkedIn</Badge>}
+                                                            </Flex>
+                                                        )}
                                                     </Table.Cell>
                                                     <Table.Cell>
                                                         <Badge 
@@ -871,92 +888,145 @@ const CampaignDetailPage = () => {
                                 <Heading size="4" mb="4">Contact Locations</Heading>
                                 
                                 {(() => {
-                                    const contactsWithCoords = contacts
-                                        .filter(c => !c.excluded)
+                                    // Get all non-excluded contacts
+                                    const allContacts = contacts.filter(c => !c.excluded);
+                                    
+                                    // Separate contacts with and without coordinates
+                                    const contactsWithCoords = allContacts
                                         .map(c => ({
                                             ...c,
                                             coords: getNeighborhoodCoords(c.neighborhood)
                                         }))
                                         .filter(c => c.coords !== null);
                                     
+                                    const contactsWithoutCoords = allContacts
+                                        .filter(c => !getNeighborhoodCoords(c.neighborhood));
+                                    
+                                    // Count neighborhoods for mapped contacts
                                     const neighborhoodCounts = contactsWithCoords.reduce((acc, contact) => {
                                         const key = contact.neighborhood || 'Unknown';
                                         acc[key] = (acc[key] || 0) + 1;
                                         return acc;
                                     }, {} as Record<string, number>);
                                     
-                                    if (contactsWithCoords.length === 0) {
-                                        return (
-                                            <Box p="4">
-                                                <Text color="gray">No contacts with valid neighborhood data to display on map.</Text>
-                                            </Box>
-                                        );
-                                    }
+                                    // Count unmapped neighborhoods
+                                    const unmappedNeighborhoods = contactsWithoutCoords.reduce((acc, contact) => {
+                                        const key = contact.neighborhood || 'No neighborhood';
+                                        acc[key] = (acc[key] || 0) + 1;
+                                        return acc;
+                                    }, {} as Record<string, number>);
                                     
                                     return (
-                                        <Box style={{ height: '600px', position: 'relative' }}>
-                                            <MapContainer
-                                                center={[33.5186, -86.8104]} // Alabama center (Birmingham)
-                                                zoom={7}
-                                                style={{ height: '100%', width: '100%' }}
-                                            >
-                                                <TileLayer
-                                                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                                                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                                                />
-                                                
-                                                {Object.entries(neighborhoodCounts).map(([neighborhood, count]) => {
-                                                    const coords = getNeighborhoodCoords(neighborhood);
-                                                    if (!coords) return null;
-                                                    
-                                                    return (
-                                                        <CircleMarker
-                                                            key={neighborhood}
-                                                            center={coords}
-                                                            radius={Math.min(30, 10 + count * 2)}
-                                                            fillColor="#3b82f6"
-                                                            fillOpacity={0.6}
-                                                            stroke={true}
-                                                            color="#1e40af"
-                                                            weight={2}
-                                                        >
-                                                            <Popup>
-                                                                <Box>
-                                                                    <Text weight="bold">{neighborhood}</Text>
-                                                                    <br />
-                                                                    <Text>{count} contacts</Text>
-                                                                </Box>
-                                                            </Popup>
-                                                        </CircleMarker>
-                                                    );
-                                                })}
-                                            </MapContainer>
+                                        <Box>
+                                            <Flex gap="4" mb="4">
+                                                <Badge size="2" color="green">
+                                                    Mapped: {contactsWithCoords.length} contacts
+                                                </Badge>
+                                                <Badge size="2" color="orange">
+                                                    Unmapped: {contactsWithoutCoords.length} contacts
+                                                </Badge>
+                                                <Badge size="2" color="gray">
+                                                    Total: {allContacts.length} contacts
+                                                </Badge>
+                                            </Flex>
                                             
-                                            <Box 
-                                                style={{ 
-                                                    position: 'absolute', 
-                                                    top: '1rem', 
-                                                    right: '1rem', 
-                                                    backgroundColor: 'white', 
-                                                    padding: '1rem',
-                                                    borderRadius: '8px',
-                                                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                                                    zIndex: 1000,
-                                                    maxHeight: '400px',
-                                                    overflowY: 'auto'
-                                                }}
-                                            >
-                                                <Text size="2" weight="bold" mb="2">Neighborhoods</Text>
-                                                {Object.entries(neighborhoodCounts)
-                                                    .sort(([, a], [, b]) => b - a)
-                                                    .map(([neighborhood, count]) => (
-                                                        <Flex key={neighborhood} justify="between" gap="3" mb="1">
-                                                            <Text size="1">{neighborhood}</Text>
-                                                            <Text size="1" weight="medium">{count}</Text>
-                                                        </Flex>
-                                                    ))
-                                                }
-                                            </Box>
+                                            {contactsWithCoords.length === 0 ? (
+                                                <Box p="4">
+                                                    <Text color="gray">No contacts with valid neighborhood data to display on map.</Text>
+                                                </Box>
+                                            ) : (
+                                                <Box style={{ height: '600px', position: 'relative' }}>
+                                                    <MapContainer
+                                                        center={[33.5186, -86.8104]} // Alabama center (Birmingham)
+                                                        zoom={7}
+                                                        style={{ height: '100%', width: '100%' }}
+                                                    >
+                                                        <TileLayer
+                                                            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                                                            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                                                        />
+                                                        
+                                                        {Object.entries(neighborhoodCounts).map(([neighborhood, count]) => {
+                                                            const coords = getNeighborhoodCoords(neighborhood);
+                                                            if (!coords) return null;
+                                                            
+                                                            return (
+                                                                <CircleMarker
+                                                                    key={neighborhood}
+                                                                    center={coords}
+                                                                    radius={Math.min(30, 10 + count * 2)}
+                                                                    fillColor="#3b82f6"
+                                                                    fillOpacity={0.6}
+                                                                    stroke={true}
+                                                                    color="#1e40af"
+                                                                    weight={2}
+                                                                >
+                                                                    <Popup>
+                                                                        <Box>
+                                                                            <Text weight="bold">{neighborhood}</Text>
+                                                                            <br />
+                                                                            <Text>{count} contacts</Text>
+                                                                        </Box>
+                                                                    </Popup>
+                                                                </CircleMarker>
+                                                            );
+                                                        })}
+                                                    </MapContainer>
+                                                    
+                                                    <Box 
+                                                        style={{ 
+                                                            position: 'absolute', 
+                                                            top: '1rem', 
+                                                            right: '1rem', 
+                                                            backgroundColor: 'white', 
+                                                            padding: '1rem',
+                                                            borderRadius: '8px',
+                                                            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                                                            zIndex: 1000,
+                                                            maxHeight: '400px',
+                                                            overflowY: 'auto',
+                                                            maxWidth: '300px'
+                                                        }}
+                                                    >
+                                                        <Text size="2" weight="bold" mb="2">Mapped Neighborhoods</Text>
+                                                        {Object.entries(neighborhoodCounts)
+                                                            .sort(([, a], [, b]) => b - a)
+                                                            .map(([neighborhood, count]) => (
+                                                                <Flex key={neighborhood} justify="between" gap="3" mb="1">
+                                                                    <Text size="1">{neighborhood}</Text>
+                                                                    <Text size="1" weight="medium">{count}</Text>
+                                                                </Flex>
+                                                            ))
+                                                        }
+                                                        
+                                                        {contactsWithoutCoords.length > 0 && (
+                                                            <>
+                                                                <Text size="2" weight="bold" mt="3" mb="2" color="orange">
+                                                                    Unmapped Neighborhoods
+                                                                </Text>
+                                                                <Text size="1" color="gray" mb="2">
+                                                                    (Add coordinates to display on map)
+                                                                </Text>
+                                                                {Object.entries(unmappedNeighborhoods)
+                                                                    .sort(([, a], [, b]) => b - a)
+                                                                    .slice(0, 20) // Show top 20
+                                                                    .map(([neighborhood, count]) => (
+                                                                        <Flex key={neighborhood} justify="between" gap="3" mb="1">
+                                                                            <Text size="1" color="orange">{neighborhood}</Text>
+                                                                            <Text size="1" weight="medium" color="orange">{count}</Text>
+                                                                        </Flex>
+                                                                    ))
+                                                                }
+                                                                {Object.keys(unmappedNeighborhoods).length > 20 && (
+                                                                    <Text size="1" color="gray" mt="2">
+                                                                        ... and {Object.keys(unmappedNeighborhoods).length - 20} more
+                                                                    </Text>
+                                                                )}
+                                                            </>
+                                                        )}
+                                                    </Box>
+                                                </Box>
+                                            )}
                                         </Box>
                                     );
                                 })()}

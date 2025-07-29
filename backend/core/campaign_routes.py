@@ -74,6 +74,16 @@ class ContactResponse(BaseModel):
     title: Optional[str]
     phone: Optional[str]
     neighborhood: Optional[str]
+    # Enriched data
+    enriched_company: Optional[str]
+    enriched_title: Optional[str]
+    enriched_phone: Optional[str]
+    enriched_linkedin: Optional[str]
+    enriched_website: Optional[str]
+    enriched_industry: Optional[str]
+    enriched_company_size: Optional[str]
+    enriched_location: Optional[str]
+    # Status
     enrichment_status: str
     email_status: str
     excluded: bool
@@ -657,8 +667,24 @@ def enrich_campaign_contacts(campaign_id: str, user_id: str):
                     # Update contact with enriched data from various sources
                     if 'google' in results:
                         google_data = results['google']
-                        contact.enriched_phone = google_data.get('phone') or contact.enriched_phone
-                        contact.enriched_linkedin = google_data.get('linkedin_url') or contact.enriched_linkedin
+                        
+                        # Extract best email
+                        if google_data.get('emails'):
+                            best_email = max(google_data['emails'], key=lambda x: x.get('confidence', 0))
+                            if not contact.email:  # Only update if no original email
+                                contact.email = best_email['email']
+                        
+                        # Extract best phone
+                        if google_data.get('phones'):
+                            best_phone = google_data['phones'][0]  # Take first phone
+                            contact.enriched_phone = best_phone['phone']
+                        
+                        # Extract LinkedIn
+                        for source in google_data.get('sources', []):
+                            if 'linkedin.com' in source:
+                                contact.enriched_linkedin = source
+                                break
+                        
                         contact.enriched_website = google_data.get('website') or contact.enriched_website
                     
                     if 'website' in results:
