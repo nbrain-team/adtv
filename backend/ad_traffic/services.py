@@ -153,20 +153,20 @@ def delete_post(db: Session, post_id: str, user_id: str) -> bool:
 
 
 # Campaign services
-def get_client_campaigns(db: Session, client_id: str) -> List[models.Campaign]:
+def get_client_campaigns(db: Session, client_id: str) -> List[models.AdTrafficCampaign]:
     """Get all campaigns for a client"""
-    return db.query(models.Campaign).filter(
-        models.Campaign.client_id == client_id
-    ).order_by(models.Campaign.created_at.desc()).all()
+    return db.query(models.AdTrafficCampaign).filter(
+        models.AdTrafficCampaign.client_id == client_id
+    ).order_by(models.AdTrafficCampaign.created_at.desc()).all()
 
 def create_campaign(
     db: Session, 
     campaign_data: schemas.CampaignCreate,
     client_id: str,
     video_path: str
-) -> models.Campaign:
+) -> models.AdTrafficCampaign:
     """Create a new campaign"""
-    campaign = models.Campaign(
+    campaign = models.AdTrafficCampaign(
         **campaign_data.dict(),
         client_id=client_id,
         original_video_url=video_path
@@ -181,14 +181,14 @@ def get_campaign_with_clips(
     db: Session, 
     campaign_id: str, 
     user_id: str
-) -> Optional[models.Campaign]:
+) -> Optional[models.AdTrafficCampaign]:
     """Get campaign with video clips"""
-    campaign = db.query(models.Campaign).join(
+    campaign = db.query(models.AdTrafficCampaign).join(
         models.AdTrafficClient
     ).options(
-        joinedload(models.Campaign.video_clips)
+        joinedload(models.AdTrafficCampaign.video_clips)
     ).filter(
-        models.Campaign.id == campaign_id,
+        models.AdTrafficCampaign.id == campaign_id,
         models.AdTrafficClient.user_id == user_id
     ).first()
     
@@ -198,10 +198,10 @@ def get_campaign_with_clips(
 def get_campaign_posts(db: Session, campaign_id: str, user_id: str) -> List[models.SocialPost]:
     """Get all posts associated with a campaign"""
     # First verify the campaign belongs to the user
-    campaign = db.query(models.Campaign).join(
+    campaign = db.query(models.AdTrafficCampaign).join(
         models.AdTrafficClient
     ).filter(
-        models.Campaign.id == campaign_id,
+        models.AdTrafficCampaign.id == campaign_id,
         models.AdTrafficClient.user_id == user_id
     ).first()
     
@@ -229,7 +229,8 @@ async def process_campaign_video(campaign_id: str, video_path: str, client_id: s
     logger.info("=" * 50)
     
     with SessionLocal() as db:
-        campaign = db.query(models.Campaign).filter(models.Campaign.id == campaign_id).first()
+        # Fetch campaign details
+        campaign = db.query(models.AdTrafficCampaign).filter(models.AdTrafficCampaign.id == campaign_id).first()
         if not campaign:
             logger.error(f"Campaign {campaign_id} not found")
             return
@@ -284,7 +285,7 @@ async def process_campaign_video(campaign_id: str, video_path: str, client_id: s
                 logger.error(f"Error with {processor_name}: {str(e)}")
                 # Mark campaign as failed
                 with SessionLocal() as db:
-                    campaign = db.query(models.Campaign).filter(models.Campaign.id == campaign_id).first()
+                    campaign = db.query(models.AdTrafficCampaign).filter(models.AdTrafficCampaign.id == campaign_id).first()
                     if campaign:
                         campaign.status = models.CampaignStatus.FAILED
                         campaign.error_message = str(e)
@@ -325,7 +326,7 @@ async def process_campaign_video(campaign_id: str, video_path: str, client_id: s
         
         # If all processors fail, mark campaign as failed
         with SessionLocal() as db:
-            campaign = db.query(models.Campaign).filter(models.Campaign.id == campaign_id).first()
+            campaign = db.query(models.AdTrafficCampaign).filter(models.AdTrafficCampaign.id == campaign_id).first()
             if campaign:
                 campaign.status = models.CampaignStatus.FAILED
                 campaign.error_message = "All video processors failed"

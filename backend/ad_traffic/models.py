@@ -50,10 +50,10 @@ class AdTrafficClient(Base):
     # Relationships
     user = relationship("User")
     posts = relationship("SocialPost", back_populates="client", cascade="all, delete-orphan")
-    campaigns = relationship("Campaign", back_populates="client", cascade="all, delete-orphan")
+    campaigns = relationship("AdTrafficCampaign", back_populates="client", cascade="all, delete-orphan")
 
 
-class Campaign(Base):
+class AdTrafficCampaign(Base):
     __tablename__ = "ad_traffic_campaigns"
     
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
@@ -78,7 +78,7 @@ class VideoClip(Base):
     __tablename__ = "video_clips"
     
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    campaign_id = Column(String, ForeignKey("campaigns.id"), nullable=False)
+    campaign_id = Column(String, ForeignKey("ad_traffic_campaigns.id"), nullable=False)
     title = Column(String, nullable=False)
     description = Column(Text)
     duration = Column(Float, nullable=False)
@@ -93,7 +93,7 @@ class VideoClip(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     # Relationships
-    campaign = relationship("Campaign", back_populates="video_clips")
+    campaign = relationship("AdTrafficCampaign", back_populates="video_clips")
 
 
 class SocialPost(Base):
@@ -101,7 +101,7 @@ class SocialPost(Base):
     
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     client_id = Column(String, ForeignKey("ad_traffic_clients.id"), nullable=False)
-    campaign_id = Column(String, ForeignKey("campaigns.id"))
+    campaign_id = Column(String, ForeignKey("ad_traffic_campaigns.id"))
     video_clip_id = Column(String, ForeignKey("video_clips.id"))
     content = Column(Text, nullable=False)
     platforms = Column(ARRAY(String), nullable=False)
@@ -115,5 +115,5 @@ class SocialPost(Base):
     
     # Relationships
     client = relationship("AdTrafficClient", back_populates="posts")
-    campaign = relationship("Campaign", back_populates="posts")
+    campaign = relationship("AdTrafficCampaign", back_populates="posts")
     video_clip = relationship("VideoClip") 
