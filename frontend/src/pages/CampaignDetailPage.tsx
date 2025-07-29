@@ -200,7 +200,10 @@ const CampaignDetailPage = () => {
 
     useEffect(() => {
         if (campaign?.status === 'enriching') {
-            const interval = setInterval(fetchEnrichmentStatus, 5000); // Check every 5 seconds
+            const interval = setInterval(() => {
+                fetchEnrichmentStatus();
+                fetchCampaign(); // Also refresh campaign data
+            }, 5000); // Check every 5 seconds
             fetchEnrichmentStatus(); // Initial fetch
             return () => clearInterval(interval);
         }
@@ -239,9 +242,12 @@ const CampaignDetailPage = () => {
             setEnrichmentStatus(response.data);
             
             // If enrichment is complete, refresh the campaign and contacts
-            if (response.data.progress_percentage === 100) {
-                fetchCampaign();
-                fetchContacts();
+            if (response.data.progress_percentage === 100 && campaign?.status === 'enriching') {
+                // Force a complete refresh
+                setTimeout(() => {
+                    fetchCampaign();
+                    fetchContacts();
+                }, 1000); // Small delay to ensure backend has updated
             }
         } catch (err) {
             console.error('Failed to fetch enrichment status:', err);
@@ -635,7 +641,23 @@ const CampaignDetailPage = () => {
 
                                 {/* Quick Actions */}
                                 <Card>
-                                    <Heading size="4" mb="4">Quick Actions</Heading>
+                                    <Flex align="center" justify="between" mb="4">
+                                        <Heading size="4">Quick Actions</Heading>
+                                        <Button 
+                                            variant="ghost" 
+                                            size="2"
+                                            onClick={() => {
+                                                fetchCampaign();
+                                                fetchContacts();
+                                                if (campaign?.status === 'enriching') {
+                                                    fetchEnrichmentStatus();
+                                                }
+                                            }}
+                                        >
+                                            <ReloadIcon />
+                                            Refresh
+                                        </Button>
+                                    </Flex>
                                     <Flex direction="column" gap="3">
                                         {campaign.status === 'draft' && (
                                             <>
