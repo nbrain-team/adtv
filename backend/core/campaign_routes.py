@@ -649,7 +649,7 @@ def enrich_campaign_contacts(campaign_id: str, user_id: str):
                 contact.enrichment_status = 'processing'
                 db.commit()
                 
-                # Enrich contact - map to expected field names
+                # Enrich contact using the exact same format as contact enricher
                 state = getattr(contact, '_state', '') or 'CA'  # Use stored state or default to CA
                 enriched_data = loop.run_until_complete(enricher.enrich_contact({
                     'Name': f"{contact.first_name} {contact.last_name}".strip(),
@@ -660,37 +660,72 @@ def enrich_campaign_contacts(campaign_id: str, user_id: str):
                     'State': state
                 }))
                 
-                # Extract enrichment results
+                # Extract enrichment results using the same logic as contact enricher
                 if enriched_data and 'enrichment_results' in enriched_data:
                     results = enriched_data['enrichment_results']
                     
-                    # Update contact with enriched data from various sources
+                    # Process Google SERP results
                     if 'google' in results:
                         google_data = results['google']
                         
                         # Extract best email
-                        if google_data.get('emails'):
-                            best_email = max(google_data['emails'], key=lambda x: x.get('confidence', 0))
-                            if not contact.email:  # Only update if no original email
-                                contact.email = best_email['email']
+                        best_email = None
+                        best_email_confidence = 0
+                        for email_data in google_data.get('emails', []):
+                            if email_data['confidence'] > best_email_confidence:
+                                best_email = email_data['email']
+                                best_email_confidence = email_data['confidence']
+                        
+                        if best_email and not contact.email:  # Only update if no original email
+                            contact.email = best_email
                         
                         # Extract best phone
-                        if google_data.get('phones'):
-                            best_phone = google_data['phones'][0]  # Take first phone
-                            contact.enriched_phone = best_phone['phone']
+                        best_phone = None
+                        best_phone_confidence = 0
+                        for phone_data in google_data.get('phones', []):
+                            if phone_data.get('confidence', 0) > best_phone_confidence:
+                                best_phone = phone_data['phone']
+                                best_phone_confidence = phone_data.get('confidence', 0)
                         
-                        # Extract LinkedIn
+                        if best_phone:
+                            contact.enriched_phone = best_phone
+                        
+                        # Extract LinkedIn from sources
                         for source in google_data.get('sources', []):
-                            if 'linkedin.com' in source:
+                            if 'linkedin.com' in source.lower():
                                 contact.enriched_linkedin = source
                                 break
-                        
-                        contact.enriched_website = google_data.get('website') or contact.enriched_website
                     
+                    # Process website scraping results
                     if 'website' in results:
                         website_data = results['website']
+                        
+                        # Website emails take priority
+                        website_emails = website_data.get('emails', [])
+                        if website_emails and not contact.email:
+                            contact.email = website_emails[0]
+                        
+                        # Website phones
+                        website_phones = website_data.get('phones', [])
+                        if website_phones and not contact.enriched_phone:
+                            contact.enriched_phone = website_phones[0]
+                        
+                        # Company info
                         contact.enriched_company = website_data.get('company_name') or contact.company
                         contact.enriched_location = website_data.get('location') or contact.enriched_location
+                        contact.enriched_industry = website_data.get('industry')
+                        contact.enriched_website = website_data.get('website')
+                    
+                    # Process Facebook results if available
+                    if 'facebook' in results:
+                        facebook_data = results['facebook']
+                        fb_emails = facebook_data.get('emails', [])
+                        if fb_emails and not contact.email:
+                            contact.email = fb_emails[0]
+                        
+                        fb_phones = facebook_data.get('phones', [])
+                        if fb_phones and not contact.enriched_phone:
+                            contact.enriched_phone = fb_phones[0]
                     
                     # Use original values as fallback
                     contact.enriched_company = contact.enriched_company or contact.company
