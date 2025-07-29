@@ -41,7 +41,6 @@ class User(Base):
 
     # User relationships
     conversations = relationship("ChatSession", back_populates="user", cascade="all, delete-orphan")
-    data_lake_records = relationship("DataLakeRecord", back_populates="user", cascade="all, delete-orphan")
     template_agents = relationship("TemplateAgent", back_populates="user", cascade="all, delete-orphan")
     email_templates = relationship("EmailTemplate", back_populates="creator", cascade="all, delete-orphan")
     campaigns = relationship("Campaign", back_populates="user", cascade="all, delete-orphan")
