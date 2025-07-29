@@ -879,6 +879,113 @@ const CampaignDetailPage = () => {
                                         </Box>
                                     </Flex>
                                 </Card>
+
+                                {/* Email and Phone Capture Rates */}
+                                <Card style={{ gridColumn: 'span 2' }}>
+                                    <Heading size="4" mb="4">Data Capture Rates</Heading>
+                                    <Box style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '2rem' }}>
+                                        <Box>
+                                            <Flex align="center" justify="between" mb="2">
+                                                <Text size="2" weight="medium">Email Capture Rate</Text>
+                                                <Text size="3" weight="bold" color="blue">
+                                                    {(() => {
+                                                        const contactsWithEmail = contacts.filter(c => c.email).length;
+                                                        return campaign.total_contacts > 0 
+                                                            ? Math.round((contactsWithEmail / campaign.total_contacts) * 100) 
+                                                            : 0;
+                                                    })()}%
+                                                </Text>
+                                            </Flex>
+                                            <Box style={{ 
+                                                width: '100%', 
+                                                height: '12px', 
+                                                backgroundColor: 'var(--gray-4)', 
+                                                borderRadius: '6px',
+                                                overflow: 'hidden'
+                                            }}>
+                                                <Box style={{
+                                                    width: `${(() => {
+                                                        const contactsWithEmail = contacts.filter(c => c.email).length;
+                                                        return campaign.total_contacts > 0 
+                                                            ? (contactsWithEmail / campaign.total_contacts) * 100 
+                                                            : 0;
+                                                    })()}%`,
+                                                    height: '100%',
+                                                    backgroundColor: 'var(--blue-9)'
+                                                }} />
+                                            </Box>
+                                            <Text size="1" color="gray" mt="2">
+                                                {contacts.filter(c => c.email).length} of {campaign.total_contacts} contacts have emails
+                                            </Text>
+                                        </Box>
+
+                                        <Box>
+                                            <Flex align="center" justify="between" mb="2">
+                                                <Text size="2" weight="medium">Phone Capture Rate</Text>
+                                                <Text size="3" weight="bold" color="green">
+                                                    {(() => {
+                                                        const contactsWithPhone = contacts.filter(c => c.enriched_phone || c.phone).length;
+                                                        return campaign.total_contacts > 0 
+                                                            ? Math.round((contactsWithPhone / campaign.total_contacts) * 100) 
+                                                            : 0;
+                                                    })()}%
+                                                </Text>
+                                            </Flex>
+                                            <Box style={{ 
+                                                width: '100%', 
+                                                height: '12px', 
+                                                backgroundColor: 'var(--gray-4)', 
+                                                borderRadius: '6px',
+                                                overflow: 'hidden'
+                                            }}>
+                                                <Box style={{
+                                                    width: `${(() => {
+                                                        const contactsWithPhone = contacts.filter(c => c.enriched_phone || c.phone).length;
+                                                        return campaign.total_contacts > 0 
+                                                            ? (contactsWithPhone / campaign.total_contacts) * 100 
+                                                            : 0;
+                                                    })()}%`,
+                                                    height: '100%',
+                                                    backgroundColor: 'var(--green-9)'
+                                                }} />
+                                            </Box>
+                                            <Text size="1" color="gray" mt="2">
+                                                {contacts.filter(c => c.enriched_phone || c.phone).length} of {campaign.total_contacts} contacts have phones
+                                            </Text>
+                                        </Box>
+                                    </Box>
+
+                                    {/* Breakdown by source */}
+                                    <Box mt="4" style={{ borderTop: '1px solid var(--gray-4)', paddingTop: '1rem' }}>
+                                        <Text size="2" weight="medium" mb="3">Data Sources</Text>
+                                        <Box style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
+                                            <Box>
+                                                <Text size="1" color="gray">Original Emails</Text>
+                                                <Text size="3" weight="bold">
+                                                    {contacts.filter(c => c.email && !c.enriched_phone).length}
+                                                </Text>
+                                            </Box>
+                                            <Box>
+                                                <Text size="1" color="gray">Enriched Emails</Text>
+                                                <Text size="3" weight="bold" color="blue">
+                                                    {contacts.filter(c => c.email && c.enrichment_status === 'success').length}
+                                                </Text>
+                                            </Box>
+                                            <Box>
+                                                <Text size="1" color="gray">Original Phones</Text>
+                                                <Text size="3" weight="bold">
+                                                    {contacts.filter(c => c.phone && !c.enriched_phone).length}
+                                                </Text>
+                                            </Box>
+                                            <Box>
+                                                <Text size="1" color="gray">Enriched Phones</Text>
+                                                <Text size="3" weight="bold" color="green">
+                                                    {contacts.filter(c => c.enriched_phone).length}
+                                                </Text>
+                                            </Box>
+                                        </Box>
+                                    </Box>
+                                </Card>
                             </Box>
                         </Tabs.Content>
 

@@ -256,22 +256,30 @@ class CampaignAnalytics(Base):
     
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     campaign_id = Column(String, ForeignKey("campaigns.id"))
+    
+    # Timestamps for different stages
     timestamp = Column(DateTime, default=datetime.utcnow)
-    
-    # Metrics at this point in time
-    contacts_uploaded = Column(Integer, default=0)
-    contacts_enriched = Column(Integer, default=0)
-    enrichment_success_rate = Column(Float, default=0.0)
-    emails_generated = Column(Integer, default=0)
-    emails_sent = Column(Integer, default=0)
-    
-    # Time tracking
     enrichment_start_time = Column(DateTime)
     enrichment_end_time = Column(DateTime)
     email_generation_start_time = Column(DateTime)
     email_generation_end_time = Column(DateTime)
-    sending_start_time = Column(DateTime)
-    sending_end_time = Column(DateTime)
+    send_start_time = Column(DateTime)
+    send_end_time = Column(DateTime)
+    
+    # Metrics
+    contacts_uploaded = Column(Integer, default=0)
+    contacts_enriched = Column(Integer, default=0)
+    contacts_with_email = Column(Integer, default=0)
+    contacts_with_phone = Column(Integer, default=0)
+    emails_generated = Column(Integer, default=0)
+    emails_sent = Column(Integer, default=0)
+    
+    # Success rates
+    enrichment_success_rate = Column(Float, default=0.0)
+    email_capture_rate = Column(Float, default=0.0)
+    phone_capture_rate = Column(Float, default=0.0)
+    email_generation_rate = Column(Float, default=0.0)
+    email_send_rate = Column(Float, default=0.0)
     
     # Relationships
     campaign = relationship("Campaign", back_populates="analytics")

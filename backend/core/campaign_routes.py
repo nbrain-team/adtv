@@ -524,6 +524,14 @@ async def get_campaign_analytics(
         CampaignAnalytics.campaign_id == campaign_id
     ).order_by(desc(CampaignAnalytics.timestamp)).all()
     
+    # Get current contact stats
+    contacts = db.query(CampaignContact).filter(
+        CampaignContact.campaign_id == campaign_id
+    ).all()
+    
+    contacts_with_email = sum(1 for c in contacts if c.email)
+    contacts_with_phone = sum(1 for c in contacts if c.enriched_phone or c.phone)
+    
     return {
         "campaign_id": campaign_id,
         "current_stats": {
@@ -535,7 +543,17 @@ async def get_campaign_analytics(
             "enrichment_success_rate": (
                 campaign.enriched_contacts / campaign.total_contacts * 100 
                 if campaign.total_contacts > 0 else 0
-            )
+            ),
+            "email_capture_rate": (
+                contacts_with_email / len(contacts) * 100
+                if contacts else 0
+            ),
+            "phone_capture_rate": (
+                contacts_with_phone / len(contacts) * 100
+                if contacts else 0
+            ),
+            "contacts_with_email": contacts_with_email,
+            "contacts_with_phone": contacts_with_phone
         },
         "timeline": analytics
     }
@@ -770,14 +788,34 @@ def enrich_campaign_contacts(campaign_id: str, user_id: str):
         campaign.failed_enrichments = failed_count
         campaign.status = 'ready_for_personalization'
         
-        # Record end time
+        # Calculate email and phone capture rates
+        all_contacts = db.query(CampaignContact).filter(
+            CampaignContact.campaign_id == campaign_id
+        ).all()
+        
+        contacts_with_email = sum(1 for c in all_contacts if c.email)
+        contacts_with_phone = sum(1 for c in all_contacts if c.enriched_phone or c.phone)
+        
+        # Record end time and capture rates
         analytics.enrichment_end_time = datetime.utcnow()
         analytics.contacts_enriched = enriched_count
+        analytics.contacts_with_email = contacts_with_email
+        analytics.contacts_with_phone = contacts_with_phone
         analytics.enrichment_success_rate = (
             enriched_count / len(contacts) * 100 if contacts else 0
         )
+        analytics.email_capture_rate = (
+            contacts_with_email / len(all_contacts) * 100 if all_contacts else 0
+        )
+        analytics.phone_capture_rate = (
+            contacts_with_phone / len(all_contacts) * 100 if all_contacts else 0
+        )
         
         db.commit()
+        
+        logger.info(f"Enrichment completed: {enriched_count}/{len(contacts)} successful")
+        logger.info(f"Email capture rate: {analytics.email_capture_rate:.1f}%")
+        logger.info(f"Phone capture rate: {analytics.phone_capture_rate:.1f}%")
         
         # TODO: Send notification email to campaign owner
         
