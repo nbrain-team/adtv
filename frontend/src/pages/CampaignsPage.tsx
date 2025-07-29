@@ -13,6 +13,8 @@ interface Campaign {
     launch_date: string;
     event_type: 'virtual' | 'in_person';
     event_date: string;
+    event_times?: string[];
+    target_cities?: string;
     hotel_name?: string;
     hotel_address?: string;
     calendly_link?: string;
@@ -74,6 +76,8 @@ const CampaignsPage = () => {
         launch_date: '',
         event_type: 'in_person' as 'virtual' | 'in_person',
         event_date: '',
+        event_times: [''],
+        target_cities: '',
         hotel_name: '',
         hotel_address: '',
         calendly_link: ''
@@ -106,6 +110,8 @@ const CampaignsPage = () => {
                 launch_date: new Date(formData.launch_date).toISOString(),
                 event_type: formData.event_type,
                 event_date: new Date(formData.event_date).toISOString(),
+                event_times: formData.event_times.filter(time => time.trim() !== ''),
+                target_cities: formData.target_cities,
                 hotel_name: formData.event_type === 'in_person' ? formData.hotel_name : undefined,
                 hotel_address: formData.event_type === 'in_person' ? formData.hotel_address : undefined,
                 calendly_link: formData.event_type === 'virtual' ? formData.calendly_link : undefined
@@ -122,6 +128,8 @@ const CampaignsPage = () => {
                 launch_date: '',
                 event_type: 'in_person',
                 event_date: '',
+                event_times: [''],
+                target_cities: '',
                 hotel_name: '',
                 hotel_address: '',
                 calendly_link: ''
@@ -278,6 +286,18 @@ const CampaignsPage = () => {
                                 </Select.Root>
                             </Box>
 
+                            <Box>
+                                <Text as="label" size="2" mb="1" weight="medium">
+                                    Target Cities
+                                </Text>
+                                <TextArea
+                                    value={formData.target_cities}
+                                    onChange={(e) => setFormData({ ...formData, target_cities: e.target.value })}
+                                    placeholder="Enter target cities, one per line"
+                                    rows={3}
+                                />
+                            </Box>
+
                             <Flex gap="3">
                                 <Box style={{ flex: 1 }}>
                                     <Text as="label" size="2" mb="1" weight="medium">
@@ -300,6 +320,51 @@ const CampaignsPage = () => {
                                     />
                                 </Box>
                             </Flex>
+
+                            <Box>
+                                <Flex align="center" justify="between" mb="2">
+                                    <Text as="label" size="2" weight="medium">
+                                        Event Times
+                                    </Text>
+                                    <Button 
+                                        size="1" 
+                                        variant="soft"
+                                        onClick={() => setFormData({ ...formData, event_times: [...formData.event_times, ''] })}
+                                    >
+                                        <PlusIcon />
+                                        Add Time
+                                    </Button>
+                                </Flex>
+                                <Flex direction="column" gap="2">
+                                    {formData.event_times.map((time, index) => (
+                                        <Flex key={index} gap="2" align="center">
+                                            <TextField.Root
+                                                type="time"
+                                                value={time}
+                                                onChange={(e) => {
+                                                    const newTimes = [...formData.event_times];
+                                                    newTimes[index] = e.target.value;
+                                                    setFormData({ ...formData, event_times: newTimes });
+                                                }}
+                                                style={{ flex: 1 }}
+                                            />
+                                            {formData.event_times.length > 1 && (
+                                                <Button
+                                                    size="1"
+                                                    variant="soft"
+                                                    color="red"
+                                                    onClick={() => {
+                                                        const newTimes = formData.event_times.filter((_, i) => i !== index);
+                                                        setFormData({ ...formData, event_times: newTimes });
+                                                    }}
+                                                >
+                                                    Remove
+                                                </Button>
+                                            )}
+                                        </Flex>
+                                    ))}
+                                </Flex>
+                            </Box>
 
                             <Box>
                                 <Text as="label" size="2" mb="1" weight="medium">

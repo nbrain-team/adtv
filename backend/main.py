@@ -187,6 +187,15 @@ def on_startup():
     except Exception as e:
         logger.error(f"Error running migrations: {e}")
     
+    # Add campaign fields
+    try:
+        from scripts.add_campaign_fields import add_campaign_fields
+        logger.info("Adding campaign fields...")
+        add_campaign_fields()
+        logger.info("Campaign fields migration completed.")
+    except Exception as e:
+        logger.warning(f"Campaign fields migration failed: {e}")
+    
     # Ensure danny@nbrain.ai has ad-traffic permission
     try:
         with SessionLocal() as db:

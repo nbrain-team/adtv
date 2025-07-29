@@ -161,6 +161,8 @@ class Campaign(Base):
     launch_date = Column(DateTime, nullable=False)
     event_type = Column(String, nullable=False)  # 'virtual' or 'in_person'
     event_date = Column(DateTime, nullable=False)
+    event_times = Column(JSON, default=[])  # Array of time strings
+    target_cities = Column(Text)  # Multi-line text for cities
     hotel_name = Column(String)
     hotel_address = Column(String)
     calendly_link = Column(String)

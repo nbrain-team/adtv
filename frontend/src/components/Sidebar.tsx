@@ -76,11 +76,6 @@ export const Sidebar = ({ onNewChat }: { onNewChat: () => void }) => {
                         <img src="/new-icons/14.png" alt="Data Lake" />
                     </button>
                 )}
-                {userProfile?.permissions?.['campaigns'] && (
-                    <button className="sidebar-icon" title="Marketing Campaigns" onClick={() => navigate('/campaigns')}>
-                        <img src="/new-icons/12.png" alt="Marketing Campaigns" />
-                    </button>
-                )}
             </Flex>
             
             <Flex direction="column" align="center" gap="8" style={{ marginBottom: '1rem' }}>

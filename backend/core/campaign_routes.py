@@ -23,6 +23,8 @@ class CampaignCreate(BaseModel):
     launch_date: datetime
     event_type: str  # 'virtual' or 'in_person'
     event_date: datetime
+    event_times: Optional[List[str]] = []
+    target_cities: Optional[str] = None
     hotel_name: Optional[str] = None
     hotel_address: Optional[str] = None
     calendly_link: Optional[str] = None
@@ -31,6 +33,8 @@ class CampaignUpdate(BaseModel):
     name: Optional[str] = None
     launch_date: Optional[datetime] = None
     event_date: Optional[datetime] = None
+    event_times: Optional[List[str]] = None
+    target_cities: Optional[str] = None
     hotel_name: Optional[str] = None
     hotel_address: Optional[str] = None
     calendly_link: Optional[str] = None
@@ -45,6 +49,8 @@ class CampaignResponse(BaseModel):
     launch_date: datetime
     event_type: str
     event_date: datetime
+    event_times: Optional[List[str]]
+    target_cities: Optional[str]
     hotel_name: Optional[str]
     hotel_address: Optional[str]
     calendly_link: Optional[str]
