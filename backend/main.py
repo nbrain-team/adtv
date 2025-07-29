@@ -107,6 +107,15 @@ app = FastAPI(
 
 @app.on_event("startup")
 def on_startup():
+    # Rename ad_traffic campaigns table first to avoid conflicts
+    try:
+        from scripts.rename_ad_traffic_campaigns import rename_ad_traffic_campaigns
+        logger.info("Checking for ad_traffic campaigns table rename...")
+        rename_ad_traffic_campaigns()
+        logger.info("Ad traffic campaigns table check completed.")
+    except Exception as e:
+        logger.warning(f"Ad traffic campaigns rename check failed: {e}")
+    
     # Run ad traffic migration first
     try:
         from scripts.add_unified_ad_traffic_tables import add_unified_ad_traffic_tables

@@ -54,7 +54,7 @@ class AdTrafficClient(Base):
 
 
 class Campaign(Base):
-    __tablename__ = "campaigns"
+    __tablename__ = "ad_traffic_campaigns"
     
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     client_id = Column(String, ForeignKey("ad_traffic_clients.id"), nullable=False)
