@@ -10,7 +10,7 @@ import json
 
 from . import auth
 from .database import get_db, User, Campaign, CampaignContact, CampaignTemplate, CampaignAnalytics, engine
-from contact_enricher.enricher import ContactEnricher
+from contact_enricher.services import ContactEnricher
 from core.llm_handler import LLMHandler
 
 router = APIRouter()
@@ -458,6 +458,7 @@ async def get_campaign_analytics(
 def enrich_campaign_contacts(campaign_id: str, user_id: str):
     """Background task to enrich campaign contacts"""
     from sqlalchemy.orm import sessionmaker
+    import asyncio
     SessionLocal = sessionmaker(bind=engine)
     db = SessionLocal()
     
@@ -484,29 +485,43 @@ def enrich_campaign_contacts(campaign_id: str, user_id: str):
         enriched_count = 0
         failed_count = 0
         
+        # Create event loop for async operations
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
         for contact in contacts:
             try:
                 contact.enrichment_status = 'processing'
                 db.commit()
                 
-                # Enrich contact
-                enriched_data = enricher.enrich_contact({
-                    'first_name': contact.first_name,
-                    'last_name': contact.last_name,
-                    'email': contact.email,
-                    'company': contact.company
-                })
+                # Enrich contact - map to expected field names
+                enriched_data = loop.run_until_complete(enricher.enrich_contact({
+                    'Name': f"{contact.first_name} {contact.last_name}".strip(),
+                    'Company': contact.company or '',
+                    'Email': contact.email or '',
+                    'Phone': contact.phone or ''
+                }))
                 
-                # Update contact with enriched data
-                if enriched_data:
-                    contact.enriched_company = enriched_data.get('company')
-                    contact.enriched_title = enriched_data.get('title')
-                    contact.enriched_phone = enriched_data.get('phone')
-                    contact.enriched_linkedin = enriched_data.get('linkedin_url')
-                    contact.enriched_website = enriched_data.get('website')
-                    contact.enriched_industry = enriched_data.get('industry')
-                    contact.enriched_company_size = enriched_data.get('company_size')
-                    contact.enriched_location = enriched_data.get('location')
+                # Extract enrichment results
+                if enriched_data and 'enrichment_results' in enriched_data:
+                    results = enriched_data['enrichment_results']
+                    
+                    # Update contact with enriched data from various sources
+                    if 'google' in results:
+                        google_data = results['google']
+                        contact.enriched_phone = google_data.get('phone') or contact.enriched_phone
+                        contact.enriched_linkedin = google_data.get('linkedin_url') or contact.enriched_linkedin
+                        contact.enriched_website = google_data.get('website') or contact.enriched_website
+                    
+                    if 'website' in results:
+                        website_data = results['website']
+                        contact.enriched_company = website_data.get('company_name') or contact.company
+                        contact.enriched_location = website_data.get('location') or contact.enriched_location
+                    
+                    # Use original values as fallback
+                    contact.enriched_company = contact.enriched_company or contact.company
+                    contact.enriched_title = contact.enriched_title or contact.title
+                    
                     contact.enrichment_status = 'success'
                     enriched_count += 1
                 else:
@@ -521,6 +536,9 @@ def enrich_campaign_contacts(campaign_id: str, user_id: str):
             
             contact.updated_at = datetime.utcnow()
             db.commit()
+        
+        # Close the event loop
+        loop.close()
         
         # Update campaign stats
         campaign.enriched_contacts = enriched_count
