@@ -638,12 +638,19 @@ def enrich_campaign_contacts(campaign_id: str, user_id: str):
             return
         
         # Record start time
-        analytics = CampaignAnalytics(
-            campaign_id=campaign_id,
-            enrichment_start_time=datetime.utcnow(),
-            contacts_uploaded=campaign.total_contacts
-        )
-        db.add(analytics)
+        try:
+            analytics = CampaignAnalytics(
+                campaign_id=campaign_id,
+                enrichment_start_time=datetime.utcnow(),
+                contacts_uploaded=campaign.total_contacts
+            )
+            db.add(analytics)
+            db.commit()
+        except Exception as e:
+            logger.warning(f"Could not create analytics record: {e}")
+            db.rollback()
+            # Create a minimal analytics record without new fields
+            analytics = None
         
         # Get contacts to enrich
         contacts = db.query(CampaignContact).filter(
@@ -797,25 +804,29 @@ def enrich_campaign_contacts(campaign_id: str, user_id: str):
         contacts_with_phone = sum(1 for c in all_contacts if c.enriched_phone or c.phone)
         
         # Record end time and capture rates
-        analytics.enrichment_end_time = datetime.utcnow()
-        analytics.contacts_enriched = enriched_count
-        analytics.contacts_with_email = contacts_with_email
-        analytics.contacts_with_phone = contacts_with_phone
-        analytics.enrichment_success_rate = (
-            enriched_count / len(contacts) * 100 if contacts else 0
-        )
-        analytics.email_capture_rate = (
-            contacts_with_email / len(all_contacts) * 100 if all_contacts else 0
-        )
-        analytics.phone_capture_rate = (
-            contacts_with_phone / len(all_contacts) * 100 if all_contacts else 0
-        )
-        
-        db.commit()
+        if analytics:
+            try:
+                analytics.enrichment_end_time = datetime.utcnow()
+                analytics.contacts_enriched = enriched_count
+                analytics.contacts_with_email = contacts_with_email
+                analytics.contacts_with_phone = contacts_with_phone
+                analytics.enrichment_success_rate = (
+                    enriched_count / len(contacts) * 100 if contacts else 0
+                )
+                analytics.email_capture_rate = (
+                    contacts_with_email / len(all_contacts) * 100 if all_contacts else 0
+                )
+                analytics.phone_capture_rate = (
+                    contacts_with_phone / len(all_contacts) * 100 if all_contacts else 0
+                )
+                db.commit()
+            except Exception as e:
+                logger.warning(f"Could not update analytics: {e}")
+                db.rollback()
         
         logger.info(f"Enrichment completed: {enriched_count}/{len(contacts)} successful")
-        logger.info(f"Email capture rate: {analytics.email_capture_rate:.1f}%")
-        logger.info(f"Phone capture rate: {analytics.phone_capture_rate:.1f}%")
+        logger.info(f"Email capture rate: {(contacts_with_email / len(all_contacts) * 100 if all_contacts else 0):.1f}%")
+        logger.info(f"Phone capture rate: {(contacts_with_phone / len(all_contacts) * 100 if all_contacts else 0):.1f}%")
         
         # TODO: Send notification email to campaign owner
         
@@ -842,7 +853,12 @@ def generate_campaign_emails(campaign_id: str, user_id: str):
         ).order_by(desc(CampaignAnalytics.timestamp)).first()
         
         if analytics:
-            analytics.email_generation_start_time = datetime.utcnow()
+            try:
+                analytics.email_generation_start_time = datetime.utcnow()
+                db.commit()
+            except Exception as e:
+                logger.warning(f"Could not update analytics start time: {e}")
+                db.rollback()
         
         # Get contacts to generate emails for
         contacts = db.query(CampaignContact).filter(
@@ -901,8 +917,13 @@ def generate_campaign_emails(campaign_id: str, user_id: str):
         
         # Record end time
         if analytics:
-            analytics.email_generation_end_time = datetime.utcnow()
-            analytics.emails_generated = generated_count
+            try:
+                analytics.email_generation_end_time = datetime.utcnow()
+                analytics.emails_generated = generated_count
+                db.commit()
+            except Exception as e:
+                logger.warning(f"Could not update analytics end time: {e}")
+                db.rollback()
         
         db.commit()
         

@@ -26,6 +26,8 @@ services:
       python -m pip install --upgrade pip
       pip install -r requirements.txt
       python test_env.py
+      chmod +x scripts/build.sh
+      ./scripts/build.sh
     startCommand: python -m uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PINECONE_API_KEY
