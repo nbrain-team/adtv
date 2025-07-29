@@ -227,13 +227,14 @@ async def upload_contacts(
         
         # Map possible column names to our fields
         column_mappings = {
+            'name': ['Name', 'name', 'full_name', 'Full Name', 'Contact Name'],
             'first_name': ['first_name', 'firstname', 'first', 'fname', 'First Name'],
             'last_name': ['last_name', 'lastname', 'last', 'lname', 'Last Name'],
             'email': ['email', 'email_address', 'e-mail', 'Email', 'Email Address'],
             'company': ['company', 'company_name', 'organization', 'Company', 'Company Name'],
             'title': ['title', 'job_title', 'position', 'Title', 'Job Title', 'Position'],
             'phone': ['phone', 'phone_number', 'telephone', 'Phone', 'Phone Number', 'cell', 'Cell Phone'],
-            'neighborhood': ['neighborhood', 'neighborhood 1', 'Neighborhood 1', 'Neighborhood', 'area', 'district']
+            'neighborhood': ['neighborhood', 'neighborhood_1', 'Neighborhood 1', 'Neighborhood', 'area', 'district']
         }
         
         # Log CSV headers for debugging
@@ -252,9 +253,15 @@ async def upload_contacts(
                         break
                 contact_data[field] = value or ''
             
-            # Skip rows where all key fields are empty
-            if not any([contact_data['first_name'], contact_data['last_name'], contact_data['email']]):
-                logger.debug(f"Skipping row {row_num} - no name or email data")
+            # Handle full name if first/last names are not provided separately
+            if contact_data.get('name') and not (contact_data['first_name'] or contact_data['last_name']):
+                name_parts = contact_data['name'].strip().split(' ', 1)
+                contact_data['first_name'] = name_parts[0] if name_parts else ''
+                contact_data['last_name'] = name_parts[1] if len(name_parts) > 1 else ''
+            
+            # Skip rows where all key fields are empty (name or company required)
+            if not any([contact_data['first_name'], contact_data['last_name'], contact_data['company']]):
+                logger.debug(f"Skipping row {row_num} - no name or company data")
                 continue
             
             # Log first few rows for debugging
@@ -266,10 +273,10 @@ async def upload_contacts(
                 campaign_id=campaign_id,
                 first_name=contact_data['first_name'],
                 last_name=contact_data['last_name'],
-                email=contact_data['email'],
+                email=contact_data['email'],  # Can be empty
                 company=contact_data['company'],
                 title=contact_data['title'],
-                phone=contact_data['phone'],
+                phone=contact_data['phone'],  # Can be empty
                 neighborhood=contact_data['neighborhood']
             )
             contacts.append(contact)
