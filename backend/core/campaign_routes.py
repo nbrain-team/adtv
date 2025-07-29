@@ -7,6 +7,7 @@ from datetime import datetime
 import csv
 import io
 import json
+import logging
 
 from . import auth
 from .database import get_db, User, Campaign, CampaignContact, CampaignTemplate, CampaignAnalytics, engine
@@ -14,6 +15,7 @@ from contact_enricher.services import ContactEnricher
 from core.llm_handler import generate_text
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 # Pydantic models
 class CampaignCreate(BaseModel):
@@ -491,6 +493,69 @@ async def get_campaign_analytics(
         "timeline": analytics
     }
 
+@router.get("/{campaign_id}/enrichment-status")
+async def get_enrichment_status(
+    campaign_id: str,
+    current_user: User = Depends(auth.get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get detailed enrichment status for a campaign"""
+    campaign = db.query(Campaign).filter(
+        Campaign.id == campaign_id,
+        Campaign.user_id == current_user.id
+    ).first()
+    
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    # Get contact status breakdown
+    pending = db.query(CampaignContact).filter(
+        CampaignContact.campaign_id == campaign_id,
+        CampaignContact.enrichment_status == 'pending'
+    ).count()
+    
+    processing = db.query(CampaignContact).filter(
+        CampaignContact.campaign_id == campaign_id,
+        CampaignContact.enrichment_status == 'processing'
+    ).count()
+    
+    success = db.query(CampaignContact).filter(
+        CampaignContact.campaign_id == campaign_id,
+        CampaignContact.enrichment_status == 'success'
+    ).count()
+    
+    failed = db.query(CampaignContact).filter(
+        CampaignContact.campaign_id == campaign_id,
+        CampaignContact.enrichment_status == 'failed'
+    ).count()
+    
+    # Get failed contacts with errors
+    failed_contacts = db.query(CampaignContact).filter(
+        CampaignContact.campaign_id == campaign_id,
+        CampaignContact.enrichment_status == 'failed'
+    ).limit(10).all()
+    
+    return {
+        "campaign_id": campaign_id,
+        "status": campaign.status,
+        "total_contacts": campaign.total_contacts,
+        "enrichment_breakdown": {
+            "pending": pending,
+            "processing": processing,
+            "success": success,
+            "failed": failed
+        },
+        "progress_percentage": round((success + failed) / campaign.total_contacts * 100, 2) if campaign.total_contacts > 0 else 0,
+        "failed_samples": [
+            {
+                "name": f"{c.first_name} {c.last_name}".strip(),
+                "company": c.company,
+                "error": c.enrichment_error
+            }
+            for c in failed_contacts
+        ]
+    }
+
 # Background tasks
 def enrich_campaign_contacts(campaign_id: str, user_id: str):
     """Background task to enrich campaign contacts"""
@@ -499,9 +564,12 @@ def enrich_campaign_contacts(campaign_id: str, user_id: str):
     SessionLocal = sessionmaker(bind=engine)
     db = SessionLocal()
     
+    logger.info(f"Starting enrichment for campaign {campaign_id}")
+    
     try:
         campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
         if not campaign:
+            logger.error(f"Campaign {campaign_id} not found")
             return
         
         # Record start time
@@ -518,6 +586,8 @@ def enrich_campaign_contacts(campaign_id: str, user_id: str):
             CampaignContact.enrichment_status == 'pending'
         ).all()
         
+        logger.info(f"Found {len(contacts)} contacts to enrich for campaign {campaign_id}")
+        
         enricher = ContactEnricher()
         enriched_count = 0
         failed_count = 0
@@ -526,8 +596,9 @@ def enrich_campaign_contacts(campaign_id: str, user_id: str):
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         
-        for contact in contacts:
+        for i, contact in enumerate(contacts):
             try:
+                logger.info(f"Enriching contact {i+1}/{len(contacts)}: {contact.first_name} {contact.last_name} at {contact.company}")
                 contact.enrichment_status = 'processing'
                 db.commit()
                 
@@ -561,18 +632,28 @@ def enrich_campaign_contacts(campaign_id: str, user_id: str):
                     
                     contact.enrichment_status = 'success'
                     enriched_count += 1
+                    logger.info(f"Successfully enriched contact {i+1}/{len(contacts)}")
                 else:
                     contact.enrichment_status = 'failed'
                     contact.enrichment_error = 'No enrichment data found'
                     failed_count += 1
+                    logger.warning(f"No enrichment data found for contact {i+1}/{len(contacts)}")
                     
             except Exception as e:
                 contact.enrichment_status = 'failed'
                 contact.enrichment_error = str(e)
                 failed_count += 1
+                logger.error(f"Error enriching contact {i+1}/{len(contacts)}: {str(e)}")
             
             contact.updated_at = datetime.utcnow()
             db.commit()
+            
+            # Update campaign stats periodically
+            if (i + 1) % 10 == 0:
+                campaign.enriched_contacts = enriched_count
+                campaign.failed_enrichments = failed_count
+                db.commit()
+                logger.info(f"Progress: {i+1}/{len(contacts)} contacts processed")
         
         # Close the event loop
         loop.close()

@@ -98,6 +98,7 @@ const CampaignDetailPage = () => {
     const [previewContact, setPreviewContact] = useState<Contact | null>(null);
     const [emailTemplate, setEmailTemplate] = useState('');
     const [emailSubject, setEmailSubject] = useState('');
+    const [enrichmentStatus, setEnrichmentStatus] = useState<any>(null);
 
     useEffect(() => {
         if (campaignId) {
@@ -105,6 +106,14 @@ const CampaignDetailPage = () => {
             fetchContacts();
         }
     }, [campaignId]);
+
+    useEffect(() => {
+        if (campaign?.status === 'enriching') {
+            const interval = setInterval(fetchEnrichmentStatus, 5000); // Check every 5 seconds
+            fetchEnrichmentStatus(); // Initial fetch
+            return () => clearInterval(interval);
+        }
+    }, [campaign?.status]);
 
     useEffect(() => {
         if (campaign) {
@@ -130,6 +139,20 @@ const CampaignDetailPage = () => {
             setContacts(response.data);
         } catch (err) {
             console.error('Failed to load contacts:', err);
+        }
+    };
+
+    const fetchEnrichmentStatus = async () => {
+        try {
+            const response = await api.get(`/api/campaigns/${campaignId}/enrichment-status`);
+            setEnrichmentStatus(response.data);
+            
+            // If enrichment is complete, refresh the campaign
+            if (response.data.progress_percentage === 100) {
+                fetchCampaign();
+            }
+        } catch (err) {
+            console.error('Failed to fetch enrichment status:', err);
         }
     };
 
@@ -358,6 +381,36 @@ const CampaignDetailPage = () => {
                                                     Upload Contacts CSV
                                                 </Button>
                                             </>
+                                        )}
+                                        
+                                        {campaign.status === 'enriching' && enrichmentStatus && (
+                                            <Box>
+                                                <Flex align="center" justify="between" mb="2">
+                                                    <Text size="2" weight="medium">Enrichment Progress</Text>
+                                                    <Text size="2" color="blue">{enrichmentStatus.progress_percentage}%</Text>
+                                                </Flex>
+                                                <Box style={{ 
+                                                    width: '100%', 
+                                                    height: '8px', 
+                                                    backgroundColor: 'var(--gray-4)', 
+                                                    borderRadius: '4px',
+                                                    overflow: 'hidden',
+                                                    marginBottom: '1rem'
+                                                }}>
+                                                    <Box style={{
+                                                        width: `${enrichmentStatus.progress_percentage}%`,
+                                                        height: '100%',
+                                                        backgroundColor: 'var(--blue-9)',
+                                                        transition: 'width 0.3s ease'
+                                                    }} />
+                                                </Box>
+                                                <Text size="1" color="gray">
+                                                    {enrichmentStatus.enrichment_breakdown.success} enriched, 
+                                                    {enrichmentStatus.enrichment_breakdown.failed} failed, 
+                                                    {enrichmentStatus.enrichment_breakdown.processing} processing, 
+                                                    {enrichmentStatus.enrichment_breakdown.pending} pending
+                                                </Text>
+                                            </Box>
                                         )}
                                         
                                         {campaign.status === 'ready_for_personalization' && (
