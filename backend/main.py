@@ -338,7 +338,8 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
             "user-management": True,
             "ad-traffic": True,  # Add this permission!
             "template-manager": True,  # Add template manager permission
-            "contact-enricher": True  # Add contact enricher permission
+            "contact-enricher": True,  # Add contact enricher permission
+            "campaigns": True  # Add campaigns permission
         }
         db.commit()
         db.refresh(user)
