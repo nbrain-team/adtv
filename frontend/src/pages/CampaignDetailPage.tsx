@@ -36,6 +36,8 @@ interface Campaign {
     email_subject?: string;
     created_at: string;
     updated_at: string;
+    event_times?: string[];
+    target_cities?: string;
 }
 
 interface Contact {
@@ -294,28 +296,44 @@ const CampaignDetailPage = () => {
                                     <Heading size="4" mb="4">Campaign Details</Heading>
                                     <Flex direction="column" gap="3">
                                         <Box>
-                                            <Text size="2" color="gray">Launch Date</Text>
+                                            <Text size="2" color="gray">Launch Date:</Text>
                                             <Text size="3" weight="medium">
                                                 {new Date(campaign.launch_date).toLocaleDateString()}
                                             </Text>
                                         </Box>
                                         <Box>
-                                            <Text size="2" color="gray">Event Date</Text>
+                                            <Text size="2" color="gray">Event Date:</Text>
                                             <Text size="3" weight="medium">
                                                 {new Date(campaign.event_date).toLocaleDateString()}
                                             </Text>
                                         </Box>
+                                        {campaign.event_times && campaign.event_times.length > 0 && (
+                                            <Box>
+                                                <Text size="2" color="gray">Event Times:</Text>
+                                                <Text size="3" weight="medium">
+                                                    {campaign.event_times.join(', ')}
+                                                </Text>
+                                            </Box>
+                                        )}
+                                        {campaign.target_cities && (
+                                            <Box>
+                                                <Text size="2" color="gray">Target Cities:</Text>
+                                                <Text size="3" weight="medium" style={{ whiteSpace: 'pre-wrap' }}>
+                                                    {campaign.target_cities}
+                                                </Text>
+                                            </Box>
+                                        )}
                                         {campaign.event_type === 'in_person' ? (
                                             <>
                                                 <Box>
-                                                    <Text size="2" color="gray">Hotel</Text>
+                                                    <Text size="2" color="gray">Hotel:</Text>
                                                     <Text size="3" weight="medium">{campaign.hotel_name}</Text>
-                                                    <Text size="2" color="gray">{campaign.hotel_address}</Text>
+                                                    <Text size="3">{campaign.hotel_address}</Text>
                                                 </Box>
                                             </>
                                         ) : (
                                             <Box>
-                                                <Text size="2" color="gray">Calendly Link</Text>
+                                                <Text size="2" color="gray">Calendly Link:</Text>
                                                 <Text size="3" weight="medium">{campaign.calendly_link}</Text>
                                             </Box>
                                         )}
@@ -368,23 +386,23 @@ const CampaignDetailPage = () => {
                                     <Heading size="4" mb="4">Progress Overview</Heading>
                                     <Box style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '2rem' }}>
                                         <Box>
-                                            <Text size="2" color="gray">Total Contacts</Text>
+                                            <Text size="2" color="gray">Total Contacts:</Text>
                                             <Text size="6" weight="bold">{campaign.total_contacts}</Text>
                                         </Box>
                                         <Box>
-                                            <Text size="2" color="gray">Enriched</Text>
+                                            <Text size="2" color="gray">Enriched:</Text>
                                             <Text size="6" weight="bold" style={{ color: 'var(--green-9)' }}>
                                                 {campaign.enriched_contacts}
                                             </Text>
                                         </Box>
                                         <Box>
-                                            <Text size="2" color="gray">Emails Generated</Text>
+                                            <Text size="2" color="gray">Emails Generated:</Text>
                                             <Text size="6" weight="bold" style={{ color: 'var(--blue-9)' }}>
                                                 {campaign.emails_generated}
                                             </Text>
                                         </Box>
                                         <Box>
-                                            <Text size="2" color="gray">Emails Sent</Text>
+                                            <Text size="2" color="gray">Emails Sent:</Text>
                                             <Text size="6" weight="bold">{campaign.emails_sent}</Text>
                                         </Box>
                                     </Box>
