@@ -72,6 +72,7 @@ class ContactResponse(BaseModel):
     email: Optional[str]
     company: Optional[str]
     title: Optional[str]
+    phone: Optional[str]
     neighborhood: Optional[str]
     enrichment_status: str
     email_status: str
@@ -235,6 +236,10 @@ async def upload_contacts(
             'neighborhood': ['neighborhood', 'neighborhood 1', 'Neighborhood 1', 'Neighborhood', 'area', 'district']
         }
         
+        # Log CSV headers for debugging
+        if reader.fieldnames:
+            logger.info(f"CSV headers found: {reader.fieldnames}")
+        
         contacts = []
         for row_num, row in enumerate(reader, 1):
             # Find the actual column names in the CSV
@@ -246,6 +251,15 @@ async def upload_contacts(
                         value = row[col_name]
                         break
                 contact_data[field] = value or ''
+            
+            # Skip rows where all key fields are empty
+            if not any([contact_data['first_name'], contact_data['last_name'], contact_data['email']]):
+                logger.debug(f"Skipping row {row_num} - no name or email data")
+                continue
+            
+            # Log first few rows for debugging
+            if row_num <= 3:
+                logger.info(f"Row {row_num} data: {contact_data}")
             
             # Create contact with mapped data
             contact = CampaignContact(
@@ -610,7 +624,9 @@ def enrich_campaign_contacts(campaign_id: str, user_id: str):
                     'Name': f"{contact.first_name} {contact.last_name}".strip(),
                     'Company': contact.company or '',
                     'Email': contact.email or '',
-                    'Phone': contact.phone or ''
+                    'Phone': contact.phone or '',
+                    'City': contact.neighborhood or '',  # Use neighborhood as city for location-based searches
+                    'State': 'CA'  # Default to CA for now, could be extracted from campaign
                 }))
                 
                 # Extract enrichment results
