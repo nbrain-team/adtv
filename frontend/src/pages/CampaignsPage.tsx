@@ -89,7 +89,7 @@ const CampaignsPage = () => {
 
     const fetchCampaigns = async () => {
         try {
-            const response = await api.get('/campaigns');
+            const response = await api.get('/api/campaigns');
             setCampaigns(response.data);
         } catch (err) {
             setError('Failed to load campaigns');
@@ -117,7 +117,7 @@ const CampaignsPage = () => {
                 calendly_link: formData.event_type === 'virtual' ? formData.calendly_link : undefined
             };
 
-            const response = await api.post('/campaigns', campaignData);
+            const response = await api.post('/api/campaigns', campaignData);
             setCampaigns([response.data, ...campaigns]);
             setShowCreateDialog(false);
             

@@ -113,7 +113,7 @@ const CampaignDetailPage = () => {
 
     const fetchCampaign = async () => {
         try {
-            const response = await api.get(`/campaigns/${campaignId}`);
+            const response = await api.get(`/api/campaigns/${campaignId}`);
             setCampaign(response.data);
         } catch (err) {
             setError('Failed to load campaign');
@@ -124,7 +124,7 @@ const CampaignDetailPage = () => {
 
     const fetchContacts = async () => {
         try {
-            const response = await api.get(`/campaigns/${campaignId}/contacts`);
+            const response = await api.get(`/api/campaigns/${campaignId}/contacts`);
             setContacts(response.data);
         } catch (err) {
             console.error('Failed to load contacts:', err);
@@ -139,7 +139,7 @@ const CampaignDetailPage = () => {
         formData.append('file', file);
 
         try {
-            await api.post(`/campaigns/${campaignId}/upload-contacts`, formData, {
+            await api.post(`/api/campaigns/${campaignId}/upload-contacts`, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
             
@@ -154,13 +154,13 @@ const CampaignDetailPage = () => {
     const handleGenerateEmails = async () => {
         try {
             // Save template first
-            await api.put(`/campaigns/${campaignId}`, {
+            await api.put(`/api/campaigns/${campaignId}`, {
                 email_template: emailTemplate,
                 email_subject: emailSubject
             });
             
             // Generate emails
-            await api.post(`/campaigns/${campaignId}/generate-emails`);
+            await api.post(`/api/campaigns/${campaignId}/generate-emails`);
             
             // Refresh campaign
             fetchCampaign();
@@ -171,7 +171,7 @@ const CampaignDetailPage = () => {
 
     const handleBulkExclude = async (exclude: boolean) => {
         try {
-            await api.put(`/campaigns/${campaignId}/contacts/bulk-update`, {
+            await api.put(`/api/campaigns/${campaignId}/contacts/bulk-update`, {
                 contact_ids: Array.from(selectedContacts),
                 excluded: exclude
             });
@@ -186,7 +186,7 @@ const CampaignDetailPage = () => {
 
     const handleUpdateContact = async (contactId: string, data: any) => {
         try {
-            await api.put(`/campaigns/${campaignId}/contacts/${contactId}`, data);
+            await api.put(`/api/campaigns/${campaignId}/contacts/${contactId}`, data);
             
             // Update local state
             setContacts(contacts.map(c => 
@@ -549,7 +549,7 @@ const CampaignDetailPage = () => {
                                     
                                     <Flex gap="3">
                                         <Button 
-                                            onClick={() => api.put(`/campaigns/${campaignId}`, { 
+                                            onClick={() => api.put(`/api/campaigns/${campaignId}`, { 
                                                 email_template: emailTemplate, 
                                                 email_subject: emailSubject 
                                             })}
