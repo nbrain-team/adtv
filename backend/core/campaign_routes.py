@@ -215,41 +215,72 @@ async def upload_contacts(
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
     
-    # Read CSV
-    contents = await file.read()
-    csv_data = io.StringIO(contents.decode('utf-8'))
-    reader = csv.DictReader(csv_data)
-    
-    contacts = []
-    for row in reader:
-        contact = CampaignContact(
-            campaign_id=campaign_id,
-            first_name=row.get('first_name', ''),
-            last_name=row.get('last_name', ''),
-            email=row.get('email', ''),
-            company=row.get('company', ''),
-            title=row.get('title', ''),
-            phone=row.get('phone', '')
-        )
-        contacts.append(contact)
-    
-    # Bulk insert contacts
-    db.bulk_save_objects(contacts)
-    
-    # Update campaign stats
-    campaign.total_contacts = len(contacts)
-    campaign.status = 'enriching'
-    
-    db.commit()
-    
-    # Start enrichment in background
-    background_tasks.add_task(enrich_campaign_contacts, campaign_id, current_user.id)
-    
-    return {
-        "message": f"Uploaded {len(contacts)} contacts",
-        "campaign_id": campaign_id,
-        "status": "enriching"
-    }
+    try:
+        # Read CSV
+        contents = await file.read()
+        csv_data = io.StringIO(contents.decode('utf-8'))
+        reader = csv.DictReader(csv_data)
+        
+        # Map possible column names to our fields
+        column_mappings = {
+            'first_name': ['first_name', 'firstname', 'first', 'fname', 'First Name'],
+            'last_name': ['last_name', 'lastname', 'last', 'lname', 'Last Name'],
+            'email': ['email', 'email_address', 'e-mail', 'Email', 'Email Address'],
+            'company': ['company', 'company_name', 'organization', 'Company', 'Company Name'],
+            'title': ['title', 'job_title', 'position', 'Title', 'Job Title', 'Position'],
+            'phone': ['phone', 'phone_number', 'telephone', 'Phone', 'Phone Number', 'cell', 'Cell Phone']
+        }
+        
+        contacts = []
+        for row_num, row in enumerate(reader, 1):
+            # Find the actual column names in the CSV
+            contact_data = {}
+            for field, possible_names in column_mappings.items():
+                value = None
+                for col_name in possible_names:
+                    if col_name in row:
+                        value = row[col_name]
+                        break
+                contact_data[field] = value or ''
+            
+            # Create contact with mapped data
+            contact = CampaignContact(
+                campaign_id=campaign_id,
+                first_name=contact_data['first_name'],
+                last_name=contact_data['last_name'],
+                email=contact_data['email'],
+                company=contact_data['company'],
+                title=contact_data['title'],
+                phone=contact_data['phone']
+            )
+            contacts.append(contact)
+        
+        if not contacts:
+            raise HTTPException(status_code=400, detail="No valid contacts found in CSV")
+        
+        # Bulk insert contacts
+        db.bulk_save_objects(contacts)
+        
+        # Update campaign stats
+        campaign.total_contacts = len(contacts)
+        campaign.status = 'enriching'
+        
+        db.commit()
+        
+        # Start enrichment in background
+        background_tasks.add_task(enrich_campaign_contacts, campaign_id, current_user.id)
+        
+        return {
+            "message": f"Uploaded {len(contacts)} contacts",
+            "campaign_id": campaign_id,
+            "status": "enriching"
+        }
+        
+    except UnicodeDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid file encoding. Please ensure the CSV is UTF-8 encoded.")
+    except Exception as e:
+        print(f"Error uploading contacts: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error processing CSV: {str(e)}")
 
 @router.get("/{campaign_id}/contacts", response_model=List[ContactResponse])
 async def get_campaign_contacts(
