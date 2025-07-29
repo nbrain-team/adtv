@@ -243,11 +243,11 @@ const CampaignDetailPage = () => {
             
             // If enrichment is complete, refresh the campaign and contacts
             if (response.data.progress_percentage === 100 && campaign?.status === 'enriching') {
-                // Force a complete refresh
+                // Force a complete refresh after a short delay
                 setTimeout(() => {
                     fetchCampaign();
                     fetchContacts();
-                }, 1000); // Small delay to ensure backend has updated
+                }, 2000); // 2 second delay to ensure backend has updated
             }
         } catch (err) {
             console.error('Failed to fetch enrichment status:', err);
@@ -718,11 +718,6 @@ const CampaignDetailPage = () => {
                                                 Send Emails (Coming Soon)
                                             </Button>
                                         )}
-                                        
-                                        <Button variant="soft" onClick={fetchCampaign}>
-                                            <ReloadIcon />
-                                            Refresh Status
-                                        </Button>
                                     </Flex>
                                 </Card>
 

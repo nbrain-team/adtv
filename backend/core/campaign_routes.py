@@ -794,6 +794,7 @@ def enrich_campaign_contacts(campaign_id: str, user_id: str):
         campaign.enriched_contacts = enriched_count
         campaign.failed_enrichments = failed_count
         campaign.status = 'ready_for_personalization'
+        db.commit()  # Commit the status change immediately
         
         # Calculate email and phone capture rates
         all_contacts = db.query(CampaignContact).filter(

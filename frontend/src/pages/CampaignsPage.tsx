@@ -146,7 +146,9 @@ const CampaignsPage = () => {
             setCampaigns(campaigns.filter(c => c.id !== campaignId));
             setDeletingCampaignId(null);
         } catch (err) {
+            console.error('Delete campaign error:', err);
             setError('Failed to delete campaign');
+            setDeletingCampaignId(null);
         }
     };
 
