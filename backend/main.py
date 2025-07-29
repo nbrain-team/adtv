@@ -234,7 +234,7 @@ def on_startup():
     # from ad_traffic.api import router as ad_traffic_router
     # app.include_router(ad_traffic_router, prefix="/api/ad-traffic", tags=["ad-traffic"])
 
-# --- CORS Middleware ---
+# --- CORS Configuration ---
 allowed_origins = [
     "http://localhost:3000",
     "http://localhost:5173",
@@ -247,7 +247,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
     expose_headers=["*"],
     max_age=3600,

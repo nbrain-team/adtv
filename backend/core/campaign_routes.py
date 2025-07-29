@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks
 from sqlalchemy.orm import Session
-from sqlalchemy import desc
+from sqlalchemy import desc, text
 from typing import List, Optional, Dict
 from pydantic import BaseModel, EmailStr
 from datetime import datetime
@@ -197,19 +197,63 @@ async def delete_campaign(
     current_user: User = Depends(auth.get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """Delete a campaign"""
-    campaign = db.query(Campaign).filter(
-        Campaign.id == campaign_id,
-        Campaign.user_id == current_user.id
-    ).first()
-    
-    if not campaign:
-        raise HTTPException(status_code=404, detail="Campaign not found")
-    
-    db.delete(campaign)
-    db.commit()
-    
-    return {"message": "Campaign deleted successfully"}
+    """Delete a campaign and stop all background tasks"""
+    try:
+        campaign = db.query(Campaign).filter(
+            Campaign.id == campaign_id,
+            Campaign.user_id == current_user.id
+        ).first()
+        
+        if not campaign:
+            raise HTTPException(status_code=404, detail="Campaign not found")
+        
+        # Stop any running background tasks by marking contacts as cancelled
+        db.query(CampaignContact).filter(
+            CampaignContact.campaign_id == campaign_id,
+            CampaignContact.enrichment_status.in_(['pending', 'processing'])
+        ).update({
+            'enrichment_status': 'cancelled',
+            'enrichment_error': 'Campaign deleted'
+        }, synchronize_session=False)
+        
+        # Delete related records first to avoid foreign key issues
+        # Delete analytics records
+        db.query(CampaignAnalytics).filter(
+            CampaignAnalytics.campaign_id == campaign_id
+        ).delete(synchronize_session=False)
+        
+        # Delete contacts
+        db.query(CampaignContact).filter(
+            CampaignContact.campaign_id == campaign_id
+        ).delete(synchronize_session=False)
+        
+        # Now delete the campaign
+        db.delete(campaign)
+        db.commit()
+        
+        logger.info(f"Successfully deleted campaign {campaign_id}")
+        return {"message": "Campaign deleted successfully"}
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error deleting campaign {campaign_id}: {str(e)}")
+        # If it's a column error, try to delete without cascade
+        if "column" in str(e) and "does not exist" in str(e):
+            try:
+                # Try direct deletion without relying on relationships
+                db.execute(text("DELETE FROM campaign_analytics WHERE campaign_id = :campaign_id"), 
+                          {"campaign_id": campaign_id})
+                db.execute(text("DELETE FROM campaign_contacts WHERE campaign_id = :campaign_id"), 
+                          {"campaign_id": campaign_id})
+                db.execute(text("DELETE FROM campaigns WHERE id = :campaign_id"), 
+                          {"campaign_id": campaign_id})
+                db.commit()
+                return {"message": "Campaign deleted successfully"}
+            except Exception as e2:
+                db.rollback()
+                logger.error(f"Direct deletion also failed: {str(e2)}")
+                raise HTTPException(status_code=500, detail=f"Failed to delete campaign: {str(e2)}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete campaign: {str(e)}")
 
 # Contact management
 @router.post("/{campaign_id}/upload-contacts")
@@ -670,6 +714,19 @@ def enrich_campaign_contacts(campaign_id: str, user_id: str):
         
         for i, contact in enumerate(contacts):
             try:
+                # Check if campaign still exists every 10 contacts
+                if i % 10 == 0:
+                    campaign_check = db.query(Campaign).filter(Campaign.id == campaign_id).first()
+                    if not campaign_check:
+                        logger.warning(f"Campaign {campaign_id} no longer exists, stopping enrichment")
+                        break
+                
+                # Check if this contact has been cancelled
+                db.refresh(contact)
+                if contact.enrichment_status == 'cancelled':
+                    logger.info(f"Contact {contact.id} cancelled, skipping")
+                    continue
+                
                 logger.info(f"Enriching contact {i+1}/{len(contacts)}: {contact.first_name} {contact.last_name} at {contact.company}")
                 contact.enrichment_status = 'processing'
                 db.commit()

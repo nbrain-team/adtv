@@ -63,13 +63,13 @@ def add_analytics_fields():
             # Add missing timestamp fields if they don't exist
             conn.execute(text("""
                 ALTER TABLE campaign_analytics 
-                ADD COLUMN IF NOT EXISTS send_start_time TIMESTAMP
+                ADD COLUMN IF NOT EXISTS sending_start_time TIMESTAMP
             """))
             conn.commit()
             
             conn.execute(text("""
                 ALTER TABLE campaign_analytics 
-                ADD COLUMN IF NOT EXISTS send_end_time TIMESTAMP
+                ADD COLUMN IF NOT EXISTS sending_end_time TIMESTAMP
             """))
             conn.commit()
             

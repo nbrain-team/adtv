@@ -263,8 +263,8 @@ class CampaignAnalytics(Base):
     enrichment_end_time = Column(DateTime)
     email_generation_start_time = Column(DateTime)
     email_generation_end_time = Column(DateTime)
-    send_start_time = Column(DateTime)
-    send_end_time = Column(DateTime)
+    sending_start_time = Column(DateTime)  # Changed from send_start_time
+    sending_end_time = Column(DateTime)    # Changed from send_end_time
     
     # Metrics
     contacts_uploaded = Column(Integer, default=0)

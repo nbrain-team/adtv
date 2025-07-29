@@ -206,6 +206,9 @@ const CampaignDetailPage = () => {
             }, 5000); // Check every 5 seconds
             fetchEnrichmentStatus(); // Initial fetch
             return () => clearInterval(interval);
+        } else if (campaign?.status === 'ready_for_personalization' && !enrichmentStatus) {
+            // One-time fetch when returning to a completed enrichment
+            fetchEnrichmentStatus();
         }
     }, [campaign?.status]);
 
@@ -529,7 +532,13 @@ const CampaignDetailPage = () => {
                                                         borderRadius: '50%',
                                                         padding: 0,
                                                         cursor: step.action ? 'pointer' : 'default',
-                                                        boxShadow: step.status === 'active' ? '0 0 0 4px var(--blue-3)' : 'none'
+                                                        boxShadow: step.status === 'active' ? '0 0 0 4px var(--blue-3)' : 'none',
+                                                        backgroundColor: step.status === 'completed' || step.status === 'active' || step.status === 'ready' 
+                                                            ? undefined 
+                                                            : 'var(--color-background)',
+                                                        border: step.status === 'ghost' ? '2px solid var(--gray-6)' : undefined,
+                                                        position: 'relative',
+                                                        zIndex: 2
                                                     }}
                                                     onClick={step.action || undefined}
                                                     disabled={!step.action}
@@ -938,9 +947,13 @@ const CampaignDetailPage = () => {
                                                     <Select.Separator />
                                                     {availableTemplates.map(template => (
                                                         <Select.Item key={template.id} value={template.id}>
-                                                            <Flex direction="column" gap="1">
-                                                                <Text size="2" weight="medium">{template.name}</Text>
-                                                                <Text size="1" color="gray">{template.goal}</Text>
+                                                            <Flex direction="column" gap="1" style={{ minWidth: '300px' }}>
+                                                                <Text size="2" weight="medium" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                                    {template.name}
+                                                                </Text>
+                                                                <Text size="1" color="gray" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                                    {template.goal}
+                                                                </Text>
                                                             </Flex>
                                                         </Select.Item>
                                                     ))}
@@ -998,8 +1011,7 @@ const CampaignDetailPage = () => {
                                 ) : campaign.status === 'generating_emails' ? (
                                     <Flex direction="column" align="center" justify="center" style={{ minHeight: '400px' }}>
                                         <ReloadIcon style={{ width: '48px', height: '48px', animation: 'spin 1s linear infinite' }} />
-                                        <Heading size="4" mt="4">Generating Personalized Emails...</Heading>
-                                        <Text size="2" color="gray" mt="2">
+                                        <Text size="2" color="gray" mt="4">
                                             This may take a few minutes. You can navigate away and come back.
                                         </Text>
                                     </Flex>
