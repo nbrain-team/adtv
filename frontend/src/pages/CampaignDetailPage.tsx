@@ -94,6 +94,28 @@ const getStatusLabel = (status: string) => {
 
 // Neighborhood coordinates for demo - in production, you'd use a geocoding service
 const NEIGHBORHOOD_COORDS: Record<string, [number, number]> = {
+    // Alabama cities
+    'Madison': [34.6993, -86.7483],
+    'Moontown': [34.9037, -86.5303],
+    'Monrovia': [34.7915, -86.4831],
+    'Huntsville': [34.7304, -86.5861],
+    'Birmingham': [33.5186, -86.8104],
+    'Montgomery': [32.3668, -86.3000],
+    'Mobile': [30.6954, -88.0399],
+    'Tuscaloosa': [33.2098, -87.5692],
+    'Auburn': [32.6099, -85.4808],
+    'Decatur': [34.6059, -86.9833],
+    'Florence': [34.7998, -87.6773],
+    'Dothan': [31.2232, -85.3905],
+    'Hoover': [33.4054, -86.8114],
+    'Vestavia Hills': [33.4488, -86.7877],
+    'Prattville': [32.4640, -86.4597],
+    'Opelika': [32.6454, -85.3783],
+    'Enterprise': [31.3152, -85.8552],
+    'Northport': [33.2290, -87.5772],
+    'Anniston': [33.6598, -85.8316],
+    'Phenix City': [32.4710, -85.0008],
+    // Original San Diego neighborhoods (keep for compatibility)
     'Downtown': [32.7157, -117.1611],
     'La Jolla': [32.8328, -117.2713],
     'Pacific Beach': [32.7944, -117.2356],
@@ -874,8 +896,8 @@ const CampaignDetailPage = () => {
                                     return (
                                         <Box style={{ height: '600px', position: 'relative' }}>
                                             <MapContainer
-                                                center={[32.7157, -117.1611]} // San Diego center
-                                                zoom={11}
+                                                center={[33.5186, -86.8104]} // Alabama center (Birmingham)
+                                                zoom={7}
                                                 style={{ height: '100%', width: '100%' }}
                                             >
                                                 <TileLayer
