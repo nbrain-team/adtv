@@ -675,7 +675,7 @@ const CampaignDetailPage = () => {
                                     <Flex direction="column" gap="3">
                                         {/* Campaign Name */}
                                         <Box>
-                                            <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>Campaign Name</Text>
+                                            <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>Campaign Name: </Text>
                                             {!isEditingCampaign ? (
                                                 <Text size="2" style={{ color: 'var(--gray-12)' }}>
                                                     {campaign.name}
@@ -694,7 +694,7 @@ const CampaignDetailPage = () => {
                                         
                                         {/* Launch Date */}
                                         <Box>
-                                            <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>Launch Date</Text>
+                                            <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>Launch Date: </Text>
                                             {!isEditingCampaign ? (
                                                 <Text size="2" style={{ color: 'var(--gray-12)' }}>
                                                     {new Date(campaign.launch_date).toLocaleDateString()}
@@ -722,7 +722,7 @@ const CampaignDetailPage = () => {
                                         
                                         {/* Event Date */}
                                         <Box>
-                                            <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>Event Date</Text>
+                                            <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>Event Date: </Text>
                                             {!isEditingCampaign ? (
                                                 <Text size="2" style={{ color: 'var(--gray-12)' }}>
                                                     {new Date(campaign.event_date).toLocaleDateString()}
@@ -751,7 +751,7 @@ const CampaignDetailPage = () => {
                                         {/* Event Times */}
                                         {(campaign.event_times && campaign.event_times.length > 0) || isEditingCampaign ? (
                                             <Box>
-                                                <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>Event Times</Text>
+                                                <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>Event Times: </Text>
                                                 {!isEditingCampaign ? (
                                                     <Text size="2" style={{ color: 'var(--gray-12)' }}>
                                                         {campaign.event_times?.join(', ')}
@@ -773,7 +773,7 @@ const CampaignDetailPage = () => {
                                         {/* Target Cities */}
                                         {campaign.target_cities || isEditingCampaign ? (
                                             <Box>
-                                                <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>Target Cities</Text>
+                                                <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>Target Cities: </Text>
                                                 {!isEditingCampaign ? (
                                                     <Text size="2" style={{ color: 'var(--gray-12)', whiteSpace: 'pre-wrap' }}>
                                                         {campaign.target_cities}
@@ -797,7 +797,7 @@ const CampaignDetailPage = () => {
                                         {campaign.event_type === 'in_person' ? (
                                             <>
                                                 <Box>
-                                                    <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>Hotel Name</Text>
+                                                    <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>Hotel Name: </Text>
                                                     {!isEditingCampaign ? (
                                                         <Text size="2" style={{ color: 'var(--gray-12)' }}>
                                                             {campaign.hotel_name || '-'}
@@ -814,7 +814,7 @@ const CampaignDetailPage = () => {
                                                     )}
                                                 </Box>
                                                 <Box>
-                                                    <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>Hotel Address</Text>
+                                                    <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>Hotel Address: </Text>
                                                     {!isEditingCampaign ? (
                                                         <Text size="2" style={{ color: 'var(--gray-12)' }}>
                                                             {campaign.hotel_address || '-'}
@@ -833,7 +833,7 @@ const CampaignDetailPage = () => {
                                             </>
                                         ) : (
                                             <Box>
-                                                <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>Calendly Link</Text>
+                                                <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>Calendly Link: </Text>
                                                 {!isEditingCampaign ? (
                                                     <Text size="2" style={{ color: 'var(--gray-12)' }}>
                                                         {campaign.calendly_link || '-'}
@@ -935,31 +935,112 @@ const CampaignDetailPage = () => {
                                     </Flex>
                                 </Card>
 
-                                {/* Progress Overview */}
+                                {/* Map View */}
                                 <Card style={{ gridColumn: 'span 2' }}>
-                                    <Heading size="4" mb="4">Progress Overview</Heading>
-                                    <Box style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '2rem' }}>
-                                        <Box>
-                                            <Text size="2" color="gray">Total Contacts:</Text>
-                                            <Text size="6" weight="bold">{campaign.total_contacts}</Text>
+                                    <Heading size="4" mb="4">Contact Locations</Heading>
+                                    
+                                    {campaign.total_contacts === 0 ? (
+                                        <Box style={{ 
+                                            height: '400px', 
+                                            display: 'flex', 
+                                            alignItems: 'center', 
+                                            justifyContent: 'center',
+                                            backgroundColor: 'var(--gray-2)',
+                                            borderRadius: '8px'
+                                        }}>
+                                            <Text size="3" color="gray">Awaiting Map View...</Text>
                                         </Box>
+                                    ) : (
                                         <Box>
-                                            <Text size="2" color="gray">Enriched:</Text>
-                                            <Text size="6" weight="bold" style={{ color: 'var(--green-9)' }}>
-                                                {campaign.enriched_contacts}
-                                            </Text>
+                                            {(() => {
+                                                // Get all non-excluded contacts
+                                                const allContacts = contacts.filter(c => !c.excluded);
+                                                
+                                                // Separate contacts with and without coordinates
+                                                const contactsWithCoords = allContacts
+                                                    .map(c => ({
+                                                        ...c,
+                                                        coords: getNeighborhoodCoords(c.neighborhood)
+                                                    }))
+                                                    .filter(c => c.coords !== null);
+                                                
+                                                const contactsWithoutCoords = allContacts
+                                                    .filter(c => !getNeighborhoodCoords(c.neighborhood));
+                                                
+                                                // Count neighborhoods for mapped contacts
+                                                const neighborhoodCounts = contactsWithCoords.reduce((acc, contact) => {
+                                                    const key = contact.neighborhood || 'Unknown';
+                                                    acc[key] = (acc[key] || 0) + 1;
+                                                    return acc;
+                                                }, {} as Record<string, number>);
+                                                
+                                                return (
+                                                    <Box>
+                                                        <Flex gap="2" mb="3">
+                                                            <Badge size="1" color="green">
+                                                                {contactsWithCoords.length} mapped
+                                                            </Badge>
+                                                            <Badge size="1" color="orange">
+                                                                {contactsWithoutCoords.length} unmapped
+                                                            </Badge>
+                                                        </Flex>
+                                                        
+                                                        {contactsWithCoords.length === 0 ? (
+                                                            <Box style={{ 
+                                                                height: '350px', 
+                                                                display: 'flex', 
+                                                                alignItems: 'center', 
+                                                                justifyContent: 'center',
+                                                                backgroundColor: 'var(--gray-2)',
+                                                                borderRadius: '8px'
+                                                            }}>
+                                                                <Text size="2" color="gray">No contacts with valid location data</Text>
+                                                            </Box>
+                                                        ) : (
+                                                            <Box style={{ height: '350px', position: 'relative' }}>
+                                                                <MapContainer
+                                                                    center={[33.5186, -86.8104]} // Alabama center (Birmingham)
+                                                                    zoom={7}
+                                                                    style={{ height: '100%', width: '100%', borderRadius: '8px' }}
+                                                                >
+                                                                    <TileLayer
+                                                                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                                                                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                                                                    />
+                                                                    
+                                                                    {Object.entries(neighborhoodCounts).map(([neighborhood, count]) => {
+                                                                        const coords = getNeighborhoodCoords(neighborhood);
+                                                                        if (!coords) return null;
+                                                                        
+                                                                        return (
+                                                                            <CircleMarker
+                                                                                key={neighborhood}
+                                                                                center={coords}
+                                                                                radius={Math.min(20, 8 + count * 2)}
+                                                                                fillColor="#3b82f6"
+                                                                                fillOpacity={0.6}
+                                                                                stroke={true}
+                                                                                color="#1e40af"
+                                                                                weight={2}
+                                                                            >
+                                                                                <Popup>
+                                                                                    <Box>
+                                                                                        <Text weight="bold">{neighborhood}</Text>
+                                                                                        <br />
+                                                                                        <Text>{count} contacts</Text>
+                                                                                    </Box>
+                                                                                </Popup>
+                                                                            </CircleMarker>
+                                                                        );
+                                                                    })}
+                                                                </MapContainer>
+                                                            </Box>
+                                                        )}
+                                                    </Box>
+                                                );
+                                            })()}
                                         </Box>
-                                        <Box>
-                                            <Text size="2" color="gray">Emails Generated:</Text>
-                                            <Text size="6" weight="bold" style={{ color: 'var(--blue-9)' }}>
-                                                {campaign.emails_generated}
-                                            </Text>
-                                        </Box>
-                                        <Box>
-                                            <Text size="2" color="gray">Emails Sent:</Text>
-                                            <Text size="6" weight="bold">{campaign.emails_sent}</Text>
-                                        </Box>
-                                    </Box>
+                                    )}
                                 </Card>
                             </Box>
                         </Tabs.Content>
