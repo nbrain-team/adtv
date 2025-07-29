@@ -72,6 +72,7 @@ class ContactResponse(BaseModel):
     email: Optional[str]
     company: Optional[str]
     title: Optional[str]
+    neighborhood: Optional[str]
     enrichment_status: str
     email_status: str
     excluded: bool
@@ -230,7 +231,8 @@ async def upload_contacts(
             'email': ['email', 'email_address', 'e-mail', 'Email', 'Email Address'],
             'company': ['company', 'company_name', 'organization', 'Company', 'Company Name'],
             'title': ['title', 'job_title', 'position', 'Title', 'Job Title', 'Position'],
-            'phone': ['phone', 'phone_number', 'telephone', 'Phone', 'Phone Number', 'cell', 'Cell Phone']
+            'phone': ['phone', 'phone_number', 'telephone', 'Phone', 'Phone Number', 'cell', 'Cell Phone'],
+            'neighborhood': ['neighborhood', 'neighborhood 1', 'Neighborhood 1', 'Neighborhood', 'area', 'district']
         }
         
         contacts = []
@@ -253,7 +255,8 @@ async def upload_contacts(
                 email=contact_data['email'],
                 company=contact_data['company'],
                 title=contact_data['title'],
-                phone=contact_data['phone']
+                phone=contact_data['phone'],
+                neighborhood=contact_data['neighborhood']
             )
             contacts.append(contact)
         

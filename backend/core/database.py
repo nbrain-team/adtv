@@ -200,6 +200,7 @@ class CampaignContact(Base):
     company = Column(String)
     title = Column(String)
     phone = Column(String)
+    neighborhood = Column(String)  # Add neighborhood field
     
     # Enriched data
     enriched_company = Column(String)

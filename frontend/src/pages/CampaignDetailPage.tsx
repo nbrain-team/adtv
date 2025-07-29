@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { 
     Box, Flex, Heading, Text, Card, Button, Badge, Tabs, Table, 
     Checkbox, TextField, TextArea, Callout, IconButton, Dialog,
-    DropdownMenu, ScrollArea
+    DropdownMenu, ScrollArea, Select
 } from '@radix-ui/themes';
 import { 
     ArrowLeftIcon, UploadIcon, PersonIcon, EnvelopeClosedIcon, 
@@ -14,6 +14,8 @@ import {
 import { MainLayout } from '../components/MainLayout';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import api from '../api';
+import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
 
 interface Campaign {
     id: string;
@@ -47,11 +49,20 @@ interface Contact {
     email?: string;
     company?: string;
     title?: string;
+    neighborhood?: string;
     enrichment_status: string;
     email_status: string;
     excluded: boolean;
     personalized_email?: string;
     personalized_subject?: string;
+}
+
+interface EmailTemplate {
+    id: string;
+    name: string;
+    subject: string;
+    body: string;
+    goal: string;
 }
 
 const getStatusColor = (status: string) => {
@@ -80,6 +91,40 @@ const getStatusLabel = (status: string) => {
     return statusLabels[status] || status;
 };
 
+// Neighborhood coordinates for demo - in production, you'd use a geocoding service
+const NEIGHBORHOOD_COORDS: Record<string, [number, number]> = {
+    'Downtown': [32.7157, -117.1611],
+    'La Jolla': [32.8328, -117.2713],
+    'Pacific Beach': [32.7944, -117.2356],
+    'Mission Valley': [32.7678, -117.1569],
+    'Hillcrest': [32.7477, -117.1640],
+    'North Park': [32.7403, -117.1290],
+    'Coronado': [32.6859, -117.1831],
+    'Point Loma': [32.6670, -117.2415],
+    'Ocean Beach': [32.7494, -117.2469],
+    'Mission Beach': [32.7707, -117.2521],
+    // Add more neighborhoods as needed
+};
+
+const getNeighborhoodCoords = (neighborhood?: string): [number, number] | null => {
+    if (!neighborhood) return null;
+    
+    // Try exact match first
+    if (NEIGHBORHOOD_COORDS[neighborhood]) {
+        return NEIGHBORHOOD_COORDS[neighborhood];
+    }
+    
+    // Try case-insensitive match
+    const lowerNeighborhood = neighborhood.toLowerCase();
+    for (const [key, coords] of Object.entries(NEIGHBORHOOD_COORDS)) {
+        if (key.toLowerCase() === lowerNeighborhood) {
+            return coords;
+        }
+    }
+    
+    return null;
+};
+
 const CampaignDetailPage = () => {
     const { campaignId } = useParams<{ campaignId: string }>();
     const navigate = useNavigate();
@@ -99,11 +144,15 @@ const CampaignDetailPage = () => {
     const [emailTemplate, setEmailTemplate] = useState('');
     const [emailSubject, setEmailSubject] = useState('');
     const [enrichmentStatus, setEnrichmentStatus] = useState<any>(null);
+    const [availableTemplates, setAvailableTemplates] = useState<EmailTemplate[]>([]);
+    const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+    const [isLoadingTemplates, setIsLoadingTemplates] = useState(false);
 
     useEffect(() => {
         if (campaignId) {
             fetchCampaign();
             fetchContacts();
+            fetchTemplates();
         }
     }, [campaignId]);
 
@@ -153,6 +202,27 @@ const CampaignDetailPage = () => {
             }
         } catch (err) {
             console.error('Failed to fetch enrichment status:', err);
+        }
+    };
+
+    const fetchTemplates = async () => {
+        setIsLoadingTemplates(true);
+        try {
+            const response = await api.get('/api/email-templates');
+            setAvailableTemplates(response.data);
+        } catch (err) {
+            console.error('Failed to fetch templates:', err);
+        } finally {
+            setIsLoadingTemplates(false);
+        }
+    };
+
+    const handleTemplateSelect = (templateId: string) => {
+        const template = availableTemplates.find(t => t.id === templateId);
+        if (template) {
+            setSelectedTemplateId(templateId);
+            setEmailSubject(template.subject);
+            setEmailTemplate(template.body);
         }
     };
 
@@ -307,6 +377,7 @@ const CampaignDetailPage = () => {
                             <Tabs.Trigger value="contacts">Contacts ({campaign.total_contacts})</Tabs.Trigger>
                             <Tabs.Trigger value="emails">Email Template</Tabs.Trigger>
                             <Tabs.Trigger value="analytics">Analytics</Tabs.Trigger>
+                            <Tabs.Trigger value="map">Map View</Tabs.Trigger>
                         </Tabs.List>
                     </Box>
 
@@ -593,6 +664,39 @@ const CampaignDetailPage = () => {
                                 
                                 <Flex direction="column" gap="4">
                                     <Box>
+                                        <Flex align="center" justify="between" mb="2">
+                                            <Text as="label" size="2" weight="medium">
+                                                Select Template
+                                            </Text>
+                                            <Button 
+                                                size="1" 
+                                                variant="ghost"
+                                                onClick={() => navigate('/template-manager')}
+                                            >
+                                                Manage Templates
+                                            </Button>
+                                        </Flex>
+                                        <Select.Root 
+                                            value={selectedTemplateId} 
+                                            onValueChange={handleTemplateSelect}
+                                        >
+                                            <Select.Trigger placeholder="Choose a template or start from scratch..." />
+                                            <Select.Content>
+                                                <Select.Item value="">Start from scratch</Select.Item>
+                                                <Select.Separator />
+                                                {availableTemplates.map(template => (
+                                                    <Select.Item key={template.id} value={template.id}>
+                                                        <Flex direction="column" gap="1">
+                                                            <Text size="2" weight="medium">{template.name}</Text>
+                                                            <Text size="1" color="gray">{template.goal}</Text>
+                                                        </Flex>
+                                                    </Select.Item>
+                                                ))}
+                                            </Select.Content>
+                                        </Select.Root>
+                                    </Box>
+                                    
+                                    <Box>
                                         <Text as="label" size="2" mb="1" weight="medium">
                                             Email Subject
                                         </Text>
@@ -614,7 +718,7 @@ const CampaignDetailPage = () => {
                                             rows={15}
                                         />
                                         <Text size="1" color="gray" mt="1">
-                                            Available variables: {'{first_name}'}, {'{last_name}'}, {'{company}'}, {'{title}'}
+                                            Available variables: {'{first_name}'}, {'{last_name}'}, {'{company}'}, {'{title}'}, {'{event_date}'}, {'{event_time}'}, {'{hotel_name}'}, {'{hotel_address}'}, {'{calendly_link}'}
                                         </Text>
                                     </Box>
                                     
@@ -723,6 +827,104 @@ const CampaignDetailPage = () => {
                                     </Flex>
                                 </Card>
                             </Box>
+                        </Tabs.Content>
+
+                        {/* Map View Tab */}
+                        <Tabs.Content value="map">
+                            <Card>
+                                <Heading size="4" mb="4">Contact Locations</Heading>
+                                
+                                {(() => {
+                                    const contactsWithCoords = contacts
+                                        .filter(c => !c.excluded)
+                                        .map(c => ({
+                                            ...c,
+                                            coords: getNeighborhoodCoords(c.neighborhood)
+                                        }))
+                                        .filter(c => c.coords !== null);
+                                    
+                                    const neighborhoodCounts = contactsWithCoords.reduce((acc, contact) => {
+                                        const key = contact.neighborhood || 'Unknown';
+                                        acc[key] = (acc[key] || 0) + 1;
+                                        return acc;
+                                    }, {} as Record<string, number>);
+                                    
+                                    if (contactsWithCoords.length === 0) {
+                                        return (
+                                            <Box p="4">
+                                                <Text color="gray">No contacts with valid neighborhood data to display on map.</Text>
+                                            </Box>
+                                        );
+                                    }
+                                    
+                                    return (
+                                        <Box style={{ height: '600px', position: 'relative' }}>
+                                            <MapContainer
+                                                center={[32.7157, -117.1611]} // San Diego center
+                                                zoom={11}
+                                                style={{ height: '100%', width: '100%' }}
+                                            >
+                                                <TileLayer
+                                                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                                                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                                                />
+                                                
+                                                {Object.entries(neighborhoodCounts).map(([neighborhood, count]) => {
+                                                    const coords = getNeighborhoodCoords(neighborhood);
+                                                    if (!coords) return null;
+                                                    
+                                                    return (
+                                                        <CircleMarker
+                                                            key={neighborhood}
+                                                            center={coords}
+                                                            radius={Math.min(30, 10 + count * 2)}
+                                                            fillColor="#3b82f6"
+                                                            fillOpacity={0.6}
+                                                            stroke={true}
+                                                            color="#1e40af"
+                                                            weight={2}
+                                                        >
+                                                            <Popup>
+                                                                <Box>
+                                                                    <Text weight="bold">{neighborhood}</Text>
+                                                                    <br />
+                                                                    <Text>{count} contacts</Text>
+                                                                </Box>
+                                                            </Popup>
+                                                        </CircleMarker>
+                                                    );
+                                                })}
+                                            </MapContainer>
+                                            
+                                            <Box 
+                                                style={{ 
+                                                    position: 'absolute', 
+                                                    top: '1rem', 
+                                                    right: '1rem', 
+                                                    backgroundColor: 'white', 
+                                                    padding: '1rem',
+                                                    borderRadius: '8px',
+                                                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                                                    zIndex: 1000,
+                                                    maxHeight: '400px',
+                                                    overflowY: 'auto'
+                                                }}
+                                            >
+                                                <Text size="2" weight="bold" mb="2">Neighborhoods</Text>
+                                                {Object.entries(neighborhoodCounts)
+                                                    .sort(([, a], [, b]) => b - a)
+                                                    .map(([neighborhood, count]) => (
+                                                        <Flex key={neighborhood} justify="between" gap="3" mb="1">
+                                                            <Text size="1">{neighborhood}</Text>
+                                                            <Text size="1" weight="medium">{count}</Text>
+                                                        </Flex>
+                                                    ))
+                                                }
+                                            </Box>
+                                        </Box>
+                                    );
+                                })()}
+                            </Card>
                         </Tabs.Content>
                     </Box>
                 </Tabs.Root>

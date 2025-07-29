@@ -205,6 +205,15 @@ def on_startup():
     except Exception as e:
         logger.warning(f"Campaign foreign key fix failed: {e}")
     
+    # Add neighborhood field to campaign_contacts
+    try:
+        from scripts.add_neighborhood_to_contacts import add_neighborhood_field
+        logger.info("Adding neighborhood field to campaign_contacts...")
+        add_neighborhood_field()
+        logger.info("Neighborhood field added.")
+    except Exception as e:
+        logger.warning(f"Neighborhood field migration failed: {e}")
+    
     # Ensure danny@nbrain.ai has ad-traffic permission
     try:
         with SessionLocal() as db:
