@@ -10,6 +10,9 @@ python -m alembic upgrade head
 echo "Running ad traffic table creation..."
 python scripts/create_ad_traffic_tables.py
 
+echo "Fixing database columns..."
+python scripts/fix_database_columns.py || echo "Database column fixes may have already been applied"
+
 echo "Running user management fields migration..."
 python scripts/add_user_management_fields.py || echo "User management fields may already exist"
 
