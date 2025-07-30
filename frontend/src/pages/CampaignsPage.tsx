@@ -213,8 +213,8 @@ const CampaignsPage = () => {
                                         variant="ghost"
                                         style={{
                                             position: 'absolute',
-                                            top: '1rem',
-                                            right: '1rem',
+                                            bottom: '1rem',
+                                            left: '1rem',
                                             zIndex: 10
                                         }}
                                         onClick={(e) => {
