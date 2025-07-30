@@ -14,8 +14,27 @@ import {
 import { MainLayout } from '../components/MainLayout';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import api from '../api';
-import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, CircleMarker, Popup, Marker } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+
+// Fix for default markers in react-leaflet
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+    iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+    iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+    shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png'
+});
+
+// Create custom hotel icon
+const hotelIcon = new L.Icon({
+    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+    shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    shadowSize: [41, 41]
+});
 
 // Add spinning animation CSS
 const spinAnimation = `
@@ -192,6 +211,26 @@ const getNeighborhoodCoords = (neighborhood?: string): [number, number] | null =
     return null;
 };
 
+// Function to geocode address (using Nominatim - free OpenStreetMap geocoding)
+const geocodeAddress = async (address: string): Promise<[number, number] | null> => {
+    if (!address) return null;
+    
+    try {
+        const response = await fetch(
+            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`
+        );
+        const data = await response.json();
+        
+        if (data && data.length > 0) {
+            return [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+        }
+    } catch (error) {
+        console.error('Error geocoding address:', error);
+    }
+    
+    return null;
+};
+
 const CampaignDetailPage = () => {
     const { campaignId } = useParams<{ campaignId: string }>();
     const navigate = useNavigate();
@@ -216,6 +255,9 @@ const CampaignDetailPage = () => {
     const [isLoadingTemplates, setIsLoadingTemplates] = useState(false);
     const [isEditingCampaign, setIsEditingCampaign] = useState(false);
     const [editedCampaign, setEditedCampaign] = useState<Campaign | null>(null);
+    const [isEditingContact, setIsEditingContact] = useState(false);
+    const [editingContactData, setEditingContactData] = useState<any>(null);
+    const [hotelCoords, setHotelCoords] = useState<[number, number] | null>(null);
 
     useEffect(() => {
         if (campaignId) {
@@ -261,6 +303,30 @@ const CampaignDetailPage = () => {
             }
         }
     }, [campaign]);
+
+    // Poll for status updates when generating emails
+    useEffect(() => {
+        if (campaign?.status === 'generating_emails') {
+            const interval = setInterval(() => {
+                fetchCampaign();
+                fetchContacts();
+            }, 3000);
+            
+            return () => clearInterval(interval);
+        }
+    }, [campaign?.status, campaignId]);
+
+    // Geocode hotel address when campaign loads
+    useEffect(() => {
+        const geocodeHotel = async () => {
+            if (campaign?.event_type === 'in_person' && campaign?.hotel_address) {
+                const coords = await geocodeAddress(campaign.hotel_address);
+                setHotelCoords(coords);
+            }
+        };
+        
+        geocodeHotel();
+    }, [campaign?.hotel_address, campaign?.event_type]);
 
     const fetchCampaign = async () => {
         try {
@@ -1073,6 +1139,22 @@ const CampaignDetailPage = () => {
                                                                             </CircleMarker>
                                                                         );
                                                                     })}
+                                                                    
+                                                                    {/* Hotel Marker */}
+                                                                    {hotelCoords && campaign.event_type === 'in_person' && (
+                                                                        <Marker 
+                                                                            position={hotelCoords} 
+                                                                            icon={hotelIcon}
+                                                                        >
+                                                                            <Popup>
+                                                                                <Box>
+                                                                                    <Text weight="bold">{campaign.hotel_name || 'Event Hotel'}</Text>
+                                                                                    <br />
+                                                                                    <Text size="1">{campaign.hotel_address}</Text>
+                                                                                </Box>
+                                                                            </Popup>
+                                                                        </Marker>
+                                                                    )}
                                                                 </MapContainer>
                                                             </Box>
                                                         )}
@@ -1663,6 +1745,22 @@ const CampaignDetailPage = () => {
                                                                 </CircleMarker>
                                                             );
                                                         })}
+                                                        
+                                                        {/* Hotel Marker */}
+                                                        {hotelCoords && campaign.event_type === 'in_person' && (
+                                                            <Marker 
+                                                                position={hotelCoords} 
+                                                                icon={hotelIcon}
+                                                            >
+                                                                <Popup>
+                                                                    <Box>
+                                                                        <Text weight="bold">{campaign.hotel_name || 'Event Hotel'}</Text>
+                                                                        <br />
+                                                                        <Text size="1">{campaign.hotel_address}</Text>
+                                                                    </Box>
+                                                                </Popup>
+                                                            </Marker>
+                                                        )}
                                                     </MapContainer>
                                                     
                                                     <Box 
