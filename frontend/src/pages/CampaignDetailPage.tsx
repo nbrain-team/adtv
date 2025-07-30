@@ -219,6 +219,11 @@ const CampaignDetailPage = () => {
             setEmailTemplate(campaign.email_template || '');
             setEmailSubject(campaign.email_subject || '');
             setEditedCampaign(campaign);
+            
+            // Auto-navigate to emails tab when generating emails
+            if (campaign.status === 'generating_emails' && activeTab !== 'emails') {
+                setActiveTab('emails');
+            }
         }
     }, [campaign]);
 

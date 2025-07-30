@@ -906,17 +906,21 @@ def generate_campaign_emails(campaign_id: str, user_id: str):
             return
         
         # Record start time
-        analytics = db.query(CampaignAnalytics).filter(
-            CampaignAnalytics.campaign_id == campaign_id
-        ).order_by(desc(CampaignAnalytics.timestamp)).first()
-        
-        if analytics:
-            try:
-                analytics.email_generation_start_time = datetime.utcnow()
-                db.commit()
-            except Exception as e:
-                logger.warning(f"Could not update analytics start time: {e}")
-                db.rollback()
+        try:
+            analytics = db.query(CampaignAnalytics).filter(
+                CampaignAnalytics.campaign_id == campaign_id
+            ).order_by(desc(CampaignAnalytics.timestamp)).first()
+            
+            if analytics:
+                try:
+                    analytics.email_generation_start_time = datetime.utcnow()
+                    db.commit()
+                except Exception as e:
+                    logger.warning(f"Could not update analytics start time: {e}")
+                    db.rollback()
+        except Exception as e:
+            logger.warning(f"Could not query analytics (likely missing columns): {e}")
+            # Continue without analytics - don't let this stop email generation
         
         # Get contacts to generate emails for
         contacts = db.query(CampaignContact).filter(
@@ -1015,14 +1019,17 @@ def generate_campaign_emails(campaign_id: str, user_id: str):
         campaign.status = 'ready_to_send'
         
         # Record end time
-        if analytics:
-            try:
-                analytics.email_generation_end_time = datetime.utcnow()
-                analytics.emails_generated = generated_count
-                db.commit()
-            except Exception as e:
-                logger.warning(f"Could not update analytics end time: {e}")
-                db.rollback()
+        try:
+            if 'analytics' in locals() and analytics:
+                try:
+                    analytics.email_generation_end_time = datetime.utcnow()
+                    analytics.emails_generated = generated_count
+                    db.commit()
+                except Exception as e:
+                    logger.warning(f"Could not update analytics end time: {e}")
+                    db.rollback()
+        except Exception as e:
+            logger.warning(f"Error updating analytics: {e}")
         
         db.commit()
         
