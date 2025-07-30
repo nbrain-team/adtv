@@ -30,6 +30,7 @@ interface Campaign {
     name: string;
     owner_name: string;
     owner_email: string;
+    owner_phone?: string;
     launch_date: string;
     event_type: 'virtual' | 'in_person';
     event_date: string;

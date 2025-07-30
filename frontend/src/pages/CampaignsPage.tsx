@@ -10,6 +10,7 @@ interface Campaign {
     name: string;
     owner_name: string;
     owner_email: string;
+    owner_phone?: string;
     launch_date: string;
     event_type: 'virtual' | 'in_person';
     event_date: string;
@@ -29,11 +30,11 @@ interface Campaign {
 }
 
 const CAMPAIGN_OWNERS = [
-    { value: 'john_doe', label: 'John Doe', email: 'john@example.com' },
-    { value: 'jane_smith', label: 'Jane Smith', email: 'jane@example.com' },
-    { value: 'mike_johnson', label: 'Mike Johnson', email: 'mike@example.com' },
-    { value: 'sarah_williams', label: 'Sarah Williams', email: 'sarah@example.com' },
-    { value: 'david_brown', label: 'David Brown', email: 'david@example.com' }
+    { value: 'kalena_conley', label: 'Kalena Conley', email: 'kalena@adtv.com', phone: '619-374-7405' },
+    { value: 'evan_jones', label: 'Evan Jones', email: 'evan@adtv.com', phone: '619-374-2561' },
+    { value: 'sigrid_smith', label: 'Sigrid Smith', email: 'sigrid@adtv.com', phone: '619-292-8550' },
+    { value: 'amy_dodsworth', label: 'Amy Dodsworth', email: 'amy@adtv.com', phone: '619-259-0014' },
+    { value: 'bailey_jacobs', label: 'Bailey Jacobs', email: 'bailey@adtv.com', phone: '619-333-0342' }
 ];
 
 const getStatusColor = (status: string) => {
@@ -108,6 +109,7 @@ const CampaignsPage = () => {
                 name: formData.name,
                 owner_name: selectedOwner.label,
                 owner_email: selectedOwner.email,
+                owner_phone: selectedOwner.phone,
                 launch_date: new Date(formData.launch_date).toISOString(),
                 event_type: formData.event_type,
                 event_date: new Date(formData.event_date).toISOString(),

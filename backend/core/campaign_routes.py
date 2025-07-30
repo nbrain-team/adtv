@@ -22,6 +22,7 @@ class CampaignCreate(BaseModel):
     name: str
     owner_name: str
     owner_email: EmailStr
+    owner_phone: Optional[str] = None
     launch_date: datetime
     event_type: str  # 'virtual' or 'in_person'
     event_date: datetime
@@ -42,12 +43,14 @@ class CampaignUpdate(BaseModel):
     calendly_link: Optional[str] = None
     email_template: Optional[str] = None
     email_subject: Optional[str] = None
+    owner_phone: Optional[str] = None
 
 class CampaignResponse(BaseModel):
     id: str
     name: str
     owner_name: str
     owner_email: str
+    owner_phone: Optional[str]
     launch_date: datetime
     event_type: str
     event_date: datetime
@@ -980,7 +983,7 @@ def generate_campaign_emails(campaign_id: str, user_id: str):
                     '[[VideoLink]]': 'https://vimeo.com/adtv-intro', # Default video link
                     '[[InfoLink]]': 'https://adtv.com/info', # Default info link
                     '[[ContactInfo]]': campaign.owner_email,
-                    '[[AssociatePhone]]': '(555) 123-4567' # Default phone
+                    '[[AssociatePhone]]': campaign.owner_phone or '(555) 123-4567' # Use owner phone or default
                 }
                 
                 # Apply replacements
