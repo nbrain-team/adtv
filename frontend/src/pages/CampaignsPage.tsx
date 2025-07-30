@@ -109,7 +109,7 @@ const CampaignsPage = () => {
                 name: formData.name,
                 owner_name: selectedOwner.label,
                 owner_email: selectedOwner.email,
-                owner_phone: selectedOwner.phone,
+                // owner_phone: selectedOwner.phone,  // TEMPORARILY DISABLED UNTIL MIGRATION RUNS
                 launch_date: new Date(formData.launch_date).toISOString(),
                 event_type: formData.event_type,
                 event_date: new Date(formData.event_date).toISOString(),
