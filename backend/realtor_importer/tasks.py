@@ -37,7 +37,7 @@ def process_scrape_job(job_id: str):
         if not job:
             logger.error(f"Job {job_id} not found")
             return
-        
+
         logger.info(f"\n{'='*60}")
         logger.info(f"Starting scrape job {job_id}")
         logger.info(f"URL: {job.start_url}")
@@ -115,7 +115,7 @@ def save_batch(session: Session, job_id: str, batch: List[Dict[str, Any]]):
             if not data.get('profile_url'):
                 logger.warning(f"  WARNING: Skipping profile without profile_url: {data}")
                 continue
-                
+
             contact = RealtorContact(
                 job_id=job_id,
                 **data
@@ -402,7 +402,7 @@ def validate_email_zerobounce(email: str) -> Optional[Dict[str, Any]]:
             'score': result.get('zerobounce_score', 0),
             'sub_status': result.get('sub_status')
         }
-        
+
     except Exception as e:
         logger.error(f"Error validating email {email}: {e}")
         return None 
