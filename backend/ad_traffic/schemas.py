@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any
 from datetime import datetime
 from enum import Enum
 
@@ -111,7 +111,7 @@ class SocialPost(PostBase):
     media_urls: Optional[Dict[str, str]] = {}
     approved_by: Optional[str] = None
     approved_at: Optional[datetime] = None
-    metrics: Optional[Dict[str, any]] = {}
+    metrics: Optional[Dict[str, Any]] = {}
     budget_spent: Optional[float] = 0.0
     created_at: datetime
     updated_at: Optional[datetime] = None
