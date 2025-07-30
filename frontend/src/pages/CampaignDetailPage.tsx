@@ -239,6 +239,16 @@ const CampaignDetailPage = () => {
     }, [campaign?.status]);
 
     useEffect(() => {
+        if (campaign?.status === 'generating_emails') {
+            const interval = setInterval(() => {
+                fetchCampaign(); // Refresh campaign data to check if emails are done
+                fetchContacts(); // Refresh contacts to see generated emails
+            }, 3000); // Check every 3 seconds
+            return () => clearInterval(interval);
+        }
+    }, [campaign?.status]);
+
+    useEffect(() => {
         if (campaign) {
             setEmailTemplate(campaign.email_template || '');
             setEmailSubject(campaign.email_subject || '');

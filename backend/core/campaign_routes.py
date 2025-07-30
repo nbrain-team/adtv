@@ -1019,9 +1019,15 @@ def generate_campaign_emails(campaign_id: str, user_id: str):
         # Close the event loop
         loop.close()
         
-        # Update campaign stats
-        campaign.emails_generated = generated_count
-        campaign.status = 'ready_to_send'
+        # Update campaign stats and commit
+        try:
+            campaign.emails_generated = generated_count
+            campaign.status = 'ready_to_send'
+            db.commit()
+            logger.info(f"Successfully generated {generated_count} emails for campaign {campaign_id}")
+        except Exception as e:
+            logger.error(f"Error updating campaign status: {e}")
+            db.rollback()
         
         # Record end time
         try:
@@ -1035,14 +1041,6 @@ def generate_campaign_emails(campaign_id: str, user_id: str):
                     db.rollback()
         except Exception as e:
             logger.warning(f"Error updating analytics: {e}")
-        
-        # Final commit with error handling
-        try:
-            db.commit()
-            logger.info(f"Successfully generated {generated_count} emails for campaign {campaign_id}")
-        except Exception as e:
-            logger.error(f"Error committing email generation: {e}")
-            db.rollback()
         
         # TODO: Send notification email to campaign owner
         
