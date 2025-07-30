@@ -906,6 +906,7 @@ def generate_campaign_emails(campaign_id: str, user_id: str):
             return
         
         # Record start time
+        analytics = None  # Initialize analytics variable
         try:
             analytics = db.query(CampaignAnalytics).filter(
                 CampaignAnalytics.campaign_id == campaign_id
@@ -920,7 +921,11 @@ def generate_campaign_emails(campaign_id: str, user_id: str):
                     db.rollback()
         except Exception as e:
             logger.warning(f"Could not query analytics (likely missing columns): {e}")
+            db.rollback()  # Clear the failed transaction
             # Continue without analytics - don't let this stop email generation
+        
+        # Ensure we have a clean session state
+        db.commit()  # Commit any pending changes
         
         # Get contacts to generate emails for
         contacts = db.query(CampaignContact).filter(
@@ -1031,11 +1036,19 @@ def generate_campaign_emails(campaign_id: str, user_id: str):
         except Exception as e:
             logger.warning(f"Error updating analytics: {e}")
         
-        db.commit()
+        # Final commit with error handling
+        try:
+            db.commit()
+            logger.info(f"Successfully generated {generated_count} emails for campaign {campaign_id}")
+        except Exception as e:
+            logger.error(f"Error committing email generation: {e}")
+            db.rollback()
         
         # TODO: Send notification email to campaign owner
         
     except Exception as e:
-        print(f"Error generating emails: {e}")
+        logger.error(f"Error generating emails: {e}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
     finally:
         db.close() 
