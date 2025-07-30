@@ -199,13 +199,23 @@ async def create_campaign(
     duration_weeks: int = Form(...),
     platforms: List[str] = Form(...),
     start_date: Optional[datetime] = Form(None),
-    videos: List[UploadFile] = File(...),  # Changed to accept multiple videos
+    video: Optional[UploadFile] = File(None),  # Single video (backward compatibility)
+    videos: Optional[List[UploadFile]] = File(None),  # Multiple videos
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """Create a new video campaign with multiple videos"""
+    """Create a new video campaign with single or multiple videos"""
     import logging
     logger = logging.getLogger(__name__)
+    
+    # Handle both single and multiple video uploads
+    video_files = []
+    if videos:
+        video_files = videos
+    elif video:
+        video_files = [video]
+    else:
+        raise HTTPException(status_code=400, detail="No video file(s) provided")
     
     logger.info(f"=== CAMPAIGN CREATION STARTED ===")
     logger.info(f"Client ID: {client_id}")
@@ -213,7 +223,7 @@ async def create_campaign(
     logger.info(f"Duration: {duration_weeks} weeks")
     logger.info(f"Platforms: {platforms}")
     logger.info(f"Start date: {start_date}")
-    logger.info(f"Number of videos: {len(videos)}")
+    logger.info(f"Number of videos: {len(video_files)}")
     
     try:
         # Verify client ownership
@@ -223,10 +233,10 @@ async def create_campaign(
             raise HTTPException(status_code=404, detail="Client not found")
         
         # Validate video files
-        for video in videos:
-            if not video.content_type.startswith("video/"):
-                logger.error(f"Invalid video content type: {video.content_type}")
-                raise HTTPException(status_code=400, detail=f"Invalid video file: {video.filename}")
+        for video_file in video_files:
+            if not video_file.content_type.startswith("video/"):
+                logger.error(f"Invalid video content type: {video_file.content_type}")
+                raise HTTPException(status_code=400, detail=f"Invalid video file: {video_file.filename}")
     except Exception as e:
         logger.error(f"Error during campaign validation: {str(e)}")
         raise
@@ -239,13 +249,13 @@ async def create_campaign(
     video_paths = []
     relative_video_paths = []
     
-    for i, video in enumerate(videos):
-        file_extension = os.path.splitext(video.filename)[1]
+    for i, video_file in enumerate(video_files):
+        file_extension = os.path.splitext(video_file.filename)[1]
         video_filename = f"{uuid.uuid4()}{file_extension}"
         video_path = os.path.join(upload_dir, video_filename)
         
         with open(video_path, "wb") as buffer:
-            shutil.copyfileobj(video.file, buffer)
+            shutil.copyfileobj(video_file.file, buffer)
         
         video_paths.append(video_path)
         relative_video_paths.append(f"uploads/campaigns/{client_id}/{video_filename}")
@@ -268,7 +278,7 @@ async def create_campaign(
     db.commit()
     db.refresh(campaign)
     
-    logger.info(f"Created campaign {campaign.id} with {len(videos)} videos")
+    logger.info(f"Created campaign {campaign.id} with {len(video_files)} videos")
     
     # Start background processing
     logger.info(f"Adding background task for campaign {campaign.id}")
