@@ -953,6 +953,7 @@ def generate_campaign_emails(campaign_id: str, user_id: str):
                 
                 # Replace campaign-level variables
                 replacements = {
+                    # Single curly brace replacements (for backward compatibility)
                     '{event_date}': campaign.event_date.strftime('%B %d, %Y'),
                     '{event_time}': event_time,
                     '{hotel_name}': campaign.hotel_name or '',
@@ -961,11 +962,25 @@ def generate_campaign_emails(campaign_id: str, user_id: str):
                     '{owner_name}': campaign.owner_name,
                     '{campaign_name}': campaign.name,
                     '{target_cities}': campaign.target_cities or '',
-                    # Contact-specific variables (will be replaced by LLM)
-                    '{first_name}': f"{contact.first_name}",
-                    '{last_name}': f"{contact.last_name}",
+                    '{first_name}': contact.first_name,
+                    '{last_name}': contact.last_name,
                     '{company}': contact.enriched_company or contact.company or '',
-                    '{title}': contact.enriched_title or contact.title or ''
+                    '{title}': contact.enriched_title or contact.title or '',
+                    # Double curly brace replacements (ADTV templates)
+                    '{{FirstName}}': contact.first_name,
+                    '{{City}}': campaign.target_cities.split('\n')[0] if campaign.target_cities else '',
+                    '{{Market}}': contact.neighborhood or '',
+                    '{{Markets}}': contact.neighborhood or '',
+                    # Square bracket replacements (ADTV templates)
+                    '[[Date1]]': f"{campaign.event_date.strftime('%A, %B %d')} at {campaign.event_times[0] if campaign.event_times else ''}",
+                    '[[Date2]]': f"{campaign.event_date.strftime('%A, %B %d')} at {campaign.event_times[1] if campaign.event_times and len(campaign.event_times) > 1 else campaign.event_times[0] if campaign.event_times else ''}",
+                    '[[HotelName]]': campaign.hotel_name or '',
+                    '[[HotelAddress]]': campaign.hotel_address or '',
+                    '[[AssociateName]]': campaign.owner_name,
+                    '[[VideoLink]]': 'https://vimeo.com/adtv-intro', # Default video link
+                    '[[InfoLink]]': 'https://adtv.com/info', # Default info link
+                    '[[ContactInfo]]': campaign.owner_email,
+                    '[[AssociatePhone]]': '(555) 123-4567' # Default phone
                 }
                 
                 # Apply replacements
@@ -974,31 +989,37 @@ def generate_campaign_emails(campaign_id: str, user_id: str):
                     subject_with_vars = subject_with_vars.replace(key, value)
                 
                 prompt = f"""
-                You are writing a personalized email for an event campaign.
+                You are writing a personalized email for a real estate TV show opportunity.
                 
                 Recipient Information:
-                - Name: {contact.first_name} {contact.last_name}
+                - First Name: {contact.first_name}
                 - Company: {contact.enriched_company or contact.company}
-                - Title: {contact.enriched_title or contact.title}
-                - Location: {contact.neighborhood or contact.enriched_location or ''}
+                - Neighborhood/Market: {contact.neighborhood or contact.enriched_location or ''}
                 
-                Event Details:
+                Campaign Details:
                 - Event Type: {campaign.event_type}
                 - Event Date: {campaign.event_date.strftime('%B %d, %Y')}
                 - Event Time: {event_time}
                 {'- Hotel: ' + campaign.hotel_name if campaign.hotel_name else ''}
                 {'- Address: ' + campaign.hotel_address if campaign.hotel_address else ''}
-                {'- Calendly Link: ' + campaign.calendly_link if campaign.calendly_link else ''}
+                {'- Meeting Link: ' + campaign.calendly_link if campaign.calendly_link else ''}
+                - Host/Owner: {campaign.owner_name}
                 
                 Email Template:
                 {template_with_vars}
                 
-                Instructions:
-                1. Use the template as a guide but personalize it for this specific recipient
-                2. Keep the same tone and structure as the template
-                3. Make it feel personal and relevant to their location and role
-                4. Do not add any placeholder brackets or variables
-                5. Return only the email body text, no subject line
+                CRITICAL Instructions:
+                1. Use ONLY the recipient's first name (not full name) when addressing them
+                2. Focus on the uniqueness and importance of their specific neighborhood/market
+                3. Highlight what makes their neighborhood special and why they're the expert there
+                4. DO NOT mention any sales numbers or statistics
+                5. Replace ALL placeholders in {{}} or [[]] with actual values
+                6. Make it personal by referencing specific aspects of their neighborhood
+                7. Keep the tone conversational and authentic
+                8. Ensure the email flows naturally without any template markers
+                
+                The email should feel like it was written specifically for this person and their unique market expertise.
+                Return only the final email body text with all placeholders replaced.
                 """
                 
                 # Generate email using async function

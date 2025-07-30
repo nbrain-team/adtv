@@ -116,6 +116,87 @@ Best regards,
 [[YourName]]""",
         "category": "Event",
         "is_system": True
+    },
+    {
+        "name": "ADTV Round 1 Email",
+        "subject": "Exclusive Opportunity: Feature in Selling {{City}} on HGTV",
+        "body": """Hey {{FirstName}},
+
+I'll keep this short and sweet, since I know your time is valuable — and yes, this is a real email, not a blast.
+
+I'm also planning to text and call you directly, but I wanted to start here.
+
+I'm an Associate Producer for a 2x Emmy-nominated national television series focused on real estate, lifestyle, and local communities. I've been asked to reach out to you personally to explore the opportunity to connect with our CEO, Craig Sewing — Inman News Nominee for Most Influential in Real Estate and the creative force behind the show.
+
+Here's a short video from Craig that explains the concept in his own words:
+[[VideoLink]]
+
+We're currently casting for our upcoming series, Selling {{City}} — airing on HGTV and other major networks. The show highlights the communities, culture, and lifestyle that make {{City}} a world-class place to live, with a special focus on hyperlocal markets like {{Market}}.
+
+As someone who's clearly a respected presence in {{Market}} real estate — with a strong digital footprint and community involvement — your name came up as someone Craig should speak with directly about potentially being featured in our next episode.
+
+This isn't a pitch — it's an exploratory conversation. The goal is to introduce you to the show's format, how agents are featured as trusted community experts, and how that naturally results in increased exposure, inbound referrals, and storytelling that goes beyond the transaction.
+
+If you'd like a sneak peek before we talk:
+Here's a preliminary info page Craig will walk through with you during the meeting: [[InfoLink]]
+
+Meeting Details (Virtual or In-Person in {{City}}):
+
+Date / Time:
+- [[Date1]]
+- [[Date2]]
+
+Location:
+[[HotelName]]
+[[HotelAddress]]
+
+If this sounds exciting, just reply to this email with your preferred day, and I'll confirm your RSVP. Again, it's purely a discovery conversation to see if there's a fit — no obligations, just an opportunity.
+
+And if it's not for you, just let me know — no pressure at all.
+
+Wishing you continued success with your work in {{Market}}, and I hope to connect soon.
+
+Warm regards,
+[[AssociateName]]
+Associate Producer
+American Dream TV""",
+        "category": "Event",
+        "is_system": True,
+        "goal": "Do not mention sales numbers, rather, focus on the neighborhoods listed to show them we uniquely know about where they focus and we know about the importance and uniqueness of that neighborhood."
+    },
+    {
+        "name": "ADTV Round 2 Email",
+        "subject": "Quick Follow-up: Selling {{City}} Feature Opportunity",
+        "body": """Hi {{FirstName}},
+
+Hope you had a great weekend! Just following up on my email from a couple days ago — wanted to quickly circle back in case you missed it.
+
+I'm an Associate Producer with the ADTV Network, home to 2x Emmy-nominated national television series about real estate and lifestyle. We're gearing up to film our new season right here in {{City}}, and we're opening up one-on-one conversations with standout local agents to be potentially featured as the voice of their community.
+
+We've been especially focused on {{Market}}, and your presence caught our attention — we'd love to explore featuring you as a hyperlocal expert in this iconic market.
+
+Here's a short video to warm you up to what we're building with Selling {{City}}:
+[[VideoLink]]
+
+If you're interested in chatting with Craig Sewing (our CEO and host of the show), just reply to this email with a preferred time and I'll lock you in.
+
+Availability:
+- [[Date1]]
+- [[Date2]]
+
+Location:
+[[HotelName]]
+[[HotelAddress]]
+
+Let me know if one of those times works for you — would love to connect you and Craig.
+
+Warm regards,
+[[AssociateName]]
+Associate Producer, ADTV Network
+[[ContactInfo]]""",
+        "category": "Event",
+        "is_system": True,
+        "goal": "Do not mention sales numbers, rather, focus on the neighborhoods listed to show them we uniquely know about where they focus and we know about the importance and uniqueness of that neighborhood."
     }
 ]
 
