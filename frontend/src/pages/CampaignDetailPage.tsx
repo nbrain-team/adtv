@@ -134,6 +134,14 @@ const NEIGHBORHOOD_COORDS: Record<string, [number, number]> = {
     'Northport': [33.2290, -87.5772],
     'Anniston': [33.6598, -85.8316],
     'Phenix City': [32.4710, -85.0008],
+    // Additional Alabama neighborhoods
+    'Research Park': [34.7243, -86.6389],
+    'Research Park, Huntsville': [34.7243, -86.6389],
+    'Weatherly Heights': [34.7304, -86.5861],
+    'Weatherly Heights, Huntsville': [34.7304, -86.5861],
+    'Meridianville': [34.8515, -86.5722],
+    'New Market': [34.9062, -86.4269],
+    'Ryland': [34.8098, -86.4633],
     // Original San Diego neighborhoods (keep for compatibility)
     'Downtown': [32.7157, -117.1611],
     'La Jolla': [32.8328, -117.2713],
@@ -151,15 +159,31 @@ const NEIGHBORHOOD_COORDS: Record<string, [number, number]> = {
 const getNeighborhoodCoords = (neighborhood?: string): [number, number] | null => {
     if (!neighborhood) return null;
     
-    // Try exact match first
+    // Extract just the city name from formats like "Madison, Alabama, USA"
+    const cityName = neighborhood.split(',')[0].trim();
+    
+    // Try exact match with full string first
     if (NEIGHBORHOOD_COORDS[neighborhood]) {
         return NEIGHBORHOOD_COORDS[neighborhood];
     }
     
-    // Try case-insensitive match
+    // Try match with just city name
+    if (NEIGHBORHOOD_COORDS[cityName]) {
+        return NEIGHBORHOOD_COORDS[cityName];
+    }
+    
+    // Try case-insensitive match with full string
     const lowerNeighborhood = neighborhood.toLowerCase();
     for (const [key, coords] of Object.entries(NEIGHBORHOOD_COORDS)) {
         if (key.toLowerCase() === lowerNeighborhood) {
+            return coords;
+        }
+    }
+    
+    // Try case-insensitive match with just city name
+    const lowerCityName = cityName.toLowerCase();
+    for (const [key, coords] of Object.entries(NEIGHBORHOOD_COORDS)) {
+        if (key.toLowerCase() === lowerCityName) {
             return coords;
         }
     }
