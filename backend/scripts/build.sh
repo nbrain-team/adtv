@@ -25,4 +25,7 @@ python scripts/add_system_email_templates.py || echo "System email templates may
 echo "Adding ad traffic enhancements..."
 python scripts/add_ad_traffic_enhancements.py || echo "Ad traffic enhancements may already exist"
 
+echo "Checking ad traffic data..."
+python scripts/check_ad_traffic_data.py || echo "Ad traffic data check completed"
+
 echo "Build complete!" 
