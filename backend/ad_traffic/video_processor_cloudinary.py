@@ -39,8 +39,8 @@ async def process_campaign(
     with SessionLocal() as db:
         try:
             # Update campaign status
-            campaign = db.query(models.Campaign).filter(
-                models.Campaign.id == campaign_id
+            campaign = db.query(models.AdTrafficCampaign).filter(
+                models.AdTrafficCampaign.id == campaign_id
             ).first()
             
             if not campaign:

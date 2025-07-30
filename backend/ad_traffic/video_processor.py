@@ -41,8 +41,8 @@ async def process_campaign(
         try:
             # Update campaign status
             logger.info(f"Fetching campaign {campaign_id} from database...")
-            campaign = db.query(models.Campaign).filter(
-                models.Campaign.id == campaign_id
+            campaign = db.query(models.AdTrafficCampaign).filter(
+                models.AdTrafficCampaign.id == campaign_id
             ).first()
             
             if not campaign:

@@ -93,7 +93,7 @@ async def get_client_posts(
     # Add campaign names to posts
     for post in posts:
         if post.campaign_id:
-            campaign = db.query(models.Campaign).filter_by(id=post.campaign_id).first()
+            campaign = db.query(models.AdTrafficCampaign).filter_by(id=post.campaign_id).first()
             if campaign:
                 post.campaign_name = campaign.name
     
@@ -293,7 +293,10 @@ async def delete_campaign(
     logger = logging.getLogger(__name__)
     
     # Verify campaign ownership
-    campaign = services.get_campaign_with_clips(db, campaign_id, current_user.id)
+    campaign = db.query(models.AdTrafficCampaign).filter(
+        models.AdTrafficCampaign.id == campaign_id
+    ).first()
+    
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
     
@@ -444,8 +447,8 @@ async def debug_campaign_status(
     db: Session = Depends(get_db)
 ):
     """Debug endpoint to check campaign processing status"""
-    campaign = db.query(models.Campaign).filter(
-        models.Campaign.id == campaign_id
+    campaign = db.query(models.AdTrafficCampaign).filter(
+        models.AdTrafficCampaign.id == campaign_id
     ).first()
     
     if not campaign:
@@ -486,10 +489,10 @@ async def reprocess_campaign(
     logger = logging.getLogger(__name__)
     
     # Get campaign
-    campaign = db.query(models.Campaign).join(
+    campaign = db.query(models.AdTrafficCampaign).join(
         models.AdTrafficClient
     ).filter(
-        models.Campaign.id == campaign_id,
+        models.AdTrafficCampaign.id == campaign_id,
         models.AdTrafficClient.user_id == current_user.id
     ).first()
     
