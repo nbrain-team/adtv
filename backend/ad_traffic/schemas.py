@@ -125,6 +125,16 @@ class SocialPost(PostBase):
 
     class Config:
         orm_mode = True
+    
+    @validator('media_urls', pre=True)
+    def convert_array_to_dict(cls, v):
+        if isinstance(v, list):
+            # Convert array to dict
+            if len(v) == 0:
+                return {}
+            # Simple conversion - use index as key
+            return {str(i): url for i, url in enumerate(v)}
+        return v or {}
 
 
 # Campaign schemas

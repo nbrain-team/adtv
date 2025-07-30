@@ -157,21 +157,20 @@ def fix_all_database_columns():
                     END $$;
                 """))
                 
-                # Convert media_urls from ARRAY to JSON
+                # Fix media_urls - convert arrays to JSON dicts
+                logger.info("Fixing media_urls field...")
+                
+                # First ensure column exists
                 conn.execute(text("""
-                    DO $$ 
-                    BEGIN 
-                        IF EXISTS (SELECT 1 FROM information_schema.columns 
-                                  WHERE table_name='social_posts' AND column_name='media_urls' 
-                                  AND data_type = 'ARRAY') THEN
-                            ALTER TABLE social_posts ADD COLUMN media_urls_new JSON DEFAULT '{}'::json;
-                            UPDATE social_posts SET media_urls_new = to_json(media_urls);
-                            ALTER TABLE social_posts DROP COLUMN media_urls;
-                            ALTER TABLE social_posts RENAME COLUMN media_urls_new TO media_urls;
-                        ELSE
-                            ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS media_urls JSON DEFAULT '{}'::json;
-                        END IF;
-                    END $$;
+                    ALTER TABLE social_posts 
+                    ADD COLUMN IF NOT EXISTS media_urls JSON DEFAULT '{}'::json
+                """))
+                
+                # Convert empty arrays to empty dicts
+                conn.execute(text("""
+                    UPDATE social_posts 
+                    SET media_urls = '{}'::json 
+                    WHERE media_urls IS NOT NULL AND media_urls::text = '[]'
                 """))
                 
                 conn.commit()

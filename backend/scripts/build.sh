@@ -16,6 +16,9 @@ python scripts/fix_database_columns.py || echo "Database column fixes may have a
 echo "Fixing ad traffic email fields..."
 python scripts/fix_ad_traffic_emails.py || echo "Email fields may already be fixed"
 
+echo "Fixing ad traffic media URLs..."
+python scripts/fix_ad_traffic_media_urls.py || echo "Media URLs may already be fixed"
+
 echo "Running user management fields migration..."
 python scripts/add_user_management_fields.py || echo "User management fields may already exist"
 
