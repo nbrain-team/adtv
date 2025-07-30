@@ -954,7 +954,7 @@ def generate_campaign_emails(campaign_id: str, user_id: str):
                 owner_phones = {
                     'Kalena Conley': '(619) 374-7405',
                     'Evan Jones': '(619) 374-2561',
-                    'Sigrid Smith': '(619) 292-8550',
+                    'Sigrid Smith': '(619) 292-8580',
                     'Amy Dodsworth': '(619) 259-0014',
                     'Bailey Jacobs': '(619) 333-0342'
                 }

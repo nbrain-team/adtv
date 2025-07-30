@@ -30,11 +30,11 @@ interface Campaign {
 }
 
 const CAMPAIGN_OWNERS = [
-    { value: 'kalena_conley', label: 'Kalena Conley', email: 'kalena@adtv.com', phone: '619-374-7405' },
-    { value: 'evan_jones', label: 'Evan Jones', email: 'evan@adtv.com', phone: '619-374-2561' },
-    { value: 'sigrid_smith', label: 'Sigrid Smith', email: 'sigrid@adtv.com', phone: '619-292-8550' },
-    { value: 'amy_dodsworth', label: 'Amy Dodsworth', email: 'amy@adtv.com', phone: '619-259-0014' },
-    { value: 'bailey_jacobs', label: 'Bailey Jacobs', email: 'bailey@adtv.com', phone: '619-333-0342' }
+    { value: 'kalena_conley', label: 'Kalena Conley', email: 'kalena@adtvmedia.com', phone: '619-374-7405' },
+    { value: 'evan_jones', label: 'Evan Jones', email: 'evan@adtvmedia.com', phone: '619-374-2561' },
+    { value: 'sigrid_smith', label: 'Sigrid Smith', email: 'sigrid@adtvmedia.com', phone: '619-292-8580' },
+    { value: 'amy_dodsworth', label: 'Amy Dodsworth', email: 'amy@adtvmedia.com', phone: '619-259-0014' },
+    { value: 'bailey_jacobs', label: 'Bailey Jacobs', email: 'bailey@adtvmedia.com', phone: '619-333-0342' }
 ];
 
 const getStatusColor = (status: string) => {
