@@ -159,7 +159,8 @@ Wishing you continued success with your work in {{Market}}, and I hope to connec
 Warm regards,
 [[AssociateName]]
 Associate Producer
-American Dream TV""",
+[[ContactInfo]]
+[[AssociatePhone]]""",
         "category": "Event",
         "is_system": True,
         "goal": "Do not mention sales numbers, rather, focus on the neighborhoods listed to show them we uniquely know about where they focus and we know about the importance and uniqueness of that neighborhood."

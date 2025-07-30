@@ -977,9 +977,12 @@ def generate_campaign_emails(campaign_id: str, user_id: str):
                     # Square bracket replacements (ADTV templates)
                     '[[Date1]]': f"{campaign.event_date.strftime('%A, %B %d')} at {campaign.event_times[0] if campaign.event_times else ''}",
                     '[[Date2]]': f"{campaign.event_date.strftime('%A, %B %d')} at {campaign.event_times[1] if campaign.event_times and len(campaign.event_times) > 1 else campaign.event_times[0] if campaign.event_times else ''}",
-                    '[[HotelName]]': campaign.hotel_name or '',
-                    '[[HotelAddress]]': campaign.hotel_address or '',
+                    '[[HotelName]]': campaign.calendly_link if campaign.event_type == 'virtual' else (campaign.hotel_name or ''),
+                    '[[HotelAddress]]': '' if campaign.event_type == 'virtual' else (campaign.hotel_address or ''),
                     '[[AssociateName]]': campaign.owner_name,
+                    '[[Campaign Owner Name]]': campaign.owner_name,
+                    '[[Campaign Owner Email]]': campaign.owner_email,
+                    '[[Campaign Owner Phone]]': campaign.owner_phone or '',
                     '[[VideoLink]]': 'https://vimeo.com/adtv-intro', # Default video link
                     '[[InfoLink]]': 'https://adtv.com/info', # Default info link
                     '[[ContactInfo]]': campaign.owner_email,
@@ -992,7 +995,7 @@ def generate_campaign_emails(campaign_id: str, user_id: str):
                     subject_with_vars = subject_with_vars.replace(key, value)
                 
                 prompt = f"""
-                You are writing a personalized email for a real estate TV show opportunity.
+                You are writing a personalized email for a real estate TV show opportunity using the provided template.
                 
                 Recipient Information:
                 - First Name: {contact.first_name}
@@ -1003,9 +1006,9 @@ def generate_campaign_emails(campaign_id: str, user_id: str):
                 - Event Type: {campaign.event_type}
                 - Event Date: {campaign.event_date.strftime('%B %d, %Y')}
                 - Event Time: {event_time}
-                {'- Hotel: ' + campaign.hotel_name if campaign.hotel_name else ''}
-                {'- Address: ' + campaign.hotel_address if campaign.hotel_address else ''}
-                {'- Meeting Link: ' + campaign.calendly_link if campaign.calendly_link else ''}
+                {'- Hotel: ' + campaign.hotel_name if campaign.hotel_name and campaign.event_type == 'in_person' else ''}
+                {'- Address: ' + campaign.hotel_address if campaign.hotel_address and campaign.event_type == 'in_person' else ''}
+                {'- Meeting Link: ' + campaign.calendly_link if campaign.calendly_link and campaign.event_type == 'virtual' else ''}
                 - Host/Owner: {campaign.owner_name}
                 
                 Email Template:
@@ -1020,6 +1023,8 @@ def generate_campaign_emails(campaign_id: str, user_id: str):
                 6. Make it personal by referencing specific aspects of their neighborhood
                 7. Keep the tone conversational and authentic
                 8. Ensure the email flows naturally without any template markers
+                9. For virtual events, the meeting location should be the Calendly link
+                10. Emphasize their expertise and reputation in their specific market area
                 
                 The email should feel like it was written specifically for this person and their unique market expertise.
                 Return only the final email body text with all placeholders replaced.
