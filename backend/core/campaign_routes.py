@@ -126,13 +126,29 @@ async def create_campaign(
     db: Session = Depends(get_db)
 ):
     """Create a new campaign"""
-    campaign = Campaign(
-        user_id=current_user.id,
-        **campaign_data.dict()
-    )
-    db.add(campaign)
-    db.commit()
-    db.refresh(campaign)
+    try:
+        campaign = Campaign(
+            user_id=current_user.id,
+            **campaign_data.dict()
+        )
+        db.add(campaign)
+        db.commit()
+        db.refresh(campaign)
+    except Exception as e:
+        # If owner_phone column doesn't exist yet, try without it
+        if "owner_phone" in str(e):
+            db.rollback()
+            campaign_dict = campaign_data.dict()
+            campaign_dict.pop('owner_phone', None)  # Remove owner_phone
+            campaign = Campaign(
+                user_id=current_user.id,
+                **campaign_dict
+            )
+            db.add(campaign)
+            db.commit()
+            db.refresh(campaign)
+        else:
+            raise
     
     # TODO: Send email notification to campaign owner
     
@@ -185,7 +201,23 @@ async def update_campaign(
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
     
-    for field, value in campaign_data.dict(exclude_unset=True).items():
+    update_dict = campaign_data.dict(exclude_unset=True)
+    
+    # Check if owner_phone column exists
+    if 'owner_phone' in update_dict:
+        try:
+            # Try to set owner_phone
+            setattr(campaign, 'owner_phone', update_dict['owner_phone'])
+            db.flush()  # Test if it works
+        except Exception as e:
+            if "owner_phone" in str(e):
+                # Column doesn't exist, remove it from updates
+                db.rollback()
+                update_dict.pop('owner_phone', None)
+            else:
+                raise
+    
+    for field, value in update_dict.items():
         setattr(campaign, field, value)
     
     campaign.updated_at = datetime.utcnow()
@@ -982,11 +1014,11 @@ def generate_campaign_emails(campaign_id: str, user_id: str):
                     '[[AssociateName]]': campaign.owner_name,
                     '[[Campaign Owner Name]]': campaign.owner_name,
                     '[[Campaign Owner Email]]': campaign.owner_email,
-                    '[[Campaign Owner Phone]]': campaign.owner_phone or '',
+                    '[[Campaign Owner Phone]]': getattr(campaign, 'owner_phone', '') or '',
                     '[[VideoLink]]': 'https://vimeo.com/adtv-intro', # Default video link
                     '[[InfoLink]]': 'https://adtv.com/info', # Default info link
                     '[[ContactInfo]]': campaign.owner_email,
-                    '[[AssociatePhone]]': campaign.owner_phone or '(555) 123-4567' # Use owner phone or default
+                    '[[AssociatePhone]]': getattr(campaign, 'owner_phone', '(555) 123-4567') or '(555) 123-4567' # Use owner phone or default
                 }
                 
                 # Apply replacements
