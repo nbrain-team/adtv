@@ -950,6 +950,18 @@ def generate_campaign_emails(campaign_id: str, user_id: str):
                 # Build the personalization context
                 event_time = campaign.event_times[0] if campaign.event_times else ''
                 
+                # Map owner names to phone numbers
+                owner_phones = {
+                    'Kalena Conley': '(619) 374-7405',
+                    'Evan Jones': '(619) 374-2561',
+                    'Sigrid Smith': '(619) 292-8550',
+                    'Amy Dodsworth': '(619) 259-0014',
+                    'Bailey Jacobs': '(619) 333-0342'
+                }
+                
+                # Get owner phone based on name
+                owner_phone = owner_phones.get(campaign.owner_name, '(619) 374-7405')  # Default to Kalena's
+                
                 # Build template with all variables replaced
                 template_with_vars = campaign.email_template or 'Create a professional invitation email'
                 subject_with_vars = campaign.email_subject or f'Invitation: {campaign.name}'
@@ -982,11 +994,11 @@ def generate_campaign_emails(campaign_id: str, user_id: str):
                     '[[AssociateName]]': campaign.owner_name,
                     '[[Campaign Owner Name]]': campaign.owner_name,
                     '[[Campaign Owner Email]]': campaign.owner_email,
-                    '[[Campaign Owner Phone]]': '(619) 374-7405',  # Default phone until migration runs
+                    '[[Campaign Owner Phone]]': owner_phone,
                     '[[VideoLink]]': 'https://vimeo.com/adtv-intro', # Default video link
                     '[[InfoLink]]': 'https://adtv.com/info', # Default info link
                     '[[ContactInfo]]': campaign.owner_email,
-                    '[[AssociatePhone]]': '(619) 374-7405'  # Default phone until migration runs
+                    '[[AssociatePhone]]': owner_phone
                 }
                 
                 # Apply replacements

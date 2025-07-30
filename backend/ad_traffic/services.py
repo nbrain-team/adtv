@@ -217,119 +217,72 @@ def get_campaign_posts(db: Session, campaign_id: str, user_id: str) -> List[mode
 
 
 # Background processing
-async def process_campaign_video(campaign_id: str, video_path: str, client_id: str):
-    """Process campaign video using best available processor"""
+async def process_campaign_videos(
+    campaign_id: str,
+    video_paths: List[str],
+    client_id: str
+):
+    """Process multiple campaign videos"""
     import logging
     logger = logging.getLogger(__name__)
     
-    logger.info("=" * 50)
-    logger.info(f"STARTING VIDEO PROCESSING FOR CAMPAIGN: {campaign_id}")
-    logger.info(f"Video path: {video_path}")
-    logger.info(f"Client ID: {client_id}")
-    logger.info("=" * 50)
+    logger.info(f"Starting to process {len(video_paths)} videos for campaign {campaign_id}")
     
+    # Fetch campaign details
     with SessionLocal() as db:
-        # Fetch campaign details
-        campaign = db.query(models.AdTrafficCampaign).filter(models.AdTrafficCampaign.id == campaign_id).first()
+        campaign = db.query(models.AdTrafficCampaign).filter(
+            models.AdTrafficCampaign.id == campaign_id
+        ).first()
         if not campaign:
             logger.error(f"Campaign {campaign_id} not found")
             return
         
-        # Fix: platforms might already be strings from the database
-        if campaign.platforms and isinstance(campaign.platforms[0], str):
-            platforms = campaign.platforms
-        else:
-            platforms = [p.value for p in campaign.platforms]
+        # Get platforms and duration
+        platforms = campaign.platforms if isinstance(campaign.platforms[0], str) else [p.value for p in campaign.platforms]
         duration_weeks = campaign.duration_weeks
     
-    # Try processors in order of preference
-    processors = []
+    # Check if Cloudinary is configured
+    cloudinary_configured = all([
+        os.getenv('CLOUDINARY_CLOUD_NAME'),
+        os.getenv('CLOUDINARY_API_KEY'),
+        os.getenv('CLOUDINARY_API_SECRET')
+    ])
     
-    # 1. Try Cloudinary (most reliable) - REQUIRED if configured
-    cloudinary_configured = False
-    try:
-        from . import video_processor_cloudinary
-        
-        # Log Cloudinary config status
-        cloud_name = os.getenv('CLOUDINARY_CLOUD_NAME')
-        api_key = os.getenv('CLOUDINARY_API_KEY')
-        api_secret = os.getenv('CLOUDINARY_API_SECRET')
-        
-        logger.info(f"Cloudinary config check - Cloud Name: {'SET' if cloud_name else 'NOT SET'}")
-        logger.info(f"Cloudinary config check - API Key: {'SET' if api_key else 'NOT SET'}")
-        logger.info(f"Cloudinary config check - API Secret: {'SET' if api_secret else 'NOT SET'}")
-        
-        if all([cloud_name, api_key, api_secret]):
-            processors.append(("Cloudinary", video_processor_cloudinary))
-            logger.info("Cloudinary processor available and configured")
-            cloudinary_configured = True
-        else:
-            logger.warning("Cloudinary environment variables not fully configured")
-    except ImportError as e:
-        logger.error(f"Failed to import Cloudinary processor: {str(e)}")
-        pass
-    
-    # If Cloudinary is configured, use ONLY Cloudinary
     if cloudinary_configured:
-        logger.info("Using Cloudinary as the exclusive video processor")
-        # Only try Cloudinary
-        for processor_name, processor in processors:
-            try:
-                logger.info(f"Processing video with {processor_name}")
-                await processor.process_campaign(
-                    campaign_id, video_path, platforms, duration_weeks, client_id
-                )
-                logger.info(f"Successfully processed video with {processor_name}")
-                return
-            except Exception as e:
-                logger.error(f"Error with {processor_name}: {str(e)}")
-                # Mark campaign as failed
-                with SessionLocal() as db:
-                    campaign = db.query(models.AdTrafficCampaign).filter(models.AdTrafficCampaign.id == campaign_id).first()
-                    if campaign:
-                        campaign.status = models.CampaignStatus.FAILED
-                        campaign.error_message = str(e)
-                        db.commit()
-                raise
-    else:
-        # Fallback to other processors only if Cloudinary is not configured
-        logger.info("Cloudinary not configured, trying fallback processors...")
-        
-        # 2. Try FFmpeg
+        logger.info("Using Cloudinary video processor")
         try:
-            from . import video_processor_ffmpeg
-            processors.append(("FFmpeg", video_processor_ffmpeg))
-            logger.info("FFmpeg processor available")
-        except ImportError:
-            pass
-        
-        # 3. Try MoviePy as last resort
+            from . import video_processor_cloudinary
+            await video_processor_cloudinary.process_campaign_with_multiple_videos(
+                campaign_id, video_paths, platforms, duration_weeks, client_id
+            )
+            return
+        except Exception as e:
+            logger.error(f"Error with Cloudinary: {e}")
+    
+    # Fallback to FFmpeg processor
+    try:
+        logger.info("Using FFmpeg video processor")
+        from . import video_processor_ffmpeg
+        await video_processor_ffmpeg.process_campaign_with_multiple_videos(
+            campaign_id, video_paths, platforms, duration_weeks, client_id
+        )
+    except ImportError:
+        logger.warning("FFmpeg processor not available, trying MoviePy")
         try:
             from . import video_processor
-            processors.append(("MoviePy", video_processor))
-            logger.info("MoviePy processor available")
-        except ImportError:
-            pass
-        
-        # Process with first available processor
-        for processor_name, processor in processors:
-            try:
-                logger.info(f"Processing video with {processor_name}")
-                await processor.process_campaign(
-                    campaign_id, video_path, platforms, duration_weeks, client_id
-                )
-                logger.info(f"Successfully processed video with {processor_name}")
-                return
-            except Exception as e:
-                logger.error(f"Error with {processor_name}: {str(e)}")
-                continue
-        
-        # If all processors fail, mark campaign as failed
-        with SessionLocal() as db:
-            campaign = db.query(models.AdTrafficCampaign).filter(models.AdTrafficCampaign.id == campaign_id).first()
-            if campaign:
-                campaign.status = models.CampaignStatus.FAILED
-                campaign.error_message = "All video processors failed"
-                db.commit()
-        
-        logger.error("All video processors failed") 
+            await video_processor.process_campaign_with_multiple_videos(
+                campaign_id, video_paths, platforms, duration_weeks, client_id
+            )
+        except Exception as e:
+            logger.error(f"No video processor available: {e}")
+            raise
+
+
+# Keep the original function for backward compatibility
+async def process_campaign_video(
+    campaign_id: str,
+    video_path: str,
+    client_id: str
+):
+    """Process a single campaign video - backward compatibility"""
+    await process_campaign_videos(campaign_id, [video_path], client_id) 

@@ -130,6 +130,39 @@ async def update_post(
     return post
 
 
+@router.post("/posts/{post_id}/approve")
+async def approve_post(
+    post_id: str,
+    approval: schemas.PostApproval,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Approve or reject a post"""
+    post = db.query(models.SocialPost).join(
+        models.AdTrafficClient
+    ).filter(
+        models.SocialPost.id == post_id,
+        models.AdTrafficClient.user_id == current_user.id
+    ).first()
+    
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    
+    if approval.approved:
+        post.status = models.PostStatus.APPROVED
+        post.approved_by = current_user.id
+        post.approved_at = datetime.utcnow()
+    else:
+        post.status = models.PostStatus.DRAFT
+        post.approved_by = None
+        post.approved_at = None
+    
+    db.commit()
+    db.refresh(post)
+    
+    return {"message": f"Post {'approved' if approval.approved else 'rejected'}", "post": post}
+
+
 @router.delete("/posts/{post_id}")
 async def delete_post(
     post_id: str,
@@ -165,11 +198,12 @@ async def create_campaign(
     name: str = Form(...),
     duration_weeks: int = Form(...),
     platforms: List[str] = Form(...),
-    video: UploadFile = File(...),
+    start_date: Optional[datetime] = Form(None),
+    videos: List[UploadFile] = File(...),  # Changed to accept multiple videos
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """Create a new video campaign"""
+    """Create a new video campaign with multiple videos"""
     import logging
     logger = logging.getLogger(__name__)
     
@@ -178,8 +212,8 @@ async def create_campaign(
     logger.info(f"Campaign name: {name}")
     logger.info(f"Duration: {duration_weeks} weeks")
     logger.info(f"Platforms: {platforms}")
-    logger.info(f"Video filename: {video.filename}")
-    logger.info(f"Video content type: {video.content_type}")
+    logger.info(f"Start date: {start_date}")
+    logger.info(f"Number of videos: {len(videos)}")
     
     try:
         # Verify client ownership
@@ -188,71 +222,75 @@ async def create_campaign(
             logger.error(f"Client {client_id} not found for user {current_user.id}")
             raise HTTPException(status_code=404, detail="Client not found")
         
-        # Validate video file
-        if not video.content_type.startswith("video/"):
-            logger.error(f"Invalid video content type: {video.content_type}")
-            raise HTTPException(status_code=400, detail="Invalid video file")
+        # Validate video files
+        for video in videos:
+            if not video.content_type.startswith("video/"):
+                logger.error(f"Invalid video content type: {video.content_type}")
+                raise HTTPException(status_code=400, detail=f"Invalid video file: {video.filename}")
     except Exception as e:
         logger.error(f"Error during campaign validation: {str(e)}")
         raise
     
-    # Save video file
-    # Make sure we're saving to the backend/uploads directory
+    # Save video files
     backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     upload_dir = os.path.join(backend_dir, "uploads", "campaigns", client_id)
     os.makedirs(upload_dir, exist_ok=True)
     
-    file_extension = os.path.splitext(video.filename)[1]
-    video_filename = f"{uuid.uuid4()}{file_extension}"
-    video_path = os.path.join(upload_dir, video_filename)
+    video_paths = []
+    relative_video_paths = []
     
-    with open(video_path, "wb") as buffer:
-        shutil.copyfileobj(video.file, buffer)
+    for i, video in enumerate(videos):
+        file_extension = os.path.splitext(video.filename)[1]
+        video_filename = f"{uuid.uuid4()}{file_extension}"
+        video_path = os.path.join(upload_dir, video_filename)
+        
+        with open(video_path, "wb") as buffer:
+            shutil.copyfileobj(video.file, buffer)
+        
+        video_paths.append(video_path)
+        relative_video_paths.append(f"uploads/campaigns/{client_id}/{video_filename}")
+        
+        logger.info(f"Video {i+1} saved to: {video_path}")
     
-    # Store the relative path for URL generation
-    relative_video_path = f"uploads/campaigns/{client_id}/{video_filename}"
-    
-    # Create campaign
+    # Create campaign with multiple videos
     campaign_data = schemas.CampaignCreate(
         name=name,
         duration_weeks=duration_weeks,
-        platforms=[schemas.Platform(p) for p in platforms]
+        platforms=[schemas.Platform(p) for p in platforms],
+        start_date=start_date
     )
     
-    campaign = services.create_campaign(db, campaign_data, client_id, relative_video_path)
+    # Create campaign with first video as primary (for backward compatibility)
+    campaign = services.create_campaign(db, campaign_data, client_id, relative_video_paths[0])
     
-    # Import logging
-    import logging
-    logger = logging.getLogger(__name__)
+    # Update campaign with all video URLs
+    campaign.video_urls = relative_video_paths
+    db.commit()
+    db.refresh(campaign)
     
-    logger.info(f"Created campaign {campaign.id} for client {client_id}")
-    logger.info(f"Video saved to: {video_path}")
-    logger.info(f"File exists: {os.path.exists(video_path)}")
-    logger.info(f"File size: {os.path.getsize(video_path) if os.path.exists(video_path) else 'N/A'}")
+    logger.info(f"Created campaign {campaign.id} with {len(videos)} videos")
     
     # Start background processing
-    # Don't pass the db session to background task - it will create its own
     logger.info(f"Adding background task for campaign {campaign.id}")
     
     # Check if we should process inline (for debugging/testing)
     process_inline = os.getenv('PROCESS_VIDEO_INLINE', 'false').lower() == 'true'
     
     if process_inline:
-        logger.info("Processing video inline (not in background)")
-        # Import asyncio to run the async function
+        logger.info("Processing videos inline (not in background)")
         import asyncio
         loop = asyncio.get_event_loop()
-        loop.create_task(services.process_campaign_video(
+        loop.create_task(services.process_campaign_videos(
             campaign.id,
-            video_path,
+            video_paths,  # Pass all video paths
             client.id
         ))
     else:
         background_tasks.add_task(
-            services.process_campaign_video,
+            services.process_campaign_videos,  # Updated function name
             campaign.id,
-            video_path,  # Pass full path instead of relative path
-            client.id  # Pass client_id instead of client object
+            video_paths,  # Pass all video paths
+            client.id
         )
         logger.info("Background task added successfully")
     
@@ -557,4 +595,79 @@ async def test_video_processing(
             os.getenv('CLOUDINARY_API_KEY'),
             os.getenv('CLOUDINARY_API_SECRET')
         ])
+    } 
+
+
+@router.get("/clients/{client_id}/profile")
+async def get_client_profile(
+    client_id: str,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get comprehensive client profile with campaigns, posts, and metrics"""
+    # Verify client ownership
+    client = services.get_client(db, client_id, current_user.id)
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+    
+    # Get all campaigns
+    campaigns = db.query(models.AdTrafficCampaign).filter(
+        models.AdTrafficCampaign.client_id == client_id
+    ).order_by(models.AdTrafficCampaign.created_at.desc()).all()
+    
+    # Get all posts with metrics
+    posts = db.query(models.SocialPost).filter(
+        models.SocialPost.client_id == client_id
+    ).order_by(models.SocialPost.scheduled_time.desc()).all()
+    
+    # Calculate aggregate metrics
+    total_posts = len(posts)
+    published_posts = sum(1 for p in posts if p.status == models.PostStatus.PUBLISHED)
+    total_budget_spent = sum(p.budget_spent for p in posts)
+    
+    # Get video clips grouped by campaign
+    campaign_videos = {}
+    for campaign in campaigns:
+        clips = db.query(models.VideoClip).filter(
+            models.VideoClip.campaign_id == campaign.id
+        ).all()
+        campaign_videos[campaign.id] = {
+            "campaign_name": campaign.name,
+            "videos": campaign.video_urls or [campaign.original_video_url],
+            "clips": clips,
+            "total_clips": len(clips)
+        }
+    
+    # Calculate engagement metrics from posts
+    total_engagement = {
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "views": 0
+    }
+    
+    for post in posts:
+        if post.metrics:
+            for platform, metrics in post.metrics.items():
+                if isinstance(metrics, dict):
+                    total_engagement["likes"] += metrics.get("likes", 0)
+                    total_engagement["comments"] += metrics.get("comments", 0)
+                    total_engagement["shares"] += metrics.get("shares", 0)
+                    total_engagement["views"] += metrics.get("views", 0)
+    
+    return {
+        "client": client,
+        "campaigns": campaigns,
+        "posts": posts,
+        "campaign_videos": campaign_videos,
+        "metrics": {
+            "total_posts": total_posts,
+            "published_posts": published_posts,
+            "total_budget_spent": total_budget_spent,
+            "engagement": total_engagement,
+            "average_engagement_rate": (
+                (total_engagement["likes"] + total_engagement["comments"] + total_engagement["shares"]) / 
+                (total_engagement["views"] if total_engagement["views"] > 0 else 1) * 100
+            )
+        }
     } 

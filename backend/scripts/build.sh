@@ -22,4 +22,7 @@ python scripts/add_campaign_owner_phone.py || echo "Campaign owner phone field m
 echo "Adding system email templates..."
 python scripts/add_system_email_templates.py || echo "System email templates may already exist"
 
+echo "Adding ad traffic enhancements..."
+python scripts/add_ad_traffic_enhancements.py || echo "Ad traffic enhancements may already exist"
+
 echo "Build complete!" 

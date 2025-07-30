@@ -25,6 +25,22 @@ cloudinary.config(
     api_secret=os.getenv('CLOUDINARY_API_SECRET')
 )
 
+# Add this constant at the top after imports
+PLATFORM_ASPECT_RATIOS = {
+    "facebook": [
+        {"name": "feed", "ratio": "1:1", "width": 1080, "height": 1080},
+        {"name": "story", "ratio": "9:16", "width": 1080, "height": 1920}
+    ],
+    "instagram": [
+        {"name": "feed", "ratio": "1:1", "width": 1080, "height": 1080},
+        {"name": "reels", "ratio": "9:16", "width": 1080, "height": 1920},
+        {"name": "igtv", "ratio": "16:9", "width": 1920, "height": 1080}
+    ],
+    "tiktok": [
+        {"name": "video", "ratio": "9:16", "width": 1080, "height": 1920}
+    ]
+}
+
 
 async def process_campaign(
     campaign_id: str,
@@ -273,3 +289,146 @@ Caption:"""
     
     db.commit()
     logger.info(f"Created {len(clips)} scheduled posts") 
+
+
+async def process_campaign_with_multiple_videos(
+    campaign_id: str,
+    video_paths: List[str],
+    platforms: List[str],
+    duration_weeks: int,
+    client_id: str
+):
+    """Process multiple videos for a campaign with platform-specific versions"""
+    logger.info(f"Starting Cloudinary processing for {len(video_paths)} videos")
+    
+    with SessionLocal() as db:
+        try:
+            campaign = db.query(models.AdTrafficCampaign).filter(
+                models.AdTrafficCampaign.id == campaign_id
+            ).first()
+            
+            if not campaign:
+                logger.error(f"Campaign {campaign_id} not found")
+                return
+            
+            campaign.status = models.CampaignStatus.PROCESSING
+            campaign.progress = 10
+            db.commit()
+            
+            all_clips = []
+            total_videos = len(video_paths)
+            
+            for video_idx, video_path in enumerate(video_paths):
+                logger.info(f"Processing video {video_idx + 1}/{total_videos}: {video_path}")
+                
+                # Upload video to Cloudinary
+                try:
+                    upload_result = cloudinary.uploader.upload_large(
+                        video_path,
+                        resource_type="video",
+                        public_id=f"campaigns/{campaign_id}/video_{video_idx + 1}",
+                        overwrite=True
+                    )
+                    
+                    video_url = upload_result['secure_url']
+                    duration = upload_result.get('duration', 90)
+                    logger.info(f"Video {video_idx + 1} uploaded. Duration: {duration}s")
+                except Exception as e:
+                    logger.error(f"Failed to upload video {video_idx + 1}: {str(e)}")
+                    continue
+                
+                # Generate clips from this video
+                clip_duration = 30  # 30-second clips
+                num_clips = min(3, int(duration / clip_duration))
+                
+                for clip_idx in range(num_clips):
+                    start_time = clip_idx * clip_duration
+                    end_time = min(start_time + clip_duration, duration)
+                    
+                    # Create platform-specific versions
+                    platform_versions = {}
+                    
+                    for platform in platforms:
+                        platform_lower = platform.lower()
+                        if platform_lower in PLATFORM_ASPECT_RATIOS:
+                            for aspect_config in PLATFORM_ASPECT_RATIOS[platform_lower]:
+                                version_key = f"{platform_lower}_{aspect_config['name']}"
+                                
+                                # Generate clip URL with platform-specific transformation
+                                clip_url, _ = cloudinary_url(
+                                    upload_result['public_id'],
+                                    resource_type="video",
+                                    transformation=[
+                                        {'start_offset': start_time, 'end_offset': end_time},
+                                        {
+                                            'width': aspect_config['width'],
+                                            'height': aspect_config['height'],
+                                            'crop': 'fill',
+                                            'gravity': 'center'
+                                        },
+                                        {'quality': 'auto', 'fetch_format': 'mp4'}
+                                    ]
+                                )
+                                
+                                platform_versions[version_key] = {
+                                    "url": clip_url,
+                                    "aspect_ratio": aspect_config['ratio'],
+                                    "dimensions": f"{aspect_config['width']}x{aspect_config['height']}"
+                                }
+                    
+                    # Generate thumbnail
+                    thumbnail_time = start_time + (end_time - start_time) / 2
+                    thumbnail_url, _ = cloudinary_url(
+                        upload_result['public_id'],
+                        resource_type="video",
+                        transformation=[
+                            {'start_offset': thumbnail_time},
+                            {'width': 640, 'height': 360, 'crop': 'fill'},
+                            {'quality': 'auto', 'fetch_format': 'jpg'}
+                        ]
+                    )
+                    
+                    # Create database entry
+                    db_clip = models.VideoClip(
+                        id=str(uuid.uuid4()),
+                        campaign_id=campaign.id,
+                        source_video_url=video_url,
+                        title=f"Video {video_idx + 1} - Clip {clip_idx + 1}",
+                        description=f"Segment from video {video_idx + 1}",
+                        duration=end_time - start_time,
+                        start_time=start_time,
+                        end_time=end_time,
+                        video_url=clip_url,
+                        thumbnail_url=thumbnail_url,
+                        platform_versions=platform_versions,
+                        content_type="general",
+                        aspect_ratio="original",
+                        suggested_caption=f"Check out this amazing content!",
+                        suggested_hashtags=["#video", "#content", "#socialmedia"]
+                    )
+                    db.add(db_clip)
+                    all_clips.append(db_clip)
+                
+                # Update progress
+                progress = 30 + (video_idx + 1) * (60 / total_videos)
+                campaign.progress = int(progress)
+                db.commit()
+            
+            logger.info(f"Created {len(all_clips)} total clips from {total_videos} videos")
+            
+            # Analyze and generate captions for all clips
+            await analyze_and_generate_captions(
+                all_clips, platforms, duration_weeks, client_id, campaign, db, None
+            )
+            
+            # Update campaign status
+            campaign.status = models.CampaignStatus.READY
+            campaign.progress = 100
+            db.commit()
+            
+        except Exception as e:
+            logger.error(f"Error processing campaign: {str(e)}", exc_info=True)
+            campaign.status = models.CampaignStatus.FAILED
+            campaign.error_message = str(e)
+            db.commit()
+            raise 

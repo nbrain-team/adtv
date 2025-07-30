@@ -17,6 +17,8 @@ class Platform(str, enum.Enum):
 class PostStatus(str, enum.Enum):
     DRAFT = "draft"
     SCHEDULED = "scheduled"
+    PENDING_APPROVAL = "pending_approval"  # New status
+    APPROVED = "approved"  # New status
     PUBLISHED = "published"
     FAILED = "failed"
 
@@ -44,6 +46,12 @@ class AdTrafficClient(Base):
     brand_colors = Column(JSON, default=[])
     logo_url = Column(String)
     social_accounts = Column(JSON, default={})
+    
+    # New budget and targeting fields
+    daily_budget = Column(Float, default=0.0)
+    ad_duration_days = Column(Integer, default=7)  # How long to run ads
+    geo_targeting = Column(JSON, default=[])  # List of locations/areas
+    
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
@@ -59,12 +67,14 @@ class AdTrafficCampaign(Base):
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     client_id = Column(String, ForeignKey("ad_traffic_clients.id"), nullable=False)
     name = Column(String, nullable=False)
-    original_video_url = Column(String, nullable=False)
+    original_video_url = Column(String, nullable=False)  # Keep for backward compatibility
+    video_urls = Column(JSON, default=[])  # New field for multiple videos
     duration_weeks = Column(Integer, nullable=False)
     platforms = Column(ARRAY(String), nullable=False)
     status = Column(SQLEnum(CampaignStatus), default=CampaignStatus.PROCESSING)
     progress = Column(Integer, default=0)
     error_message = Column(Text)
+    start_date = Column(DateTime(timezone=True))  # New field for campaign start date
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
@@ -79,6 +89,7 @@ class VideoClip(Base):
     
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     campaign_id = Column(String, ForeignKey("ad_traffic_campaigns.id"), nullable=False)
+    source_video_url = Column(String)  # Track which video this clip came from
     title = Column(String, nullable=False)
     description = Column(Text)
     duration = Column(Float, nullable=False)
@@ -90,6 +101,7 @@ class VideoClip(Base):
     suggested_caption = Column(Text)
     suggested_hashtags = Column(ARRAY(String), default=[])
     content_type = Column(String)
+    aspect_ratio = Column(String)  # e.g., "1:1", "9:16", "16:9"
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     # Relationships
@@ -105,11 +117,18 @@ class SocialPost(Base):
     video_clip_id = Column(String, ForeignKey("video_clips.id"))
     content = Column(Text, nullable=False)
     platforms = Column(ARRAY(String), nullable=False)
-    media_urls = Column(ARRAY(String), default=[])
     scheduled_time = Column(DateTime(timezone=True), nullable=False)
+    published_time = Column(DateTime(timezone=True))
     status = Column(SQLEnum(PostStatus), default=PostStatus.DRAFT)
-    published_at = Column(DateTime(timezone=True))
-    platform_data = Column(JSON, default={})
+    platform_post_ids = Column(JSON, default={})
+    media_urls = Column(JSON, default={})
+    
+    # New fields for approval and metrics
+    approved_by = Column(String)  # User ID who approved
+    approved_at = Column(DateTime(timezone=True))
+    metrics = Column(JSON, default={})  # Store engagement metrics from platforms
+    budget_spent = Column(Float, default=0.0)
+    
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
