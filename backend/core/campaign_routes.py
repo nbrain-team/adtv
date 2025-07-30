@@ -1036,15 +1036,14 @@ def generate_campaign_emails(campaign_id: str, user_id: str):
                 3. Highlight what makes their neighborhood special and why they're the expert there
                 4. DO NOT mention any sales numbers or statistics
                 5. Replace ALL placeholders in {{}} or [[]] with actual values
-                6. IMPORTANT: Replace ALL content in square brackets [] with appropriate real content - these are instructions, not content to include
-                7. When you see [mention a specific aspect...] - replace with an actual specific aspect about their neighborhood
-                8. When you see [the real estate TV show] - replace with "our 2x Emmy-nominated series" or "the show"
-                9. Make it personal by referencing specific aspects of their neighborhood
-                10. Keep the tone conversational and authentic
-                11. Ensure the email flows naturally without any template markers or brackets
-                12. For virtual events, the meeting location should be the Calendly link
-                13. Emphasize their expertise and reputation in their specific market area
-                14. The email should end with this EXACT footer format (no "Warm regards," just the signature):
+                6. REMOVE any instructional text in square brackets like [mention specific aspect] - these are instructions for you, not content for the email
+                7. When you see [the real estate TV show], replace it with "Selling {campaign.target_cities.split()[0] if campaign.target_cities else 'your city'} on HGTV"
+                8. Make it personal by referencing specific aspects of their neighborhood
+                9. Keep the tone conversational and authentic
+                10. Ensure the email flows naturally without any template markers or instructional brackets
+                11. For virtual events, the meeting location should be the Calendly link
+                12. Emphasize their expertise and reputation in their specific market area
+                13. The email MUST end with this EXACT footer format (no "Warm regards," or other closing - just the signature):
                 
                 {campaign.owner_name}
                 Associate Producer
@@ -1052,7 +1051,7 @@ def generate_campaign_emails(campaign_id: str, user_id: str):
                 {owner_phone}
                 
                 The email should feel like it was written specifically for this person and their unique market expertise.
-                Return only the final email body text with all placeholders and bracketed instructions replaced with real content.
+                Return only the final email body text with all placeholders replaced and NO bracketed instructions.
                 """
                 
                 # Generate email using async function
