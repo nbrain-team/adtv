@@ -202,6 +202,7 @@ class CampaignContact(Base):
     title = Column(String)
     phone = Column(String)
     neighborhood = Column(String)  # Add neighborhood field
+    state = Column(String)  # Add state field for proper storage
     
     # Enriched data
     enriched_company = Column(String)

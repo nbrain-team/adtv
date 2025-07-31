@@ -345,10 +345,9 @@ async def upload_contacts(
                 company=contact_data['company'],
                 title=contact_data['title'],
                 phone=contact_data['phone'],  # Can be empty
-                neighborhood=contact_data['neighborhood']
+                neighborhood=contact_data['neighborhood'],
+                state=contact_data.get('state', '')  # Save state properly
             )
-            # Store state temporarily for enrichment
-            contact._state = contact_data.get('state', '')
             contacts.append(contact)
         
         if not contacts:
@@ -765,7 +764,7 @@ def enrich_campaign_contacts(campaign_id: str, user_id: str):
                 db.commit()
                 
                 # Enrich contact using the exact same format as contact enricher
-                state = getattr(contact, '_state', '') or 'CA'  # Use stored state or default to CA
+                state = contact.state or 'Alabama'  # Use stored state or default to Alabama for this campaign
                 
                 # Prepare data in the exact format expected by ContactEnricher
                 contact_data = {
