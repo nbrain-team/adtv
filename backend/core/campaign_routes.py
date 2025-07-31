@@ -668,6 +668,36 @@ async def get_enrichment_status(
         ]
     }
 
+@router.get("/all-contacts")
+async def get_all_campaign_contacts(
+    current_user: User = Depends(auth.get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get all contacts from all campaigns for the current user"""
+    try:
+        # Get all campaigns for the user
+        campaigns = db.query(Campaign).filter(
+            Campaign.owner_email == current_user.email
+        ).all()
+        
+        # Get all contacts from these campaigns
+        campaign_ids = [c.id for c in campaigns]
+        contacts = db.query(CampaignContact).filter(
+            CampaignContact.campaign_id.in_(campaign_ids)
+        ).all()
+        
+        # Add campaign names to contacts
+        campaign_map = {c.id: c.name for c in campaigns}
+        
+        return [{
+            **contact.__dict__,
+            'campaign_name': campaign_map.get(contact.campaign_id, '')
+        } for contact in contacts]
+        
+    except Exception as e:
+        logger.error(f"Error fetching all contacts: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 # Background tasks
 def enrich_campaign_contacts(campaign_id: str, user_id: str):
     """Background task to enrich campaign contacts"""

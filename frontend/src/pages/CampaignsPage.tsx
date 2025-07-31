@@ -4,6 +4,7 @@ import { PlusIcon, CalendarIcon, PersonIcon, EnvelopeClosedIcon, BarChartIcon, I
 import { MainLayout } from '../components/MainLayout';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
+import { CampaignDataHub } from '../components/CampaignDataHub';
 
 interface Campaign {
     id: string;
@@ -292,6 +293,9 @@ const CampaignsPage = () => {
                             ))}
                         </Box>
                     )}
+                    
+                    {/* Campaign Data Hub */}
+                    <CampaignDataHub />
                 </Box>
 
                 <Dialog.Root open={showCreateDialog} onOpenChange={setShowCreateDialog}>
