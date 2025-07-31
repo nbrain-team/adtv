@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Box, Flex, Text, TextField, Button, Heading, Checkbox, Slider, Progress, Spinner } from '@radix-ui/themes';
-import { VideoIcon, UploadIcon, CheckIcon } from '@radix-ui/react-icons';
+import { VideoIcon, UploadIcon, CheckIcon, Cross2Icon } from '@radix-ui/react-icons';
 import { Client, CampaignFormData, Platform, Campaign, CampaignStatus } from './types';
 import { api } from '../../services/api';
 
@@ -20,27 +20,34 @@ export const CampaignModal: React.FC<CampaignModalProps> = ({
     duration_weeks: 2,
     platforms: [Platform.FACEBOOK, Platform.INSTAGRAM]
   });
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (selectedFile && selectedFile.type.startsWith('video/')) {
-      setFile(selectedFile);
-      setError('');
+    const selectedFiles = Array.from(e.target.files || []);
+    const validFiles = selectedFiles.filter(file => file.type.startsWith('video/'));
+    
+    if (validFiles.length !== selectedFiles.length) {
+      setError('Some files were not valid video files and were skipped');
     } else {
-      setError('Please select a valid video file');
+      setError('');
     }
+    
+    setFiles(prevFiles => [...prevFiles, ...validFiles]);
+  };
+
+  const removeFile = (index: number) => {
+    setFiles(prevFiles => prevFiles.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!file) {
-      setError('Please select a video file');
+    if (files.length === 0) {
+      setError('Please select at least one video file');
       return;
     }
 
@@ -49,7 +56,12 @@ export const CampaignModal: React.FC<CampaignModalProps> = ({
 
     try {
       const formDataToSend = new FormData();
-      formDataToSend.append('video', file);
+      
+      // Append multiple video files
+      files.forEach(file => {
+        formDataToSend.append('videos', file);
+      });
+      
       formDataToSend.append('name', formData.name);
       formDataToSend.append('duration_weeks', formData.duration_weeks.toString());
       formData.platforms.forEach(platform => {
@@ -118,11 +130,12 @@ export const CampaignModal: React.FC<CampaignModalProps> = ({
             </Box>
 
             <Box>
-              <Text as="label" size="2" weight="medium">Upload Video *</Text>
+              <Text as="label" size="2" weight="medium">Upload Videos *</Text>
               <Box style={{ marginTop: '0.5rem' }}>
                 <input
                   type="file"
                   accept="video/*"
+                  multiple
                   onChange={handleFileChange}
                   style={{ display: 'none' }}
                   id="video-upload"
@@ -146,13 +159,38 @@ export const CampaignModal: React.FC<CampaignModalProps> = ({
                     onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--accent-4)'}
                     onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--accent-3)'}
                   >
-                    <UploadIcon /> Choose Video File
+                    <UploadIcon /> Choose Video Files
                   </Box>
                 </label>
-                {file && (
-                  <Text size="2" color="gray" style={{ marginLeft: '1rem' }}>
-                    {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)
-                  </Text>
+                
+                {files.length > 0 && (
+                  <Box style={{ marginTop: '1rem' }}>
+                    <Text size="2" weight="medium" style={{ marginBottom: '0.5rem', display: 'block' }}>
+                      Selected Videos ({files.length}):
+                    </Text>
+                    <Flex direction="column" gap="2">
+                      {files.map((file, index) => (
+                        <Flex key={index} align="center" justify="between" style={{
+                          padding: '0.5rem',
+                          backgroundColor: 'var(--gray-2)',
+                          borderRadius: '4px'
+                        }}>
+                          <Text size="2">
+                            {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)
+                          </Text>
+                          <Button
+                            type="button"
+                            size="1"
+                            variant="ghost"
+                            color="red"
+                            onClick={() => removeFile(index)}
+                          >
+                            <Cross2Icon />
+                          </Button>
+                        </Flex>
+                      ))}
+                    </Flex>
+                  </Box>
                 )}
               </Box>
             </Box>
@@ -207,7 +245,7 @@ export const CampaignModal: React.FC<CampaignModalProps> = ({
               </Button>
               <Button 
                 type="submit" 
-                disabled={loading || !formData.name || !file || formData.platforms.length === 0}
+                disabled={loading || !formData.name || files.length === 0 || formData.platforms.length === 0}
               >
                 {loading ? (
                   <Flex align="center" gap="2">
