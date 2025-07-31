@@ -17,6 +17,7 @@ import api from '../api';
 import { MapContainer, TileLayer, CircleMarker, Popup, Marker } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import React from 'react'; // Added for React.Fragment
 
 // Fix for default markers in react-leaflet
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -258,6 +259,10 @@ const CampaignDetailPage = () => {
     const [isEditingContact, setIsEditingContact] = useState(false);
     const [editingContactData, setEditingContactData] = useState<any>(null);
     const [hotelCoords, setHotelCoords] = useState<[number, number] | null>(null);
+    const [expandedContactId, setExpandedContactId] = useState<string | null>(null);
+    const [showBulkEditModal, setShowBulkEditModal] = useState(false);
+    const [bulkEditField, setBulkEditField] = useState<string>('');
+    const [bulkEditValue, setBulkEditValue] = useState<string>('');
 
     useEffect(() => {
         if (campaignId) {
@@ -514,6 +519,34 @@ const CampaignDetailPage = () => {
             ));
         } catch (err) {
             setError('Failed to update contact');
+        }
+    };
+
+    const handleBulkEdit = async () => {
+        if (!bulkEditField || !bulkEditValue) return;
+        
+        try {
+            const updateData: any = {};
+            updateData[bulkEditField] = bulkEditValue;
+            
+            // Update all selected contacts
+            const promises = Array.from(selectedContacts).map(contactId => 
+                api.put(`/api/campaigns/${campaignId}/contacts/${contactId}`, updateData)
+            );
+            
+            await Promise.all(promises);
+            
+            // Update local state
+            setContacts(contacts.map(c => 
+                selectedContacts.has(c.id) ? { ...c, ...updateData } : c
+            ));
+            
+            setShowBulkEditModal(false);
+            setBulkEditField('');
+            setBulkEditValue('');
+            setSelectedContacts(new Set());
+        } catch (err) {
+            setError('Failed to update contacts');
         }
     };
 
@@ -1199,6 +1232,11 @@ const CampaignDetailPage = () => {
                                                     <DropdownMenu.Item onClick={() => handleBulkExclude(false)}>
                                                         Include in Campaign
                                                     </DropdownMenu.Item>
+                                                    <DropdownMenu.Separator />
+                                                    <DropdownMenu.Item onClick={() => setShowBulkEditModal(true)}>
+                                                        <Pencil1Icon style={{ marginRight: '8px' }} />
+                                                        Bulk Edit
+                                                    </DropdownMenu.Item>
                                                 </DropdownMenu.Content>
                                             </DropdownMenu.Root>
                                         )}
@@ -1229,77 +1267,192 @@ const CampaignDetailPage = () => {
                                         </Table.Header>
                                         <Table.Body>
                                             {filteredContacts.map(contact => (
-                                                <Table.Row key={contact.id}>
-                                                    <Table.Cell style={{ position: 'sticky', left: 0, backgroundColor: 'var(--color-background)', zIndex: 1 }}>
-                                                        <Checkbox
-                                                            checked={selectedContacts.has(contact.id)}
-                                                            onCheckedChange={() => toggleContactSelection(contact.id)}
-                                                        />
-                                                    </Table.Cell>
-                                                    <Table.Cell>
-                                                        {contact.first_name || '-'}
-                                                    </Table.Cell>
-                                                    <Table.Cell>
-                                                        {contact.last_name || '-'}
-                                                    </Table.Cell>
-                                                    <Table.Cell>{contact.email || '-'}</Table.Cell>
-                                                    <Table.Cell>{contact.enriched_phone || contact.phone || '-'}</Table.Cell>
-                                                    <Table.Cell>{contact.enriched_company || contact.company || '-'}</Table.Cell>
-                                                    <Table.Cell>{contact.enriched_title || contact.title || '-'}</Table.Cell>
-                                                    <Table.Cell>{contact.neighborhood || '-'}</Table.Cell>
-                                                    <Table.Cell>
-                                                        <Badge 
-                                                            color={
-                                                                contact.enrichment_status === 'success' ? 'green' :
-                                                                contact.enrichment_status === 'failed' ? 'red' :
-                                                                contact.enrichment_status === 'processing' ? 'blue' : 'gray'
-                                                            }
-                                                        >
-                                                            {contact.enrichment_status}
-                                                        </Badge>
-                                                        {contact.enrichment_status === 'success' && (
-                                                            <Flex gap="1" mt="1">
-                                                                {contact.email && <Badge size="1" color="blue">Email</Badge>}
-                                                                {contact.enriched_phone && <Badge size="1" color="green">Phone</Badge>}
-                                                                {contact.enriched_linkedin && <Badge size="1" color="cyan">LinkedIn</Badge>}
-                                                            </Flex>
-                                                        )}
-                                                    </Table.Cell>
-                                                    <Table.Cell>
-                                                        <Badge 
-                                                            color={
-                                                                contact.email_status === 'generated' ? 'green' :
-                                                                contact.email_status === 'sent' ? 'blue' : 'gray'
-                                                            }
-                                                        >
-                                                            {contact.email_status}
-                                                        </Badge>
-                                                    </Table.Cell>
-                                                    <Table.Cell>
-                                                        <Flex gap="2">
-                                                            {contact.personalized_email && (
+                                                <React.Fragment key={contact.id}>
+                                                    <Table.Row 
+                                                        style={{ cursor: 'pointer' }}
+                                                        onClick={(e) => {
+                                                            // Don't expand if clicking on checkbox or action buttons
+                                                            if ((e.target as HTMLElement).closest('button, input[type="checkbox"]')) return;
+                                                            setExpandedContactId(expandedContactId === contact.id ? null : contact.id);
+                                                        }}
+                                                    >
+                                                        <Table.Cell style={{ position: 'sticky', left: 0, backgroundColor: 'var(--color-background)', zIndex: 1 }}>
+                                                            <Checkbox
+                                                                checked={selectedContacts.has(contact.id)}
+                                                                onCheckedChange={() => toggleContactSelection(contact.id)}
+                                                                onClick={(e) => e.stopPropagation()}
+                                                            />
+                                                        </Table.Cell>
+                                                        <Table.Cell>
+                                                            {contact.first_name || '-'}
+                                                        </Table.Cell>
+                                                        <Table.Cell>
+                                                            {contact.last_name || '-'}
+                                                        </Table.Cell>
+                                                        <Table.Cell>{contact.email || '-'}</Table.Cell>
+                                                        <Table.Cell>{contact.enriched_phone || contact.phone || '-'}</Table.Cell>
+                                                        <Table.Cell>{contact.enriched_company || contact.company || '-'}</Table.Cell>
+                                                        <Table.Cell>{contact.enriched_title || contact.title || '-'}</Table.Cell>
+                                                        <Table.Cell>{contact.neighborhood || '-'}</Table.Cell>
+                                                        <Table.Cell>
+                                                            <Badge 
+                                                                color={
+                                                                    contact.enrichment_status === 'success' ? 'green' :
+                                                                    contact.enrichment_status === 'failed' ? 'red' :
+                                                                    contact.enrichment_status === 'processing' ? 'blue' : 'gray'
+                                                                }
+                                                            >
+                                                                {contact.enrichment_status}
+                                                            </Badge>
+                                                            {contact.enrichment_status === 'success' && (
+                                                                <Flex gap="1" mt="1">
+                                                                    {contact.email && <Badge size="1" color="blue">Email</Badge>}
+                                                                    {contact.enriched_phone && <Badge size="1" color="green">Phone</Badge>}
+                                                                    {contact.enriched_linkedin && <Badge size="1" color="cyan">LinkedIn</Badge>}
+                                                                </Flex>
+                                                            )}
+                                                        </Table.Cell>
+                                                        <Table.Cell>
+                                                            <Badge 
+                                                                color={
+                                                                    contact.email_status === 'generated' ? 'green' :
+                                                                    contact.email_status === 'sent' ? 'blue' : 'gray'
+                                                                }
+                                                            >
+                                                                {contact.email_status}
+                                                            </Badge>
+                                                        </Table.Cell>
+                                                        <Table.Cell>
+                                                            <Flex gap="2">
+                                                                {contact.personalized_email && (
+                                                                    <IconButton 
+                                                                        size="1" 
+                                                                        variant="ghost"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            setPreviewContact(contact);
+                                                                            setShowEmailPreview(true);
+                                                                        }}
+                                                                    >
+                                                                        <EnvelopeClosedIcon />
+                                                                    </IconButton>
+                                                                )}
                                                                 <IconButton 
                                                                     size="1" 
                                                                     variant="ghost"
-                                                                    onClick={() => {
-                                                                        setPreviewContact(contact);
-                                                                        setShowEmailPreview(true);
+                                                                    color={contact.excluded ? 'green' : 'red'}
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleUpdateContact(contact.id, { excluded: !contact.excluded });
                                                                     }}
                                                                 >
-                                                                    <EnvelopeClosedIcon />
+                                                                    {contact.excluded ? <CheckIcon /> : <Cross2Icon />}
                                                                 </IconButton>
-                                                            )}
-                                                            <IconButton 
-                                                                size="1" 
-                                                                variant="ghost"
-                                                                color={contact.excluded ? 'green' : 'red'}
-                                                                onClick={() => handleUpdateContact(contact.id, { excluded: !contact.excluded })}
-                                                            >
-                                                                {contact.excluded ? <CheckIcon /> : <Cross2Icon />}
-                                                            </IconButton>
-                                                        </Flex>
-                                                    </Table.Cell>
-                                                </Table.Row>
+                                                            </Flex>
+                                                        </Table.Cell>
+                                                    </Table.Row>
+                                                    
+                                                    {/* Expanded Row */}
+                                                    {expandedContactId === contact.id && (
+                                                        <Table.Row>
+                                                            <Table.Cell colSpan={11} style={{ backgroundColor: 'var(--gray-2)', padding: '1rem' }}>
+                                                                <Box>
+                                                                    <Flex justify="between" align="center" mb="3">
+                                                                        <Heading size="3">Contact Details</Heading>
+                                                                        <Button 
+                                                                            size="2" 
+                                                                            variant="soft"
+                                                                            onClick={() => {
+                                                                                setEditingContactData(contact);
+                                                                                setIsEditingContact(true);
+                                                                            }}
+                                                                        >
+                                                                            <Pencil1Icon />
+                                                                            Edit Contact
+                                                                        </Button>
+                                                                    </Flex>
+                                                                    
+                                                                    <Box style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
+                                                                        {/* Basic Info */}
+                                                                        <Box>
+                                                                            <Text size="2" weight="bold" color="gray">Basic Information</Text>
+                                                                            <Box mt="2">
+                                                                                <Text size="1" color="gray">First Name</Text>
+                                                                                <Text size="2">{contact.first_name || '-'}</Text>
+                                                                            </Box>
+                                                                            <Box mt="2">
+                                                                                <Text size="1" color="gray">Last Name</Text>
+                                                                                <Text size="2">{contact.last_name || '-'}</Text>
+                                                                            </Box>
+                                                                            <Box mt="2">
+                                                                                <Text size="1" color="gray">Email</Text>
+                                                                                <Text size="2">{contact.email || '-'}</Text>
+                                                                            </Box>
+                                                                            <Box mt="2">
+                                                                                <Text size="1" color="gray">Phone</Text>
+                                                                                <Text size="2">{contact.phone || '-'}</Text>
+                                                                            </Box>
+                                                                        </Box>
+                                                                        
+                                                                        {/* Original Data */}
+                                                                        <Box>
+                                                                            <Text size="2" weight="bold" color="gray">Original Data</Text>
+                                                                            <Box mt="2">
+                                                                                <Text size="1" color="gray">Company</Text>
+                                                                                <Text size="2">{contact.company || '-'}</Text>
+                                                                            </Box>
+                                                                            <Box mt="2">
+                                                                                <Text size="1" color="gray">Title</Text>
+                                                                                <Text size="2">{contact.title || '-'}</Text>
+                                                                            </Box>
+                                                                            <Box mt="2">
+                                                                                <Text size="1" color="gray">Neighborhood</Text>
+                                                                                <Text size="2">{contact.neighborhood || '-'}</Text>
+                                                                            </Box>
+                                                                        </Box>
+                                                                        
+                                                                        {/* Enriched Data */}
+                                                                        <Box>
+                                                                            <Text size="2" weight="bold" color="gray">Enriched Data</Text>
+                                                                            <Box mt="2">
+                                                                                <Text size="1" color="gray">Enriched Company</Text>
+                                                                                <Text size="2">{contact.enriched_company || '-'}</Text>
+                                                                            </Box>
+                                                                            <Box mt="2">
+                                                                                <Text size="1" color="gray">Enriched Title</Text>
+                                                                                <Text size="2">{contact.enriched_title || '-'}</Text>
+                                                                            </Box>
+                                                                            <Box mt="2">
+                                                                                <Text size="1" color="gray">Enriched Phone</Text>
+                                                                                <Text size="2">{contact.enriched_phone || '-'}</Text>
+                                                                            </Box>
+                                                                            <Box mt="2">
+                                                                                <Text size="1" color="gray">LinkedIn</Text>
+                                                                                <Text size="2">{contact.enriched_linkedin || '-'}</Text>
+                                                                            </Box>
+                                                                            <Box mt="2">
+                                                                                <Text size="1" color="gray">Website</Text>
+                                                                                <Text size="2">{contact.enriched_website || '-'}</Text>
+                                                                            </Box>
+                                                                            <Box mt="2">
+                                                                                <Text size="1" color="gray">Industry</Text>
+                                                                                <Text size="2">{contact.enriched_industry || '-'}</Text>
+                                                                            </Box>
+                                                                            <Box mt="2">
+                                                                                <Text size="1" color="gray">Company Size</Text>
+                                                                                <Text size="2">{contact.enriched_company_size || '-'}</Text>
+                                                                            </Box>
+                                                                            <Box mt="2">
+                                                                                <Text size="1" color="gray">Location</Text>
+                                                                                <Text size="2">{contact.enriched_location || '-'}</Text>
+                                                                            </Box>
+                                                                        </Box>
+                                                                    </Box>
+                                                                </Box>
+                                                            </Table.Cell>
+                                                        </Table.Row>
+                                                    )}
+                                                </React.Fragment>
                                             ))}
                                         </Table.Body>
                                     </Table.Root>
@@ -1902,6 +2055,180 @@ const CampaignDetailPage = () => {
                                 )}
                             </Box>
                         )}
+                    </Dialog.Content>
+                </Dialog.Root>
+                
+                {/* Contact Edit Dialog */}
+                <Dialog.Root open={isEditingContact} onOpenChange={setIsEditingContact}>
+                    <Dialog.Content style={{ maxWidth: 600 }}>
+                        <Dialog.Title>Edit Contact</Dialog.Title>
+                        {editingContactData && (
+                            <Box mt="4">
+                                <Flex direction="column" gap="3">
+                                    <Flex gap="3">
+                                        <Box style={{ flex: 1 }}>
+                                            <Text as="label" size="2">First Name</Text>
+                                            <TextField.Root
+                                                value={editingContactData.first_name || ''}
+                                                onChange={(e) => setEditingContactData({
+                                                    ...editingContactData,
+                                                    first_name: e.target.value
+                                                })}
+                                            />
+                                        </Box>
+                                        <Box style={{ flex: 1 }}>
+                                            <Text as="label" size="2">Last Name</Text>
+                                            <TextField.Root
+                                                value={editingContactData.last_name || ''}
+                                                onChange={(e) => setEditingContactData({
+                                                    ...editingContactData,
+                                                    last_name: e.target.value
+                                                })}
+                                            />
+                                        </Box>
+                                    </Flex>
+                                    
+                                    <Box>
+                                        <Text as="label" size="2">Email</Text>
+                                        <TextField.Root
+                                            value={editingContactData.email || ''}
+                                            onChange={(e) => setEditingContactData({
+                                                ...editingContactData,
+                                                email: e.target.value
+                                            })}
+                                        />
+                                    </Box>
+                                    
+                                    <Box>
+                                        <Text as="label" size="2">Phone</Text>
+                                        <TextField.Root
+                                            value={editingContactData.phone || ''}
+                                            onChange={(e) => setEditingContactData({
+                                                ...editingContactData,
+                                                phone: e.target.value
+                                            })}
+                                        />
+                                    </Box>
+                                    
+                                    <Box>
+                                        <Text as="label" size="2">Company</Text>
+                                        <TextField.Root
+                                            value={editingContactData.company || ''}
+                                            onChange={(e) => setEditingContactData({
+                                                ...editingContactData,
+                                                company: e.target.value
+                                            })}
+                                        />
+                                    </Box>
+                                    
+                                    <Box>
+                                        <Text as="label" size="2">Title</Text>
+                                        <TextField.Root
+                                            value={editingContactData.title || ''}
+                                            onChange={(e) => setEditingContactData({
+                                                ...editingContactData,
+                                                title: e.target.value
+                                            })}
+                                        />
+                                    </Box>
+                                    
+                                    <Box>
+                                        <Text as="label" size="2">Neighborhood</Text>
+                                        <TextField.Root
+                                            value={editingContactData.neighborhood || ''}
+                                            onChange={(e) => setEditingContactData({
+                                                ...editingContactData,
+                                                neighborhood: e.target.value
+                                            })}
+                                        />
+                                    </Box>
+                                    
+                                    <Flex gap="3" mt="4" justify="end">
+                                        <Dialog.Close>
+                                            <Button variant="soft">Cancel</Button>
+                                        </Dialog.Close>
+                                        <Button 
+                                            onClick={async () => {
+                                                await handleUpdateContact(editingContactData.id, editingContactData);
+                                                setIsEditingContact(false);
+                                                setEditingContactData(null);
+                                                setExpandedContactId(null);
+                                            }}
+                                        >
+                                            Save Changes
+                                        </Button>
+                                    </Flex>
+                                </Flex>
+                            </Box>
+                        )}
+                    </Dialog.Content>
+                </Dialog.Root>
+                
+                {/* Bulk Edit Modal */}
+                <Dialog.Root open={showBulkEditModal} onOpenChange={setShowBulkEditModal}>
+                    <Dialog.Content style={{ maxWidth: 500 }}>
+                        <Dialog.Title>Bulk Edit {selectedContacts.size} Contacts</Dialog.Title>
+                        <Box mt="4">
+                            <Flex direction="column" gap="3">
+                                <Box>
+                                    <Text as="label" size="2">Field to Edit</Text>
+                                    <Select.Root value={bulkEditField} onValueChange={setBulkEditField}>
+                                        <Select.Trigger placeholder="Select a field..." />
+                                        <Select.Content>
+                                            <Select.Item value="company">Company</Select.Item>
+                                            <Select.Item value="title">Title</Select.Item>
+                                            <Select.Item value="neighborhood">Neighborhood</Select.Item>
+                                            <Select.Item value="excluded">Excluded Status</Select.Item>
+                                        </Select.Content>
+                                    </Select.Root>
+                                </Box>
+                                
+                                {bulkEditField && bulkEditField !== 'excluded' && (
+                                    <Box>
+                                        <Text as="label" size="2">New Value</Text>
+                                        <TextField.Root
+                                            value={bulkEditValue}
+                                            onChange={(e) => setBulkEditValue(e.target.value)}
+                                            placeholder={`Enter new ${bulkEditField}...`}
+                                        />
+                                    </Box>
+                                )}
+                                
+                                {bulkEditField === 'excluded' && (
+                                    <Box>
+                                        <Text as="label" size="2">Excluded Status</Text>
+                                        <Select.Root value={bulkEditValue} onValueChange={setBulkEditValue}>
+                                            <Select.Trigger />
+                                            <Select.Content>
+                                                <Select.Item value="true">Exclude from Campaign</Select.Item>
+                                                <Select.Item value="false">Include in Campaign</Select.Item>
+                                            </Select.Content>
+                                        </Select.Root>
+                                    </Box>
+                                )}
+                                
+                                <Callout.Root color="blue">
+                                    <Callout.Icon>
+                                        <InfoCircledIcon />
+                                    </Callout.Icon>
+                                    <Callout.Text>
+                                        This will update the selected field for all {selectedContacts.size} selected contacts.
+                                    </Callout.Text>
+                                </Callout.Root>
+                                
+                                <Flex gap="3" justify="end">
+                                    <Dialog.Close>
+                                        <Button variant="soft">Cancel</Button>
+                                    </Dialog.Close>
+                                    <Button 
+                                        onClick={handleBulkEdit}
+                                        disabled={!bulkEditField || (!bulkEditValue && bulkEditField !== 'excluded')}
+                                    >
+                                        Update {selectedContacts.size} Contacts
+                                    </Button>
+                                </Flex>
+                            </Flex>
+                        </Box>
                     </Dialog.Content>
                 </Dialog.Root>
             </Box>
