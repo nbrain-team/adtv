@@ -136,7 +136,13 @@ class GoogleSERPService:
         
         # Only use the two specific query patterns requested
         if name:
-            # Email query: "Name" "@" City State Company
+            # Email query with real estate keywords: "Name" "@" Real estate or Realtor City State
+            if city and state:
+                queries.append(f'"{name}" "@" Real estate or Realtor {city}, {state}')
+            elif city:
+                queries.append(f'"{name}" "@" Real estate or Realtor {city}')
+            
+            # Fallback email query without real estate keywords (for non-real estate contacts)
             if city and state and company:
                 queries.append(f'"{name}" "@" {city} {state} {company}')
             elif city and state:
@@ -148,7 +154,13 @@ class GoogleSERPService:
             else:
                 queries.append(f'"{name}" "@"')
             
-            # Phone query: "Name" "cell" OR "mobile" OR "phone" City State Company
+            # Phone query with real estate keywords
+            if city and state:
+                queries.append(f'"{name}" "cell" OR "mobile" OR "phone" Real estate or Realtor {city} {state}')
+            elif city:
+                queries.append(f'"{name}" "cell" OR "mobile" OR "phone" Real estate or Realtor {city}')
+            
+            # Fallback phone query without real estate keywords
             if city and state and company:
                 queries.append(f'"{name}" "cell" OR "mobile" OR "phone" {city} {state} {company}')
             elif city and state:
