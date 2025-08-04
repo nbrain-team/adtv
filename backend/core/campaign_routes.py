@@ -159,66 +159,81 @@ async def get_all_campaign_contacts(
 ):
     """Get all contacts from all campaigns for the current user"""
     try:
+        logger.info(f"Fetching all contacts for user: {current_user.id}")
+        
         # Get all campaigns for the user
         campaigns = db.query(Campaign).filter(
             Campaign.user_id == current_user.id
         ).all()
         
+        logger.info(f"Found {len(campaigns)} campaigns for user {current_user.id}")
+        
         # If no campaigns, return empty array
         if not campaigns:
+            logger.info("No campaigns found, returning empty array")
             return []
         
         # Get all contacts from these campaigns
         campaign_ids = [c.id for c in campaigns]
+        logger.info(f"Campaign IDs: {campaign_ids}")
+        
         contacts = db.query(CampaignContact).filter(
             CampaignContact.campaign_id.in_(campaign_ids)
         ).all()
+        
+        logger.info(f"Found {len(contacts)} contacts across all campaigns")
         
         # Add campaign names to contacts
         campaign_map = {c.id: c.name for c in campaigns}
         
         # Properly serialize contacts
         result = []
-        for contact in contacts:
-            contact_dict = {
-                'id': contact.id,
-                'campaign_id': contact.campaign_id,
-                'campaign_name': campaign_map.get(contact.campaign_id, ''),
-                'first_name': contact.first_name,
-                'last_name': contact.last_name,
-                'email': contact.email,
-                'company': contact.company,
-                'title': contact.title,
-                'phone': contact.phone,
-                'neighborhood': contact.neighborhood,
-                'state': contact.state,
-                'geocoded_address': contact.geocoded_address,
-                # Enriched data
-                'enriched_company': contact.enriched_company,
-                'enriched_title': contact.enriched_title,
-                'enriched_phone': contact.enriched_phone,
-                'enriched_linkedin': contact.enriched_linkedin,
-                'enriched_website': contact.enriched_website,
-                'enriched_industry': contact.enriched_industry,
-                'enriched_company_size': contact.enriched_company_size,
-                'enriched_location': contact.enriched_location,
-                # Email data
-                'personalized_email': contact.personalized_email,
-                'personalized_subject': contact.personalized_subject,
-                # Status
-                'enrichment_status': contact.enrichment_status,
-                'email_status': contact.email_status,
-                'excluded': contact.excluded,
-                'manually_edited': contact.manually_edited,
-                # Timestamps
-                'created_at': contact.created_at.isoformat() if contact.created_at else None,
-                'updated_at': contact.updated_at.isoformat() if contact.updated_at else None
-            }
-            result.append(contact_dict)
+        for i, contact in enumerate(contacts):
+            try:
+                contact_dict = {
+                    'id': contact.id,
+                    'campaign_id': contact.campaign_id,
+                    'campaign_name': campaign_map.get(contact.campaign_id, ''),
+                    'first_name': contact.first_name,
+                    'last_name': contact.last_name,
+                    'email': contact.email,
+                    'company': contact.company,
+                    'title': contact.title,
+                    'phone': contact.phone,
+                    'neighborhood': contact.neighborhood,
+                    'state': getattr(contact, 'state', None),  # Safe access
+                    'geocoded_address': getattr(contact, 'geocoded_address', None),  # Safe access
+                    # Enriched data
+                    'enriched_company': contact.enriched_company,
+                    'enriched_title': contact.enriched_title,
+                    'enriched_phone': contact.enriched_phone,
+                    'enriched_linkedin': contact.enriched_linkedin,
+                    'enriched_website': contact.enriched_website,
+                    'enriched_industry': contact.enriched_industry,
+                    'enriched_company_size': contact.enriched_company_size,
+                    'enriched_location': contact.enriched_location,
+                    # Email data
+                    'personalized_email': contact.personalized_email,
+                    'personalized_subject': contact.personalized_subject,
+                    # Status
+                    'enrichment_status': contact.enrichment_status,
+                    'email_status': contact.email_status,
+                    'excluded': contact.excluded,
+                    'manually_edited': getattr(contact, 'manually_edited', False),  # Safe access
+                    # Timestamps
+                    'created_at': contact.created_at.isoformat() if contact.created_at else None,
+                    'updated_at': contact.updated_at.isoformat() if contact.updated_at else None
+                }
+                result.append(contact_dict)
+            except Exception as e:
+                logger.error(f"Error serializing contact {i} (ID: {contact.id}): {str(e)}")
+                logger.error(f"Contact attributes: {dir(contact)}")
+                raise
         
+        logger.info(f"Successfully serialized {len(result)} contacts")
         return result
     except Exception as e:
-        logger.error(f"Error fetching all contacts: {str(e)}")
+        logger.error(f"Error fetching all contacts: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 # Campaign templates - static routes before dynamic routes
