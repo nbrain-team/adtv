@@ -89,6 +89,7 @@ class PostBase(BaseModel):
     platforms: List[Platform]
     scheduled_time: datetime
     video_clip_id: Optional[str] = None
+    media_urls: Optional[List[str]] = []  # Add media_urls to base schema
 
 
 class PostCreate(PostBase):
@@ -100,6 +101,7 @@ class PostUpdate(BaseModel):
     platforms: Optional[List[Platform]] = None
     scheduled_time: Optional[datetime] = None
     status: Optional[PostStatus] = None
+    media_urls: Optional[List[str]] = None  # Add media_urls to update schema
 
 
 class PostApproval(BaseModel):
@@ -114,7 +116,7 @@ class SocialPost(PostBase):
     status: PostStatus
     published_time: Optional[datetime] = None
     platform_post_ids: Optional[Dict[str, str]] = {}
-    media_urls: Optional[Dict[str, str]] = {}
+    media_urls: Optional[List[str]] = []  # Changed from Dict to List
     approved_by: Optional[str] = None
     approved_at: Optional[datetime] = None
     metrics: Optional[Dict[str, Any]] = {}
@@ -122,19 +124,10 @@ class SocialPost(PostBase):
     created_at: datetime
     updated_at: Optional[datetime] = None
     campaign_name: Optional[str] = None  # Added for response
+    video_clip: Optional[VideoClip] = None  # Add video_clip relationship
 
     class Config:
         orm_mode = True
-    
-    @validator('media_urls', pre=True)
-    def convert_array_to_dict(cls, v):
-        if isinstance(v, list):
-            # Convert array to dict
-            if len(v) == 0:
-                return {}
-            # Simple conversion - use index as key
-            return {str(i): url for i, url in enumerate(v)}
-        return v or {}
 
 
 # Campaign schemas
