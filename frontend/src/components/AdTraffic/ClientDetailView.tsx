@@ -484,6 +484,16 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({ client, onBa
                                       {clip.content_type}
                                     </Badge>
                                   )}
+                                  {/* Show platform versions if available */}
+                                  {clip.platform_versions && Object.keys(clip.platform_versions).length > 0 && (
+                                    <Flex gap="1" wrap="wrap" mt="1">
+                                      {Object.entries(clip.platform_versions).map(([version, details]: [string, any]) => (
+                                        <Badge key={version} size="1" variant="outline">
+                                          {version.replace('_', ' ')} {details.aspect_ratio}
+                                        </Badge>
+                                      ))}
+                                    </Flex>
+                                  )}
                                 </Card>
                               ))}
                             </Box>
@@ -540,10 +550,36 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({ client, onBa
         <Dialog.Content style={{ maxWidth: '800px' }}>
           <Dialog.Title>{selectedClip?.title}</Dialog.Title>
           <Box mt="3">
+            {/* Platform version selector if available */}
+            {selectedClip?.platform_versions && Object.keys(selectedClip.platform_versions).length > 0 && (
+              <Box mb="3">
+                <Text size="2" weight="medium" mb="2">Select Version:</Text>
+                <Flex gap="2" wrap="wrap">
+                  <Button 
+                    size="2" 
+                    variant={!selectedVideo ? 'solid' : 'soft'}
+                    onClick={() => setSelectedVideo(null)}
+                  >
+                    Original
+                  </Button>
+                  {Object.entries(selectedClip.platform_versions).map(([version, details]: [string, any]) => (
+                    <Button 
+                      key={version}
+                      size="2" 
+                      variant={selectedVideo === details.url ? 'solid' : 'soft'}
+                      onClick={() => setSelectedVideo(details.url)}
+                    >
+                      {version.replace('_', ' ').toUpperCase()} ({details.aspect_ratio})
+                    </Button>
+                  ))}
+                </Flex>
+              </Box>
+            )}
             <video 
               controls 
               style={{ width: '100%', maxHeight: '500px' }}
-              src={selectedClip?.video_url || ''}
+              src={selectedVideo || selectedClip?.video_url || ''}
+              key={selectedVideo || selectedClip?.video_url} // Force re-render on URL change
             />
           </Box>
           {selectedClip && (
