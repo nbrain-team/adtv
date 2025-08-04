@@ -203,6 +203,7 @@ class CampaignContact(Base):
     phone = Column(String)
     neighborhood = Column(String)  # Add neighborhood field
     state = Column(String)  # Add state field for proper storage
+    geocoded_address = Column(String)  # Google Maps compatible address
     
     # Enriched data
     enriched_company = Column(String)

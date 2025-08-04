@@ -32,12 +32,13 @@ interface Contact {
     company?: string;
     title?: string;
     neighborhood?: string;
+    geocoded_address?: string;
     enriched_company?: string;
     enriched_title?: string;
     enriched_phone?: string;
     enriched_linkedin?: string;
     enrichment_status: string;
-    created_at: string;
+    [key: string]: any;
 }
 
 interface CampaignSummary {
@@ -79,29 +80,26 @@ const NEIGHBORHOOD_COORDS: Record<string, [number, number]> = {
     'Ryland': [34.8098, -86.4633],
 };
 
+// State to store geocoded locations
+interface GeocodedLocation {
+    address: string;
+    lat: number;
+    lng: number;
+    count: number;
+}
+
 const getNeighborhoodCoords = (neighborhood?: string): [number, number] | null => {
     if (!neighborhood) return null;
     
-    const cityName = neighborhood.split(',')[0].trim();
-    
+    // Try exact match first
     if (NEIGHBORHOOD_COORDS[neighborhood]) {
         return NEIGHBORHOOD_COORDS[neighborhood];
     }
     
-    if (NEIGHBORHOOD_COORDS[cityName]) {
-        return NEIGHBORHOOD_COORDS[cityName];
-    }
-    
-    const lowerNeighborhood = neighborhood.toLowerCase();
+    // Try partial match
+    const cleanNeighborhood = neighborhood.toLowerCase().trim();
     for (const [key, coords] of Object.entries(NEIGHBORHOOD_COORDS)) {
-        if (key.toLowerCase() === lowerNeighborhood) {
-            return coords;
-        }
-    }
-    
-    const lowerCityName = cityName.toLowerCase();
-    for (const [key, coords] of Object.entries(NEIGHBORHOOD_COORDS)) {
-        if (key.toLowerCase() === lowerCityName) {
+        if (key.toLowerCase().includes(cleanNeighborhood) || cleanNeighborhood.includes(key.toLowerCase())) {
             return coords;
         }
     }
@@ -112,10 +110,11 @@ const getNeighborhoodCoords = (neighborhood?: string): [number, number] | null =
 export const CampaignDataHub = () => {
     const [contacts, setContacts] = useState<Contact[]>([]);
     const [campaigns, setCampaigns] = useState<CampaignSummary[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-    const [selectedCampaign, setSelectedCampaign] = useState<string>('all');
-    const [selectedNeighborhood, setSelectedNeighborhood] = useState<string>('all');
+    const [selectedCampaign, setSelectedCampaign] = useState<string>('');
+    const [selectedNeighborhood, setSelectedNeighborhood] = useState<string>('');
+    const [isLoading, setIsLoading] = useState(false);
+    const [geocodedLocations, setGeocodedLocations] = useState<GeocodedLocation[]>([]);
     const [activeTab, setActiveTab] = useState('table');
 
     useEffect(() => {
@@ -135,6 +134,9 @@ export const CampaignDataHub = () => {
             const contactsResponse = await api.get('/api/campaigns/all-contacts');
             setContacts(contactsResponse.data);
             
+            // Process geocoded locations
+            processGeocodedLocations(contactsResponse.data);
+            
         } catch (err) {
             console.error('Failed to fetch data:', err);
         } finally {
@@ -142,17 +144,67 @@ export const CampaignDataHub = () => {
         }
     };
 
+    const processGeocodedLocations = (contactList: Contact[]) => {
+        const locationMap = new Map<string, GeocodedLocation>();
+        
+        contactList.forEach(contact => {
+            // First try geocoded_address
+            if (contact.geocoded_address) {
+                const coords = getNeighborhoodCoords(contact.geocoded_address.split(',')[0].trim());
+                if (coords) {
+                    const key = contact.geocoded_address;
+                    if (locationMap.has(key)) {
+                        locationMap.get(key)!.count++;
+                    } else {
+                        locationMap.set(key, {
+                            address: contact.geocoded_address,
+                            lat: coords[0],
+                            lng: coords[1],
+                            count: 1
+                        });
+                    }
+                }
+            } 
+            // Fallback to neighborhood
+            else if (contact.neighborhood) {
+                const coords = getNeighborhoodCoords(contact.neighborhood);
+                if (coords) {
+                    const key = contact.neighborhood;
+                    if (locationMap.has(key)) {
+                        locationMap.get(key)!.count++;
+                    } else {
+                        locationMap.set(key, {
+                            address: contact.neighborhood,
+                            lat: coords[0],
+                            lng: coords[1],
+                            count: 1
+                        });
+                    }
+                }
+            }
+        });
+        
+        setGeocodedLocations(Array.from(locationMap.values()));
+    };
+
     const filteredContacts = contacts.filter(contact => {
         const matchesSearch = !searchTerm || 
             Object.values(contact).some(value => 
-                value?.toString().toLowerCase().includes(searchTerm.toLowerCase())
+                value && value.toString().toLowerCase().includes(searchTerm.toLowerCase())
             );
         
-        const matchesCampaign = selectedCampaign === 'all' || contact.campaign_id === selectedCampaign;
-        const matchesNeighborhood = selectedNeighborhood === 'all' || contact.neighborhood === selectedNeighborhood;
+        const matchesCampaign = !selectedCampaign || contact.campaign_id === selectedCampaign;
+        
+        const matchesNeighborhood = !selectedNeighborhood || 
+            contact.neighborhood?.toLowerCase().includes(selectedNeighborhood.toLowerCase());
         
         return matchesSearch && matchesCampaign && matchesNeighborhood;
     });
+
+    // Update geocoded locations when filters change
+    useEffect(() => {
+        processGeocodedLocations(filteredContacts);
+    }, [filteredContacts]);
 
     // Get unique neighborhoods
     const neighborhoods = Array.from(new Set(contacts.map(c => c.neighborhood).filter(Boolean))).sort();
@@ -330,7 +382,7 @@ export const CampaignDataHub = () => {
 
                     <Tabs.Content value="map">
                         <Box style={{ height: '500px', position: 'relative' }}>
-                            {Object.keys(neighborhoodCounts).length === 0 ? (
+                            {geocodedLocations.length === 0 ? (
                                 <Flex align="center" justify="center" style={{ height: '100%', backgroundColor: 'var(--gray-2)', borderRadius: '8px' }}>
                                     <Text color="gray">No contacts with valid location data</Text>
                                 </Flex>
@@ -345,31 +397,26 @@ export const CampaignDataHub = () => {
                                         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                                     />
                                     
-                                    {Object.entries(neighborhoodCounts).map(([neighborhood, count]) => {
-                                        const coords = getNeighborhoodCoords(neighborhood);
-                                        if (!coords) return null;
-                                        
-                                        return (
-                                            <CircleMarker
-                                                key={neighborhood}
-                                                center={coords}
-                                                radius={Math.min(30, 10 + Math.sqrt(count) * 3)}
-                                                fillColor="#3b82f6"
-                                                fillOpacity={0.6}
-                                                stroke={true}
-                                                color="#1e40af"
-                                                weight={2}
-                                            >
-                                                <Popup>
-                                                    <Box>
-                                                        <Text weight="bold">{neighborhood}</Text>
-                                                        <br />
-                                                        <Text>{count} contacts</Text>
-                                                    </Box>
-                                                </Popup>
-                                            </CircleMarker>
-                                        );
-                                    })}
+                                    {geocodedLocations.map((location, index) => (
+                                        <CircleMarker
+                                            key={`${location.address}-${index}`}
+                                            center={[location.lat, location.lng]}
+                                            radius={Math.min(30, 10 + Math.sqrt(location.count) * 3)}
+                                            fillColor="#3b82f6"
+                                            fillOpacity={0.6}
+                                            stroke={true}
+                                            color="#1e40af"
+                                            weight={2}
+                                        >
+                                            <Popup>
+                                                <Box>
+                                                    <Text weight="bold">{location.address}</Text>
+                                                    <br />
+                                                    <Text>{location.count} contacts</Text>
+                                                </Box>
+                                            </Popup>
+                                        </CircleMarker>
+                                    ))}
                                 </MapContainer>
                             )}
                         </Box>

@@ -324,8 +324,33 @@ async def upload_contacts(
                     # Looks like "Neighborhood ST" format
                     contact_data['neighborhood'] = neighborhood_parts[0]
                     contact_data['state'] = neighborhood_parts[1]  # Store state for enrichment
+                    # Create geocoded address for Google Maps
+                    contact_data['geocoded_address'] = f"{neighborhood_parts[0]}, {neighborhood_parts[1]}, USA"
                 else:
                     contact_data['state'] = ''
+                    # Try to determine state and format address
+                    neighborhood = contact_data['neighborhood'].strip()
+                    # Check if it's an Alabama city (default assumption based on your data)
+                    alabama_cities = [
+                        'Madison', 'Huntsville', 'Birmingham', 'Montgomery', 'Mobile',
+                        'Tuscaloosa', 'Auburn', 'Decatur', 'Florence', 'Dothan',
+                        'Hoover', 'Vestavia Hills', 'Prattville', 'Opelika', 'Enterprise',
+                        'Northport', 'Anniston', 'Phenix City', 'Moontown', 'Monrovia',
+                        'Research Park', 'Weatherly Heights', 'Meridianville', 'New Market', 'Ryland'
+                    ]
+                    
+                    # Clean up common variations
+                    clean_neighborhood = neighborhood.replace(', Huntsville', '').replace(', Alabama', '').strip()
+                    
+                    if any(city.lower() in clean_neighborhood.lower() for city in alabama_cities):
+                        contact_data['state'] = 'AL'
+                        contact_data['geocoded_address'] = f"{clean_neighborhood}, AL, USA"
+                    else:
+                        # Default to Alabama if no state specified
+                        contact_data['state'] = 'AL'
+                        contact_data['geocoded_address'] = f"{neighborhood}, AL, USA"
+            else:
+                contact_data['geocoded_address'] = ''
             
             # Skip rows where all key fields are empty (name or company required)
             if not any([contact_data['first_name'], contact_data['last_name'], contact_data['company']]):
@@ -346,7 +371,8 @@ async def upload_contacts(
                 title=contact_data['title'],
                 phone=contact_data['phone'],  # Can be empty
                 neighborhood=contact_data['neighborhood'],
-                state=contact_data.get('state', '')  # Save state properly
+                state=contact_data.get('state', ''),  # Save state properly
+                geocoded_address=contact_data.get('geocoded_address', '')  # Save geocoded address
             )
             contacts.append(contact)
         
