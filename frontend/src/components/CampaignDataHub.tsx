@@ -2,11 +2,11 @@ import React from 'react';
 import { useState, useEffect } from 'react';
 import { 
     Box, Flex, Heading, Text, Card, TextField, Badge, Table, 
-    Select, Button, ScrollArea, Tabs
+    Select, Button, ScrollArea, Tabs, Callout
 } from '@radix-ui/themes';
 import { 
     MagnifyingGlassIcon, DownloadIcon, 
-    BarChartIcon, PersonIcon, GlobeIcon
+    BarChartIcon, PersonIcon, GlobeIcon, InfoCircledIcon
 } from '@radix-ui/react-icons';
 import { MapContainer, TileLayer, CircleMarker, Popup, Marker } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -116,6 +116,7 @@ export const CampaignDataHub = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [geocodedLocations, setGeocodedLocations] = useState<GeocodedLocation[]>([]);
     const [activeTab, setActiveTab] = useState('table');
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         fetchAllData();
@@ -131,14 +132,22 @@ export const CampaignDataHub = () => {
             setCampaigns(campaignsData);
 
             // Fetch all contacts in one request
-            const contactsResponse = await api.get('/api/campaigns/all-contacts');
-            setContacts(contactsResponse.data);
-            
-            // Process geocoded locations
-            processGeocodedLocations(contactsResponse.data);
+            try {
+                const contactsResponse = await api.get('/api/campaigns/all-contacts');
+                setContacts(contactsResponse.data);
+                
+                // Process geocoded locations
+                processGeocodedLocations(contactsResponse.data);
+            } catch (contactsErr) {
+                console.error('Failed to fetch all contacts:', contactsErr);
+                // Set empty contacts but don't break the entire component
+                setContacts([]);
+                setError('Unable to load contact data. Please try again later.');
+            }
             
         } catch (err) {
             console.error('Failed to fetch data:', err);
+            setError('Failed to load data');
         } finally {
             setIsLoading(false);
         }
@@ -258,6 +267,16 @@ export const CampaignDataHub = () => {
                     Export Data
                 </Button>
             </Flex>
+
+            {/* Error Message */}
+            {error && (
+                <Callout.Root color="red" mb="4">
+                    <Callout.Icon>
+                        <InfoCircledIcon />
+                    </Callout.Icon>
+                    <Callout.Text>{error}</Callout.Text>
+                </Callout.Root>
+            )}
 
             {/* Filters */}
             <Flex gap="3" mb="4" wrap="wrap">
