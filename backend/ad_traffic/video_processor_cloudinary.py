@@ -169,40 +169,58 @@ async def process_campaign(
             raise
 
 
-async def analyze_and_generate_captions(clips, platforms, duration_weeks, client_id, campaign, db, cloudinary_upload):
+async def analyze_and_generate_captions(clips, platforms, duration_weeks, client_id, campaign, db, cloudinary_upload=None):
     """Analyze video content and generate contextual AI-powered captions"""
     import base64
     
     # Get video metadata for context
     video_context = f"""
 Video Title: {campaign.name}
-Duration: {cloudinary_upload.get('duration', 0)} seconds
+Duration: {cloudinary_upload.get('duration', 0) if cloudinary_upload else 'Multiple videos'} seconds
 Platforms: {', '.join(platforms)}
 """
     
     for i, db_clip in enumerate(clips):
         try:
+            # For multiple videos, we need to extract the public_id from the clip's source URL
+            if not cloudinary_upload and db_clip.source_video_url:
+                # Extract public_id from the Cloudinary URL
+                # URL format: https://res.cloudinary.com/{cloud_name}/video/upload/v{version}/{public_id}.mp4
+                url_parts = db_clip.source_video_url.split('/')
+                if 'upload' in url_parts:
+                    upload_idx = url_parts.index('upload')
+                    if upload_idx + 2 < len(url_parts):
+                        public_id = url_parts[upload_idx + 2].rsplit('.', 1)[0]
+                else:
+                    logger.warning(f"Could not extract public_id from URL: {db_clip.source_video_url}")
+                    public_id = None
+            elif cloudinary_upload:
+                public_id = cloudinary_upload['public_id']
+            else:
+                public_id = None
+                
             # Extract a frame from the middle of the clip for analysis
             frame_time = db_clip.start_time + (db_clip.duration / 2)
             
-            # Generate a frame URL using Cloudinary transformation
-            frame_url, _ = cloudinary_url(
-                cloudinary_upload['public_id'],
-                resource_type="video",
-                transformation=[
-                    {'start_offset': frame_time},
-                    {'width': 800, 'height': 450, 'crop': 'fill'},
-                    {'quality': 'auto', 'fetch_format': 'jpg'}
-                ]
-            )
-            
-            # Download and encode the frame for vision analysis
-            response = requests.get(frame_url)
-            if response.status_code == 200:
-                frame_base64 = base64.b64encode(response.content).decode('utf-8')
+            if public_id:
+                # Generate a frame URL using Cloudinary transformation
+                frame_url, _ = cloudinary_url(
+                    public_id,
+                    resource_type="video",
+                    transformation=[
+                        {'start_offset': frame_time},
+                        {'width': 800, 'height': 450, 'crop': 'fill'},
+                        {'quality': 'auto', 'fetch_format': 'jpg'}
+                    ]
+                )
                 
-                # Use vision-capable LLM to analyze the frame
-                vision_prompt = f"""Analyze this video frame and describe what's happening in the scene. 
+                # Download and encode the frame for vision analysis
+                response = requests.get(frame_url)
+                if response.status_code == 200:
+                    frame_base64 = base64.b64encode(response.content).decode('utf-8')
+                    
+                    # Use vision-capable LLM to analyze the frame
+                    vision_prompt = f"""Analyze this video frame and describe what's happening in the scene. 
 Focus on:
 - Main subjects or people
 - Actions taking place  
@@ -211,15 +229,17 @@ Focus on:
 - Overall mood/tone
 
 This is frame from timestamp {frame_time:.1f}s of a video titled "{campaign.name}"."""
-                
-                try:
-                    # Get frame analysis from vision model
-                    frame_description = await llm_handler.analyze_image(frame_base64, vision_prompt)
-                    logger.info(f"Frame analysis for clip {i+1}: {frame_description[:100]}...")
-                except:
-                    frame_description = f"Clip showing content from {db_clip.start_time:.0f}s to {db_clip.end_time:.0f}s"
+                    
+                    try:
+                        # Get frame analysis from vision model
+                        frame_description = await llm_handler.analyze_image(frame_base64, vision_prompt)
+                        logger.info(f"Frame analysis for clip {i+1}: {frame_description[:100]}...")
+                    except:
+                        frame_description = f"Clip showing content from {db_clip.start_time:.0f}s to {db_clip.end_time:.0f}s"
+                else:
+                    frame_description = f"Video segment {i+1}"
             else:
-                frame_description = f"Video segment {i+1}"
+                frame_description = f"Video segment {i+1} - {db_clip.title}"
                 
         except Exception as e:
             logger.warning(f"Could not analyze frame for clip {i+1}: {str(e)}")
@@ -317,6 +337,7 @@ async def process_campaign_with_multiple_videos(
             
             all_clips = []
             total_videos = len(video_paths)
+            video_urls = []  # Store all video URLs
             
             for video_idx, video_path in enumerate(video_paths):
                 logger.info(f"Processing video {video_idx + 1}/{total_videos}: {video_path}")
@@ -331,6 +352,7 @@ async def process_campaign_with_multiple_videos(
                     )
                     
                     video_url = upload_result['secure_url']
+                    video_urls.append(video_url)  # Store the URL
                     duration = upload_result.get('duration', 90)
                     logger.info(f"Video {video_idx + 1} uploaded. Duration: {duration}s")
                 except Exception as e:
@@ -347,6 +369,16 @@ async def process_campaign_with_multiple_videos(
                     
                     # Create platform-specific versions
                     platform_versions = {}
+                    
+                    # Default clip URL (original aspect ratio)
+                    default_clip_url, _ = cloudinary_url(
+                        upload_result['public_id'],
+                        resource_type="video",
+                        transformation=[
+                            {'start_offset': start_time, 'end_offset': end_time},
+                            {'quality': 'auto', 'fetch_format': 'mp4'}
+                        ]
+                    )
                     
                     for platform in platforms:
                         platform_lower = platform.lower()
@@ -398,7 +430,7 @@ async def process_campaign_with_multiple_videos(
                         duration=end_time - start_time,
                         start_time=start_time,
                         end_time=end_time,
-                        video_url=clip_url,
+                        video_url=default_clip_url,  # Use the default clip URL
                         thumbnail_url=thumbnail_url,
                         platform_versions=platform_versions,
                         content_type="general",
@@ -414,12 +446,40 @@ async def process_campaign_with_multiple_videos(
                 campaign.progress = int(progress)
                 db.commit()
             
+            # Store video URLs in the campaign
+            campaign.video_urls = video_urls
+            db.commit()
+            
             logger.info(f"Created {len(all_clips)} total clips from {total_videos} videos")
             
             # Analyze and generate captions for all clips
             await analyze_and_generate_captions(
                 all_clips, platforms, duration_weeks, client_id, campaign, db, None
             )
+            
+            # Create social posts schedule
+            start_date = datetime.utcnow() + timedelta(days=1)
+            posts_per_week = max(1, len(all_clips) // duration_weeks)
+            
+            current_date = start_date
+            for i, clip in enumerate(all_clips):
+                post = models.SocialPost(
+                    id=str(uuid.uuid4()),
+                    client_id=client_id,
+                    campaign_id=campaign.id,
+                    video_clip_id=clip.id,
+                    content=clip.suggested_caption,
+                    platforms=platforms,
+                    scheduled_time=current_date,
+                    status=models.PostStatus.SCHEDULED
+                )
+                db.add(post)
+                
+                # Schedule next post 2-3 days later
+                current_date += timedelta(days=2 if i % 2 == 0 else 3)
+            
+            db.commit()
+            logger.info(f"Created {len(all_clips)} scheduled posts")
             
             # Update campaign status
             campaign.status = models.CampaignStatus.READY

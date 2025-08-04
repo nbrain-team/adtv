@@ -258,3 +258,25 @@ Caption:"""
     
     db.commit()
     logger.info(f"Created {len(clips)} scheduled posts") 
+
+async def process_campaign_with_multiple_videos(
+    campaign_id: str,
+    video_paths: List[str],
+    platforms: List[str],
+    duration_weeks: int,
+    client_id: str
+):
+    """Process multiple videos for a campaign - fallback to single video processing"""
+    logger.info(f"FFmpeg fallback: Processing {len(video_paths)} videos")
+    
+    # For now, just process the first video as FFmpeg doesn't have multi-video support
+    if video_paths:
+        await process_campaign(
+            campaign_id=campaign_id,
+            video_path=video_paths[0],
+            platforms=platforms,
+            duration_weeks=duration_weeks,
+            client_id=client_id
+        )
+    else:
+        logger.error("No video paths provided for processing") 
