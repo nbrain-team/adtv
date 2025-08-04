@@ -124,6 +124,30 @@ app.add_middleware(
     max_age=3600,
 )
 
+# Add custom middleware to ensure CORS headers on errors
+@app.middleware("http")
+async def catch_exceptions_middleware(request, call_next):
+    try:
+        response = await call_next(request)
+        return response
+    except Exception as e:
+        # Log the error
+        logger.error(f"Unhandled exception: {str(e)}")
+        logger.error(f"Request path: {request.url.path}")
+        import traceback
+        logger.error(traceback.format_exc())
+        
+        # Return a proper error response with CORS headers
+        from fastapi.responses import JSONResponse
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "Internal server error"},
+            headers={
+                "Access-Control-Allow-Origin": request.headers.get("origin", "*"),
+                "Access-Control-Allow-Credentials": "true",
+            }
+        )
+
 @app.on_event("startup")
 def on_startup():
     # Rename ad_traffic campaigns table first to avoid conflicts
