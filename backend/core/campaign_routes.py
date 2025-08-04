@@ -702,8 +702,12 @@ async def get_all_campaign_contacts(
     try:
         # Get all campaigns for the user
         campaigns = db.query(Campaign).filter(
-            Campaign.owner_email == current_user.email
+            Campaign.user_id == current_user.id
         ).all()
+        
+        # If no campaigns, return empty array
+        if not campaigns:
+            return []
         
         # Get all contacts from these campaigns
         campaign_ids = [c.id for c in campaigns]
@@ -718,9 +722,8 @@ async def get_all_campaign_contacts(
             **contact.__dict__,
             'campaign_name': campaign_map.get(contact.campaign_id, '')
         } for contact in contacts]
-        
     except Exception as e:
-        logger.error(f"Error fetching all contacts: {e}")
+        logger.error(f"Error fetching all contacts: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # Background tasks
