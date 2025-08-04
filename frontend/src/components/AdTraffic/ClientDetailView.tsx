@@ -5,14 +5,18 @@ import {
 } from '@radix-ui/themes';
 import { 
   ArrowLeftIcon, VideoIcon, PlayIcon, DownloadIcon, 
-  CalendarIcon, EyeOpenIcon, Cross2Icon 
+  CalendarIcon, EyeOpenIcon, Cross2Icon, PlusIcon 
 } from '@radix-ui/react-icons';
-import { Client, Campaign, VideoClip } from './types';
+import { Client, Campaign, VideoClip, SocialPost } from './types';
+import { CalendarView } from './CalendarView';
+import { PostModal } from './PostModal';
+import { CampaignModal } from './CampaignModal';
 import { api } from '../../services/api';
 
 interface ClientDetailViewProps {
   client: Client;
   onBack: () => void;
+  onClientUpdate?: () => void;
 }
 
 interface CampaignWithClips extends Campaign {
@@ -38,14 +42,19 @@ interface ClientProfile {
   };
 }
 
-export const ClientDetailView: React.FC<ClientDetailViewProps> = ({ client, onBack }) => {
+export const ClientDetailView: React.FC<ClientDetailViewProps> = ({ client, onBack, onClientUpdate }) => {
   const [profile, setProfile] = useState<ClientProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
   const [selectedClip, setSelectedClip] = useState<VideoClip | null>(null);
+  const [posts, setPosts] = useState<SocialPost[]>([]);
+  const [showPostModal, setShowPostModal] = useState(false);
+  const [showCampaignModal, setShowCampaignModal] = useState(false);
+  const [editingPost, setEditingPost] = useState<SocialPost | null>(null);
 
   useEffect(() => {
     fetchClientProfile();
+    fetchClientPosts();
   }, [client.id]);
 
   const fetchClientProfile = async () => {
@@ -57,6 +66,52 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({ client, onBa
       console.error('Error fetching client profile:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchClientPosts = async () => {
+    try {
+      const response = await api.get(`/api/ad-traffic/clients/${client.id}/calendar`);
+      setPosts(response.data);
+    } catch (error) {
+      console.error('Error fetching posts:', error);
+    }
+  };
+
+  const handleCreatePost = () => {
+    setEditingPost(null);
+    setShowPostModal(true);
+  };
+
+  const handleEditPost = (post: SocialPost) => {
+    setEditingPost(post);
+    setShowPostModal(true);
+  };
+
+  const handlePostSaved = async () => {
+    await fetchClientPosts();
+    setShowPostModal(false);
+    setEditingPost(null);
+  };
+
+  const handleDeletePost = async (postId: string) => {
+    try {
+      await api.delete(`/api/ad-traffic/posts/${postId}`);
+      await fetchClientPosts();
+    } catch (error) {
+      console.error('Error deleting post:', error);
+    }
+  };
+
+  const handleCreateCampaign = () => {
+    setShowCampaignModal(true);
+  };
+
+  const handleCampaignCreated = async (campaign: Campaign) => {
+    setShowCampaignModal(false);
+    await fetchClientProfile();
+    if (onClientUpdate) {
+      onClientUpdate();
     }
   };
 
@@ -106,6 +161,16 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({ client, onBa
             <Text size="2" color="gray">{client.company_name}</Text>
           )}
         </Box>
+        <Flex gap="3" ml="auto">
+          <Button onClick={handleCreatePost}>
+            <PlusIcon />
+            New Post
+          </Button>
+          <Button onClick={handleCreateCampaign} variant="soft">
+            <VideoIcon />
+            New Campaign
+          </Button>
+        </Flex>
       </Flex>
 
       {/* Summary Stats */}
@@ -137,13 +202,30 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({ client, onBa
       </Flex>
 
       {/* Campaigns and Assets */}
-      <Tabs.Root defaultValue="campaigns">
+      <Tabs.Root defaultValue="timeline">
         <Tabs.List>
-          <Tabs.Trigger value="campaigns">Campaigns & Assets</Tabs.Trigger>
-          <Tabs.Trigger value="timeline">Timeline View</Tabs.Trigger>
+          <Tabs.Trigger value="timeline">
+            <CalendarIcon style={{ marginRight: '8px' }} />
+            Timeline
+          </Tabs.Trigger>
+          <Tabs.Trigger value="campaigns">
+            <VideoIcon style={{ marginRight: '8px' }} />
+            Campaigns & Assets
+          </Tabs.Trigger>
         </Tabs.List>
 
         <Box mt="4">
+          <Tabs.Content value="timeline" style={{ height: '600px' }}>
+            <CalendarView
+              client={client}
+              posts={posts}
+              onCreatePost={handleCreatePost}
+              onEditPost={handleEditPost}
+              onDeletePost={handleDeletePost}
+              onCreateCampaign={handleCreateCampaign}
+            />
+          </Tabs.Content>
+
           <Tabs.Content value="campaigns">
             <ScrollArea style={{ height: '600px' }}>
               <Flex direction="column" gap="4">
@@ -326,12 +408,6 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({ client, onBa
               </Flex>
             </ScrollArea>
           </Tabs.Content>
-
-          <Tabs.Content value="timeline">
-            <Card>
-              <Text color="gray">Timeline view coming soon...</Text>
-            </Card>
-          </Tabs.Content>
         </Box>
       </Tabs.Root>
 
@@ -413,6 +489,30 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({ client, onBa
               Download Clip
             </Button>
           </Flex>
+        </Dialog.Content>
+      </Dialog.Root>
+
+      {/* Post Modal */}
+      <Dialog.Root open={showPostModal} onOpenChange={setShowPostModal}>
+        <Dialog.Content style={{ maxWidth: 600 }}>
+          <PostModal
+            client={client}
+            post={editingPost}
+            onSave={handlePostSaved}
+            onCancel={() => setShowPostModal(false)}
+            onDelete={editingPost ? handleDeletePost : undefined}
+          />
+        </Dialog.Content>
+      </Dialog.Root>
+
+      {/* Campaign Modal */}
+      <Dialog.Root open={showCampaignModal} onOpenChange={setShowCampaignModal}>
+        <Dialog.Content style={{ maxWidth: 600 }}>
+          <CampaignModal
+            client={client}
+            onComplete={handleCampaignCreated}
+            onCancel={() => setShowCampaignModal(false)}
+          />
         </Dialog.Content>
       </Dialog.Root>
     </Box>
