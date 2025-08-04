@@ -103,6 +103,15 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({ client, onBa
     }
   };
 
+  const handleApprovePost = async (postId: string, approved: boolean) => {
+    try {
+      await api.post(`/api/ad-traffic/posts/${postId}/approve`, { approved });
+      await fetchClientPosts();
+    } catch (error) {
+      console.error('Error approving post:', error);
+    }
+  };
+
   const handleCreateCampaign = () => {
     setShowCampaignModal(true);
   };
@@ -240,6 +249,7 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({ client, onBa
                   onCreatePost={handleCreatePost}
                   onEditPost={handleEditPost}
                   onDeletePost={handleDeletePost}
+                  onApprovePost={handleApprovePost}
                   onCreateCampaign={handleCreateCampaign}
                 />
               </Box>

@@ -16,6 +16,7 @@ interface CalendarViewProps {
   onCreatePost: () => void;
   onEditPost: (post: SocialPost) => void;
   onDeletePost: (postId: string) => void;
+  onApprovePost: (postId: string, approved: boolean) => void;
   onCreateCampaign: () => void;
 }
 
@@ -25,6 +26,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   onCreatePost,
   onEditPost,
   onDeletePost,
+  onApprovePost,
   onCreateCampaign
 }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -244,6 +246,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                     post={post}
                     onEdit={() => onEditPost(post)}
                     onDelete={() => onDeletePost(post.id)}
+                    onApprove={() => onApprovePost(post.id, true)}
                     compact
                   />
                 ))}

@@ -6,7 +6,8 @@ import {
   TrashIcon,
   CopyIcon,
   EyeOpenIcon,
-  VideoIcon 
+  VideoIcon,
+  CheckIcon 
 } from '@radix-ui/react-icons';
 import { SocialPost, Platform, PostStatus } from './types';
 
@@ -14,6 +15,7 @@ interface PostCardProps {
   post: SocialPost;
   onEdit: () => void;
   onDelete: () => void;
+  onApprove?: (approved: boolean) => void;
   compact?: boolean;
 }
 
@@ -21,6 +23,7 @@ export const PostCard: React.FC<PostCardProps> = ({
   post,
   onEdit,
   onDelete,
+  onApprove,
   compact = false
 }) => {
   const getPlatformIcon = (platform: Platform) => {
@@ -55,6 +58,10 @@ export const PostCard: React.FC<PostCardProps> = ({
         return 'gray';
       case PostStatus.SCHEDULED:
         return 'blue';
+      case PostStatus.PENDING_APPROVAL:
+        return 'orange';
+      case PostStatus.APPROVED:
+        return 'green';
       case PostStatus.PUBLISHED:
         return 'green';
       case PostStatus.FAILED:
@@ -74,6 +81,9 @@ export const PostCard: React.FC<PostCardProps> = ({
   };
 
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+
+  const isApproved = post.status === PostStatus.APPROVED || post.status === PostStatus.PUBLISHED;
+  const needsApproval = post.status === PostStatus.SCHEDULED || post.status === PostStatus.PENDING_APPROVAL;
 
   if (compact) {
     return (
@@ -138,7 +148,13 @@ export const PostCard: React.FC<PostCardProps> = ({
   }
 
   return (
-    <Card style={{ width: '100%' }}>
+    <Card 
+      style={{ 
+        width: '100%',
+        opacity: needsApproval ? 0.7 : 1,
+        border: needsApproval ? '1px solid var(--orange-6)' : undefined
+      }}
+    >
       <Flex direction="column" gap="3">
         <Flex justify="between" align="start">
           <Flex gap="2" align="center">
@@ -159,30 +175,49 @@ export const PostCard: React.FC<PostCardProps> = ({
                 Campaign: {post.campaign_name}
               </Badge>
             )}
+            {isApproved && (
+              <Badge variant="soft" color="green">
+                <CheckIcon style={{ marginRight: '4px' }} />
+                Approved
+              </Badge>
+            )}
           </Flex>
 
-          <DropdownMenu.Root>
-            <DropdownMenu.Trigger>
-              <IconButton size="1" variant="ghost">
-                <DotsHorizontalIcon />
-              </IconButton>
-            </DropdownMenu.Trigger>
-            <DropdownMenu.Content>
-              <DropdownMenu.Item onClick={onEdit}>
-                <Pencil2Icon /> Edit
-              </DropdownMenu.Item>
-              <DropdownMenu.Item>
-                <CopyIcon /> Duplicate
-              </DropdownMenu.Item>
-              <DropdownMenu.Item>
-                <EyeOpenIcon /> Preview
-              </DropdownMenu.Item>
-              <DropdownMenu.Separator />
-              <DropdownMenu.Item color="red" onClick={() => setIsDeleteDialogOpen(true)}>
-                <TrashIcon /> Delete
-              </DropdownMenu.Item>
-            </DropdownMenu.Content>
-          </DropdownMenu.Root>
+          <Flex gap="2" align="center">
+            {needsApproval && onApprove && (
+              <Button 
+                size="1" 
+                variant="soft" 
+                color="green"
+                onClick={() => onApprove(true)}
+              >
+                <CheckIcon />
+                Approve
+              </Button>
+            )}
+            <DropdownMenu.Root>
+              <DropdownMenu.Trigger>
+                <IconButton size="1" variant="ghost">
+                  <DotsHorizontalIcon />
+                </IconButton>
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Content>
+                <DropdownMenu.Item onClick={onEdit}>
+                  <Pencil2Icon /> Edit
+                </DropdownMenu.Item>
+                <DropdownMenu.Item>
+                  <CopyIcon /> Duplicate
+                </DropdownMenu.Item>
+                <DropdownMenu.Item>
+                  <EyeOpenIcon /> Preview
+                </DropdownMenu.Item>
+                <DropdownMenu.Separator />
+                <DropdownMenu.Item color="red" onClick={() => setIsDeleteDialogOpen(true)}>
+                  <TrashIcon /> Delete
+                </DropdownMenu.Item>
+              </DropdownMenu.Content>
+            </DropdownMenu.Root>
+          </Flex>
         </Flex>
 
         <Text size="2" style={{ whiteSpace: 'pre-wrap' }}>
