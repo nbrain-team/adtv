@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Box, Flex, Text, Heading, Card, Button, Badge, Tabs, 
-  ScrollArea, Dialog, IconButton, Spinner 
+  Box, Flex, Heading, Text, Button, Tabs, ScrollArea, 
+  Badge, Spinner, Dialog, AlertDialog, Card, IconButton 
 } from '@radix-ui/themes';
 import { 
   ArrowLeftIcon, VideoIcon, PlayIcon, DownloadIcon, 
@@ -230,15 +230,92 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({ client, onBa
         </Tabs.List>
 
         <Box mt="4">
-          <Tabs.Content value="timeline" style={{ height: '600px' }}>
-            <CalendarView
-              client={client}
-              posts={posts}
-              onCreatePost={handleCreatePost}
-              onEditPost={handleEditPost}
-              onDeletePost={handleDeletePost}
-              onCreateCampaign={handleCreateCampaign}
-            />
+          <Tabs.Content value="timeline">
+            <Flex direction="column" gap="4">
+              {/* Calendar View */}
+              <Box style={{ height: '400px' }}>
+                <CalendarView
+                  client={client}
+                  posts={posts}
+                  onCreatePost={handleCreatePost}
+                  onEditPost={handleEditPost}
+                  onDeletePost={handleDeletePost}
+                  onCreateCampaign={handleCreateCampaign}
+                />
+              </Box>
+              
+              {/* Campaigns List */}
+              <Box>
+                <Flex align="center" justify="between" mb="3">
+                  <Heading size="4">Campaigns</Heading>
+                  <Button onClick={() => setShowCampaignModal(true)} size="2">
+                    <PlusIcon />
+                    New Campaign
+                  </Button>
+                </Flex>
+                
+                <ScrollArea style={{ height: '300px' }}>
+                  <Flex direction="column" gap="3">
+                    {profile.campaigns.length === 0 ? (
+                      <Card>
+                        <Text size="2" color="gray" align="center">
+                          No campaigns yet. Create your first campaign to get started.
+                        </Text>
+                      </Card>
+                    ) : (
+                      profile.campaigns.map(campaign => {
+                        const campaignVideos = profile.campaign_videos[campaign.id];
+                        const clipCount = campaignVideos?.total_clips || 0;
+                        const videoCount = campaignVideos?.videos?.length || 0;
+                        
+                        return (
+                          <Card key={campaign.id} style={{ cursor: 'pointer' }}>
+                            <Flex justify="between" align="center">
+                              <Box onClick={() => {
+                                // Navigate to campaigns tab with this campaign expanded
+                                // You could add state to track which campaign to expand
+                                const tabsList = document.querySelector('[role="tablist"]');
+                                const campaignsTab = tabsList?.querySelector('[value="campaigns"]');
+                                if (campaignsTab instanceof HTMLElement) {
+                                  campaignsTab.click();
+                                }
+                              }}>
+                                <Heading size="3">{campaign.name}</Heading>
+                                <Flex gap="3" mt="1">
+                                  <Badge color={getStatusColor(campaign.status)}>
+                                    {campaign.status}
+                                  </Badge>
+                                  <Text size="2" color="gray">
+                                    {videoCount} videos • {clipCount} clips
+                                  </Text>
+                                  <Text size="2" color="gray">
+                                    Created {new Date(campaign.created_at).toLocaleDateString()}
+                                  </Text>
+                                </Flex>
+                              </Box>
+                              
+                              <Flex gap="2">
+                                <IconButton
+                                  size="2"
+                                  variant="ghost"
+                                  color="red"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteCampaign(campaign.id);
+                                  }}
+                                >
+                                  <TrashIcon />
+                                </IconButton>
+                              </Flex>
+                            </Flex>
+                          </Card>
+                        );
+                      })
+                    )}
+                  </Flex>
+                </ScrollArea>
+              </Box>
+            </Flex>
           </Tabs.Content>
 
           <Tabs.Content value="campaigns">
