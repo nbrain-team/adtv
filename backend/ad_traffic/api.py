@@ -83,6 +83,9 @@ async def get_client_posts(
     db: Session = Depends(get_db)
 ):
     """Get all posts for a client within date range"""
+    import logging
+    logger = logging.getLogger(__name__)
+    
     # Verify client ownership
     client = services.get_client(db, client_id, current_user.id)
     if not client:
@@ -96,6 +99,11 @@ async def get_client_posts(
             campaign = db.query(models.AdTrafficCampaign).filter_by(id=post.campaign_id).first()
             if campaign:
                 post.campaign_name = campaign.name
+    
+    # Debug logging
+    logger.info(f"Returning {len(posts)} posts for client {client_id}")
+    if posts:
+        logger.info(f"First post data: id={posts[0].id}, platforms={posts[0].platforms}, media_urls={posts[0].media_urls}")
     
     return posts
 

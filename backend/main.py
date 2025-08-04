@@ -105,6 +105,25 @@ app = FastAPI(
     version="0.2.2",
 )
 
+# --- CORS Configuration (Must be first middleware) ---
+allowed_origins = [
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "https://adtv.nbrain.ai",
+    "https://adtv-frontend.onrender.com",
+    "*"  # Keep wildcard as fallback
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=3600,
+)
+
 @app.on_event("startup")
 def on_startup():
     # Rename ad_traffic campaigns table first to avoid conflicts
@@ -233,25 +252,6 @@ def on_startup():
     # Import ad_traffic_router after startup
     # from ad_traffic.api import router as ad_traffic_router
     # app.include_router(ad_traffic_router, prefix="/api/ad-traffic", tags=["ad-traffic"])
-
-# --- CORS Configuration ---
-allowed_origins = [
-    "http://localhost:3000",
-    "http://localhost:5173",
-    "https://adtv.nbrain.ai",
-    "https://adtv-frontend.onrender.com",
-    "*"  # Keep wildcard as fallback
-]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=allowed_origins,
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-    allow_headers=["*"],
-    expose_headers=["*"],
-    max_age=3600,
-)
 
 # --- Routers ---
 # Note: Only include routers from modules that actually define them

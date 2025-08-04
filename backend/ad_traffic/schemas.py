@@ -127,7 +127,37 @@ class SocialPost(PostBase):
     video_clip: Optional["VideoClip"] = None  # Add video_clip relationship with forward reference
 
     class Config:
-        orm_mode = True
+        from_attributes = True  # Updated from orm_mode for Pydantic v2
+    
+    @validator('platforms', pre=True)
+    def convert_platforms(cls, v):
+        if v is None:
+            return []
+        if isinstance(v, str):
+            try:
+                import json
+                return json.loads(v)
+            except:
+                return [v]
+        return v
+    
+    @validator('media_urls', pre=True)
+    def ensure_media_urls_list(cls, v):
+        if v is None:
+            return []
+        if isinstance(v, dict):
+            # Convert dict to list
+            return list(v.values()) if v else []
+        if isinstance(v, str):
+            try:
+                import json
+                parsed = json.loads(v)
+                if isinstance(parsed, dict):
+                    return list(parsed.values()) if parsed else []
+                return parsed if isinstance(parsed, list) else []
+            except:
+                return []
+        return v if isinstance(v, list) else []
 
 
 # Campaign schemas
@@ -154,7 +184,7 @@ class Campaign(CampaignBase):
     updated_at: Optional[datetime] = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 # Video clip schemas
@@ -177,7 +207,7 @@ class VideoClip(BaseModel):
     created_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class CampaignWithClips(Campaign):

@@ -92,7 +92,7 @@ def process_scrape_job(job_id: str):
             logger.error(f"Error in job {job_id}: {str(e)}")
             session.refresh(job)
             if job.status != "CANCELLED":
-                job.status = ScrapingJobStatus.FAILED
+            job.status = ScrapingJobStatus.FAILED
                 job.error_message = str(e)
                 session.commit()
             logger.error(f"Job {job_id} failed with error: {str(e)}")
@@ -374,7 +374,7 @@ def crawl_website(url: str) -> Optional[str]:
         text = ' '.join(chunk for chunk in chunks if chunk)
         
         return text[:5000]  # Limit to 5000 characters
-        
+
     except Exception as e:
         logger.error(f"Error crawling {url}: {e}")
         return None
