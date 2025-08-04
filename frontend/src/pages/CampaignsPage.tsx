@@ -121,8 +121,13 @@ const CampaignsPage = () => {
                 calendly_link: formData.event_type === 'virtual' ? formData.calendly_link : undefined
             };
 
+            console.log('Creating campaign with data:', campaignData);
             const response = await api.post('/api/campaigns', campaignData);
-            setCampaigns([response.data, ...campaigns]);
+            console.log('Campaign created response:', response.data);
+            
+            // Refresh the campaigns list to ensure we have the latest data
+            await fetchCampaigns();
+            
             setShowCreateDialog(false);
             
             // Reset form
@@ -138,7 +143,13 @@ const CampaignsPage = () => {
                 hotel_address: '',
                 calendly_link: ''
             });
+            
+            // Navigate to the new campaign
+            if (response.data && response.data.id) {
+                navigate(`/campaigns/${response.data.id}`);
+            }
         } catch (err) {
+            console.error('Create campaign error:', err);
             setError('Failed to create campaign');
         }
     };

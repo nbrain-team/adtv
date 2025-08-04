@@ -335,9 +335,12 @@ const CampaignDetailPage = () => {
 
     const fetchCampaign = async () => {
         try {
+            console.log('Fetching campaign with ID:', campaignId);
             const response = await api.get(`/api/campaigns/${campaignId}`);
+            console.log('Campaign data received:', response.data);
             setCampaign(response.data);
         } catch (err) {
+            console.error('Failed to load campaign:', err);
             setError('Failed to load campaign');
         } finally {
             setIsLoading(false);
@@ -588,8 +591,52 @@ const CampaignDetailPage = () => {
         { name: 'Pending', value: campaign.total_contacts - campaign.enriched_contacts - campaign.failed_enrichments, color: 'var(--gray-9)' }
     ] : [];
 
-    if (isLoading) return <MainLayout onNewChat={() => {}}><Text>Loading...</Text></MainLayout>;
-    if (!campaign) return <MainLayout onNewChat={() => {}}><Text>Campaign not found</Text></MainLayout>;
+    if (isLoading) {
+        return (
+            <MainLayout onNewChat={() => {}}>
+                <Box style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Flex direction="column" align="center" gap="3">
+                        <div style={{ animation: 'spin 1s linear infinite' }}>
+                            <ReloadIcon width="32" height="32" />
+                        </div>
+                        <Text size="3">Loading campaign...</Text>
+                    </Flex>
+                </Box>
+            </MainLayout>
+        );
+    }
+    
+    if (error) {
+        return (
+            <MainLayout onNewChat={() => {}}>
+                <Box style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Flex direction="column" align="center" gap="3">
+                        <Text size="4" color="red">Error: {error}</Text>
+                        <Button onClick={() => navigate('/campaigns')}>
+                            <ArrowLeftIcon />
+                            Back to Campaigns
+                        </Button>
+                    </Flex>
+                </Box>
+            </MainLayout>
+        );
+    }
+    
+    if (!campaign) {
+        return (
+            <MainLayout onNewChat={() => {}}>
+                <Box style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Flex direction="column" align="center" gap="3">
+                        <Text size="4">Campaign not found</Text>
+                        <Button onClick={() => navigate('/campaigns')}>
+                            <ArrowLeftIcon />
+                            Back to Campaigns
+                        </Button>
+                    </Flex>
+                </Box>
+            </MainLayout>
+        );
+    }
 
     return (
         <MainLayout onNewChat={() => {}}>
