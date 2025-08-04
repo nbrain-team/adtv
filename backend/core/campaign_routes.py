@@ -152,6 +152,89 @@ async def get_campaigns(
     
     return campaigns
 
+@router.get("/all-contacts")
+async def get_all_campaign_contacts(
+    current_user: User = Depends(auth.get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get all contacts from all campaigns for the current user"""
+    try:
+        # Get all campaigns for the user
+        campaigns = db.query(Campaign).filter(
+            Campaign.user_id == current_user.id
+        ).all()
+        
+        # If no campaigns, return empty array
+        if not campaigns:
+            return []
+        
+        # Get all contacts from these campaigns
+        campaign_ids = [c.id for c in campaigns]
+        contacts = db.query(CampaignContact).filter(
+            CampaignContact.campaign_id.in_(campaign_ids)
+        ).all()
+        
+        # Add campaign names to contacts
+        campaign_map = {c.id: c.name for c in campaigns}
+        
+        return [{
+            **contact.__dict__,
+            'campaign_name': campaign_map.get(contact.campaign_id, '')
+        } for contact in contacts]
+    except Exception as e:
+        logger.error(f"Error fetching all contacts: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Campaign templates - static routes before dynamic routes
+@router.post("/templates", response_model=CampaignTemplateResponse)
+async def create_template(
+    template_data: CampaignTemplateCreate,
+    current_user: User = Depends(auth.get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Create a campaign template"""
+    template = CampaignTemplate(
+        user_id=current_user.id,
+        **template_data.dict()
+    )
+    db.add(template)
+    db.commit()
+    db.refresh(template)
+    
+    return template
+
+@router.get("/templates", response_model=List[CampaignTemplateResponse])
+async def get_templates(
+    current_user: User = Depends(auth.get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get all campaign templates for the user"""
+    templates = db.query(CampaignTemplate).filter(
+        CampaignTemplate.user_id == current_user.id
+    ).order_by(desc(CampaignTemplate.created_at)).all()
+    
+    return templates
+
+@router.delete("/templates/{template_id}")
+async def delete_template(
+    template_id: str,
+    current_user: User = Depends(auth.get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Delete a campaign template"""
+    template = db.query(CampaignTemplate).filter(
+        CampaignTemplate.id == template_id,
+        CampaignTemplate.user_id == current_user.id
+    ).first()
+    
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+    
+    db.delete(template)
+    db.commit()
+    
+    return {"message": "Template deleted successfully"}
+
 @router.get("/{campaign_id}", response_model=CampaignResponse)
 async def get_campaign(
     campaign_id: str,
@@ -495,56 +578,6 @@ async def update_contact(
     
     return {"message": "Contact updated successfully"}
 
-# Campaign templates
-@router.post("/templates", response_model=CampaignTemplateResponse)
-async def create_template(
-    template_data: CampaignTemplateCreate,
-    current_user: User = Depends(auth.get_current_active_user),
-    db: Session = Depends(get_db)
-):
-    """Create a campaign template"""
-    template = CampaignTemplate(
-        user_id=current_user.id,
-        **template_data.dict()
-    )
-    db.add(template)
-    db.commit()
-    db.refresh(template)
-    
-    return template
-
-@router.get("/templates", response_model=List[CampaignTemplateResponse])
-async def get_templates(
-    current_user: User = Depends(auth.get_current_active_user),
-    db: Session = Depends(get_db)
-):
-    """Get all campaign templates for the user"""
-    templates = db.query(CampaignTemplate).filter(
-        CampaignTemplate.user_id == current_user.id
-    ).order_by(desc(CampaignTemplate.created_at)).all()
-    
-    return templates
-
-@router.delete("/templates/{template_id}")
-async def delete_template(
-    template_id: str,
-    current_user: User = Depends(auth.get_current_active_user),
-    db: Session = Depends(get_db)
-):
-    """Delete a campaign template"""
-    template = db.query(CampaignTemplate).filter(
-        CampaignTemplate.id == template_id,
-        CampaignTemplate.user_id == current_user.id
-    ).first()
-    
-    if not template:
-        raise HTTPException(status_code=404, detail="Template not found")
-    
-    db.delete(template)
-    db.commit()
-    
-    return {"message": "Template deleted successfully"}
-
 # Campaign actions
 @router.post("/{campaign_id}/generate-emails")
 async def generate_emails(
@@ -692,39 +725,6 @@ async def get_enrichment_status(
             for c in failed_contacts
         ]
     }
-
-@router.get("/all-contacts")
-async def get_all_campaign_contacts(
-    current_user: User = Depends(auth.get_current_active_user),
-    db: Session = Depends(get_db)
-):
-    """Get all contacts from all campaigns for the current user"""
-    try:
-        # Get all campaigns for the user
-        campaigns = db.query(Campaign).filter(
-            Campaign.user_id == current_user.id
-        ).all()
-        
-        # If no campaigns, return empty array
-        if not campaigns:
-            return []
-        
-        # Get all contacts from these campaigns
-        campaign_ids = [c.id for c in campaigns]
-        contacts = db.query(CampaignContact).filter(
-            CampaignContact.campaign_id.in_(campaign_ids)
-        ).all()
-        
-        # Add campaign names to contacts
-        campaign_map = {c.id: c.name for c in campaigns}
-        
-        return [{
-            **contact.__dict__,
-            'campaign_name': campaign_map.get(contact.campaign_id, '')
-        } for contact in contacts]
-    except Exception as e:
-        logger.error(f"Error fetching all contacts: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
 
 # Background tasks
 def enrich_campaign_contacts(campaign_id: str, user_id: str):
