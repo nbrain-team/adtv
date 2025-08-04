@@ -217,7 +217,10 @@ const CampaignsPage = () => {
                                         if ((e.target as HTMLElement).closest('[data-delete-button]')) {
                                             return;
                                         }
-                                        navigate(`/campaigns/${campaign.id}`);
+                                        console.log('Navigating to campaign:', campaign.id);
+                                        // Temporary fix: use window.location for navigation
+                                        window.location.href = `/campaigns/${campaign.id}`;
+                                        // navigate(`/campaigns/${campaign.id}`);
                                     }}
                                 >
                                     <IconButton
