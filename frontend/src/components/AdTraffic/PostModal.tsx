@@ -30,11 +30,41 @@ export const PostModal: React.FC<PostModalProps> = ({
 
   useEffect(() => {
     if (post) {
+      // Ensure platforms is an array
+      let platforms = post.platforms;
+      if (!Array.isArray(platforms)) {
+        // If it's a string, try to parse it
+        if (typeof platforms === 'string') {
+          try {
+            platforms = JSON.parse(platforms);
+          } catch {
+            // If parsing fails, default to Facebook
+            platforms = [Platform.FACEBOOK];
+          }
+        } else {
+          platforms = [Platform.FACEBOOK];
+        }
+      }
+
+      // Ensure media_urls is an array
+      let mediaUrls = post.media_urls || [];
+      if (!Array.isArray(mediaUrls)) {
+        if (typeof mediaUrls === 'string') {
+          try {
+            mediaUrls = JSON.parse(mediaUrls);
+          } catch {
+            mediaUrls = [];
+          }
+        } else {
+          mediaUrls = [];
+        }
+      }
+
       setFormData({
         content: post.content,
-        platforms: post.platforms,
+        platforms: platforms,
         scheduled_time: new Date(post.scheduled_time).toISOString().slice(0, 16),
-        media_urls: post.media_urls || [],
+        media_urls: mediaUrls,
         video_clip_id: post.video_clip?.id
       });
     }

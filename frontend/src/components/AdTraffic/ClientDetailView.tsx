@@ -495,6 +495,7 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({ client, onBa
       {/* Post Modal */}
       <Dialog.Root open={showPostModal} onOpenChange={setShowPostModal}>
         <Dialog.Content style={{ maxWidth: 600 }}>
+          <Dialog.Title>{editingPost ? 'Edit Post' : 'Create Post'}</Dialog.Title>
           <PostModal
             client={client}
             post={editingPost}
@@ -508,6 +509,7 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({ client, onBa
       {/* Campaign Modal */}
       <Dialog.Root open={showCampaignModal} onOpenChange={setShowCampaignModal}>
         <Dialog.Content style={{ maxWidth: 600 }}>
+          <Dialog.Title>Create Campaign</Dialog.Title>
           <CampaignModal
             client={client}
             onComplete={handleCampaignCreated}
