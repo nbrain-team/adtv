@@ -671,6 +671,9 @@ async def get_client_profile(
         "posts": posts,
         "campaign_videos": campaign_videos,
         "metrics": {
+            "total_campaigns": len(campaigns),
+            "total_videos": sum(len(cv.get("videos", [])) for cv in campaign_videos.values()),
+            "total_clips": sum(cv.get("total_clips", 0) for cv in campaign_videos.values()),
             "total_posts": total_posts,
             "published_posts": published_posts,
             "total_budget_spent": total_budget_spent,

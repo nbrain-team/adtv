@@ -5,7 +5,7 @@ import {
 } from '@radix-ui/themes';
 import { 
   ArrowLeftIcon, VideoIcon, PlayIcon, DownloadIcon, 
-  CalendarIcon, EyeOpenIcon, Cross2Icon, PlusIcon 
+  CalendarIcon, EyeOpenIcon, Cross2Icon, PlusIcon, TrashIcon 
 } from '@radix-ui/react-icons';
 import { Client, Campaign, VideoClip, SocialPost } from './types';
 import { CalendarView } from './CalendarView';
@@ -115,6 +115,21 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({ client, onBa
     }
   };
 
+  const handleDeleteCampaign = async (campaignId: string) => {
+    if (window.confirm('Are you sure you want to delete this campaign and all its assets?')) {
+      try {
+        await api.delete(`/api/ad-traffic/campaigns/${campaignId}`);
+        await fetchClientProfile();
+        if (onClientUpdate) {
+          onClientUpdate();
+        }
+      } catch (error) {
+        console.error('Error deleting campaign:', error);
+        alert('Failed to delete campaign');
+      }
+    }
+  };
+
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
@@ -177,25 +192,25 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({ client, onBa
       <Flex gap="3" mb="6">
         <Card>
           <Flex direction="column" align="center">
-            <Text size="6" weight="bold">{profile.metrics.total_campaigns}</Text>
+            <Text size="6" weight="bold">{profile.metrics.total_campaigns || profile.campaigns.length}</Text>
             <Text size="2" color="gray">Campaigns</Text>
           </Flex>
         </Card>
         <Card>
           <Flex direction="column" align="center">
-            <Text size="6" weight="bold">{profile.metrics.total_videos}</Text>
+            <Text size="6" weight="bold">{profile.metrics.total_videos || profile.campaigns.reduce((sum, c) => sum + (profile.campaign_videos[c.id]?.videos?.length || 0), 0)}</Text>
             <Text size="2" color="gray">Videos Uploaded</Text>
           </Flex>
         </Card>
         <Card>
           <Flex direction="column" align="center">
-            <Text size="6" weight="bold">{profile.metrics.total_clips}</Text>
+            <Text size="6" weight="bold">{profile.metrics.total_clips || profile.campaigns.reduce((sum, c) => sum + (profile.campaign_videos[c.id]?.clips?.length || 0), 0)}</Text>
             <Text size="2" color="gray">Clips Generated</Text>
           </Flex>
         </Card>
         <Card>
           <Flex direction="column" align="center">
-            <Text size="6" weight="bold">{profile.metrics.published_posts}</Text>
+            <Text size="6" weight="bold">{profile.metrics.published_posts || 0}</Text>
             <Text size="2" color="gray">Published Posts</Text>
           </Flex>
         </Card>
@@ -252,12 +267,21 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({ client, onBa
                               </Text>
                             </Flex>
                           </Box>
-                          <Flex gap="2">
+                          <Flex gap="2" align="center">
                             {campaign.platforms.map(platform => (
                               <Badge key={platform} variant="soft">
                                 {platform}
                               </Badge>
                             ))}
+                            <IconButton
+                              size="2"
+                              color="red"
+                              variant="ghost"
+                              onClick={() => handleDeleteCampaign(campaign.id)}
+                              title="Delete Campaign"
+                            >
+                              <TrashIcon />
+                            </IconButton>
                           </Flex>
                         </Flex>
 

@@ -28,13 +28,12 @@ cloudinary.config(
 # Add this constant at the top after imports
 PLATFORM_ASPECT_RATIOS = {
     "facebook": [
-        {"name": "feed", "ratio": "1:1", "width": 1080, "height": 1080},
-        {"name": "story", "ratio": "9:16", "width": 1080, "height": 1920}
+        {"name": "desktop", "ratio": "16:9", "width": 1920, "height": 1080},  # Desktop-focused
+        {"name": "feed", "ratio": "1:1", "width": 1080, "height": 1080}
     ],
     "instagram": [
-        {"name": "feed", "ratio": "1:1", "width": 1080, "height": 1080},
-        {"name": "reels", "ratio": "9:16", "width": 1080, "height": 1920},
-        {"name": "igtv", "ratio": "16:9", "width": 1920, "height": 1080}
+        {"name": "mobile", "ratio": "9:16", "width": 1080, "height": 1920},  # Mobile-focused
+        {"name": "feed", "ratio": "1:1", "width": 1080, "height": 1080}
     ],
     "tiktok": [
         {"name": "video", "ratio": "9:16", "width": 1080, "height": 1920}
@@ -516,17 +515,36 @@ async def process_campaign_with_multiple_videos(
             
             current_date = start_date
             for i, clip in enumerate(all_clips):
-                post = models.SocialPost(
-                    id=str(uuid.uuid4()),
-                    client_id=client_id,
-                    campaign_id=campaign.id,
-                    video_clip_id=clip.id,
-                    content=clip.suggested_caption,
-                    platforms=platforms,
-                    scheduled_time=current_date,
-                    status=models.PostStatus.SCHEDULED
-                )
-                db.add(post)
+                # Create separate posts for each platform
+                for platform in platforms:
+                    # Determine which video version to use based on platform
+                    platform_lower = platform.lower()
+                    video_url = clip.video_url  # Default
+                    
+                    # Use platform-specific version if available
+                    if platform_lower == "facebook" and clip.platform_versions:
+                        # Use desktop version for Facebook
+                        fb_desktop = clip.platform_versions.get("facebook_desktop")
+                        if fb_desktop and isinstance(fb_desktop, dict):
+                            video_url = fb_desktop.get("url", clip.video_url)
+                    elif platform_lower == "instagram" and clip.platform_versions:
+                        # Use mobile version for Instagram
+                        ig_mobile = clip.platform_versions.get("instagram_mobile")
+                        if ig_mobile and isinstance(ig_mobile, dict):
+                            video_url = ig_mobile.get("url", clip.video_url)
+                    
+                    post = models.SocialPost(
+                        id=str(uuid.uuid4()),
+                        client_id=client_id,
+                        campaign_id=campaign.id,
+                        video_clip_id=clip.id,
+                        content=clip.suggested_caption,
+                        platforms=[platform],  # Single platform per post
+                        scheduled_time=current_date,
+                        status=models.PostStatus.SCHEDULED,
+                        media_urls=[video_url]  # Include the platform-specific video URL
+                    )
+                    db.add(post)
                 
                 # Schedule next post 2-3 days later
                 current_date += timedelta(days=2 if i % 2 == 0 else 3)
