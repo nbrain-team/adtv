@@ -124,7 +124,7 @@ class SocialPost(PostBase):
     created_at: datetime
     updated_at: Optional[datetime] = None
     campaign_name: Optional[str] = None  # Added for response
-    video_clip: Optional[VideoClip] = None  # Add video_clip relationship
+    video_clip: Optional["VideoClip"] = None  # Add video_clip relationship with forward reference
 
     class Config:
         orm_mode = True
