@@ -121,7 +121,7 @@ class SocialPost(Base):
     published_time = Column(DateTime(timezone=True))
     status = Column(SQLEnum(PostStatus), default=PostStatus.DRAFT)
     platform_post_ids = Column(JSON, default={})
-    media_urls = Column(JSON, default={})
+    media_urls = Column(JSON, default=list)  # Changed from {} to list for array of URLs
     
     # New fields for approval and metrics
     approved_by = Column(String)  # User ID who approved

@@ -352,7 +352,8 @@ Caption:"""
             content=clip.suggested_caption,
             platforms=platforms,
             scheduled_time=current_date,
-            status=models.PostStatus.SCHEDULED
+            status=models.PostStatus.SCHEDULED,
+            media_urls=[clip.video_url]  # Include the clip's video URL
         )
         db.add(post)
         
