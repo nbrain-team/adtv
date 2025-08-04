@@ -208,19 +208,23 @@ Platforms: {', '.join(platforms)}
                     public_id,
                     resource_type="video",
                     transformation=[
-                        {'start_offset': frame_time},
+                        {'start_offset': frame_time, 'duration': 1},  # Extract 1 second frame
                         {'width': 800, 'height': 450, 'crop': 'fill'},
                         {'quality': 'auto', 'fetch_format': 'jpg'}
                     ]
                 )
                 
+                logger.info(f"Generated frame URL for clip {i+1}: {frame_url[:100]}...")
+                
                 # Download and encode the frame for vision analysis
-                response = requests.get(frame_url)
-                if response.status_code == 200:
-                    frame_base64 = base64.b64encode(response.content).decode('utf-8')
-                    
-                    # Use vision-capable LLM to analyze the frame
-                    vision_prompt = f"""Analyze this video frame and describe what's happening in the scene. 
+                try:
+                    response = requests.get(frame_url, timeout=10)
+                    if response.status_code == 200:
+                        frame_base64 = base64.b64encode(response.content).decode('utf-8')
+                        logger.info(f"Successfully downloaded frame for clip {i+1}, size: {len(response.content)} bytes")
+                        
+                        # Use vision-capable LLM to analyze the frame
+                        vision_prompt = f"""Analyze this video frame and describe what's happening in the scene. 
 Focus on:
 - Main subjects or people
 - Actions taking place  
@@ -229,16 +233,22 @@ Focus on:
 - Overall mood/tone
 
 This is frame from timestamp {frame_time:.1f}s of a video titled "{campaign.name}"."""
-                    
-                    try:
-                        # Get frame analysis from vision model
-                        frame_description = await llm_handler.analyze_image(frame_base64, vision_prompt)
-                        logger.info(f"Frame analysis for clip {i+1}: {frame_description[:100]}...")
-                    except:
-                        frame_description = f"Clip showing content from {db_clip.start_time:.0f}s to {db_clip.end_time:.0f}s"
-                else:
+                        
+                        try:
+                            # Get frame analysis from vision model
+                            frame_description = await llm_handler.analyze_image(frame_base64, vision_prompt)
+                            logger.info(f"Frame analysis for clip {i+1}: {frame_description[:100]}...")
+                        except Exception as e:
+                            logger.error(f"Vision analysis failed for clip {i+1}: {str(e)}")
+                            frame_description = f"Clip showing content from {db_clip.start_time:.0f}s to {db_clip.end_time:.0f}s"
+                    else:
+                        logger.warning(f"Failed to download frame for clip {i+1}, status code: {response.status_code}")
+                        frame_description = f"Video segment {i+1}"
+                except Exception as e:
+                    logger.error(f"Error downloading frame for clip {i+1}: {str(e)}")
                     frame_description = f"Video segment {i+1}"
             else:
+                logger.warning(f"No public_id available for clip {i+1}")
                 frame_description = f"Video segment {i+1} - {db_clip.title}"
                 
         except Exception as e:
@@ -246,7 +256,50 @@ This is frame from timestamp {frame_time:.1f}s of a video titled "{campaign.name
             frame_description = f"Video segment {i+1}"
         
         # Generate contextual caption based on actual content
-        prompt = f"""Generate an engaging social media caption for this specific video clip.
+        # If we don't have a good frame description, use campaign context
+        if frame_description.startswith("Video segment") or frame_description.startswith("Clip showing"):
+            # Use campaign name and details for context
+            # Vary the caption style based on clip index
+            caption_styles = [
+                "storytelling", "question-based", "inspirational", 
+                "behind-the-scenes", "educational", "call-to-action focused"
+            ]
+            style = caption_styles[i % len(caption_styles)]
+            
+            prompt = f"""Generate an engaging social media caption for this video clip using a {style} approach.
+
+Campaign: {campaign.name}
+Client: {campaign.client_id}
+Platforms: {', '.join(platforms)}
+Clip: {i+1} of {len(clips)}
+Duration: {db_clip.duration:.0f} seconds
+
+Style Guide for {style}:
+- Storytelling: Start with a compelling hook, share a brief story or moment
+- Question-based: Ask an engaging question to drive comments and engagement
+- Inspirational: Share motivating message with powerful language
+- Behind-the-scenes: Give insider perspective, use casual tone
+- Educational: Share a tip, fact, or insight that provides value
+- Call-to-action focused: Direct viewers to take specific action
+
+Create a caption that:
+- Uses the {style} approach
+- Includes 2-3 relevant emojis
+- Has natural, conversational language
+- Ends with 5-7 hashtags
+- Stays under 280 characters
+
+Examples of great captions:
+🎬 Ever wonder what goes into creating the perfect shot? Here's a sneak peek behind the lens! 👀✨ #BehindTheScenes #VideoProduction #ContentCreation #CreativeProcess #FilmMaking
+
+What's your biggest challenge when creating content? 🤔 Drop a comment below - we'd love to help! 💡 #ContentStrategy #CreatorCommunity #VideoMarketing #SocialMediaTips #AskUsAnything
+
+The best stories aren't scripted - they're discovered. 🎯 Watch how we captured this authentic moment... #Storytelling #AuthenticContent #VideoMarketing #RealMoments #ContentCreators
+
+Caption:"""
+        else:
+            # We have good frame analysis, use it
+            prompt = f"""Generate an engaging social media caption for this specific video clip.
 
 CONTEXT:
 {video_context}
