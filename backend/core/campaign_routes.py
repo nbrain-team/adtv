@@ -177,10 +177,46 @@ async def get_all_campaign_contacts(
         # Add campaign names to contacts
         campaign_map = {c.id: c.name for c in campaigns}
         
-        return [{
-            **contact.__dict__,
-            'campaign_name': campaign_map.get(contact.campaign_id, '')
-        } for contact in contacts]
+        # Properly serialize contacts
+        result = []
+        for contact in contacts:
+            contact_dict = {
+                'id': contact.id,
+                'campaign_id': contact.campaign_id,
+                'campaign_name': campaign_map.get(contact.campaign_id, ''),
+                'first_name': contact.first_name,
+                'last_name': contact.last_name,
+                'email': contact.email,
+                'company': contact.company,
+                'title': contact.title,
+                'phone': contact.phone,
+                'neighborhood': contact.neighborhood,
+                'state': contact.state,
+                'geocoded_address': contact.geocoded_address,
+                # Enriched data
+                'enriched_company': contact.enriched_company,
+                'enriched_title': contact.enriched_title,
+                'enriched_phone': contact.enriched_phone,
+                'enriched_linkedin': contact.enriched_linkedin,
+                'enriched_website': contact.enriched_website,
+                'enriched_industry': contact.enriched_industry,
+                'enriched_company_size': contact.enriched_company_size,
+                'enriched_location': contact.enriched_location,
+                # Email data
+                'personalized_email': contact.personalized_email,
+                'personalized_subject': contact.personalized_subject,
+                # Status
+                'enrichment_status': contact.enrichment_status,
+                'email_status': contact.email_status,
+                'excluded': contact.excluded,
+                'manually_edited': contact.manually_edited,
+                # Timestamps
+                'created_at': contact.created_at.isoformat() if contact.created_at else None,
+                'updated_at': contact.updated_at.isoformat() if contact.updated_at else None
+            }
+            result.append(contact_dict)
+        
+        return result
     except Exception as e:
         logger.error(f"Error fetching all contacts: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
