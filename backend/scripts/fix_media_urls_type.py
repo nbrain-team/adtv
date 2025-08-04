@@ -6,6 +6,7 @@ import os
 import sys
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
+import json
 
 # Add parent directory to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -28,8 +29,8 @@ def fix_media_urls():
             result = conn.execute(text("""
                 SELECT id, media_urls 
                 FROM social_posts 
-                WHERE jsonb_typeof(media_urls::jsonb) = 'object'
-                LIMIT 10
+                WHERE media_urls IS NOT NULL
+                AND jsonb_typeof(media_urls::jsonb) = 'object'
             """))
             
             posts_to_fix = result.fetchall()
@@ -38,22 +39,39 @@ def fix_media_urls():
             # Fix each post
             fixed_count = 0
             for post_id, media_urls in posts_to_fix:
-                # Convert dict to empty list
-                conn.execute(text("""
-                    UPDATE social_posts 
-                    SET media_urls = '[]'::jsonb 
-                    WHERE id = :post_id
-                """), {"post_id": post_id})
-                fixed_count += 1
+                try:
+                    # Convert dict to list
+                    if isinstance(media_urls, str):
+                        media_dict = json.loads(media_urls)
+                    else:
+                        media_dict = media_urls
+                    
+                    # Extract values from dict to create list
+                    if isinstance(media_dict, dict):
+                        # Get values sorted by key to maintain order
+                        media_list = [v for k, v in sorted(media_dict.items()) if v]
+                        
+                        # Update the post
+                        conn.execute(text("""
+                            UPDATE social_posts 
+                            SET media_urls = :media_urls
+                            WHERE id = :post_id
+                        """), {"media_urls": json.dumps(media_list), "post_id": post_id})
+                        
+                        fixed_count += 1
+                        print(f"Fixed post {post_id}: {media_dict} -> {media_list}")
+                except Exception as e:
+                    print(f"Error fixing post {post_id}: {e}")
             
             conn.commit()
-            print(f"✓ Fixed {fixed_count} posts")
+            print(f"\n✓ Fixed {fixed_count} posts")
             
             # Check if there are more to fix
             result = conn.execute(text("""
                 SELECT COUNT(*) 
                 FROM social_posts 
-                WHERE jsonb_typeof(media_urls::jsonb) = 'object'
+                WHERE media_urls IS NOT NULL
+                AND jsonb_typeof(media_urls::jsonb) = 'object'
             """))
             remaining = result.scalar()
             
