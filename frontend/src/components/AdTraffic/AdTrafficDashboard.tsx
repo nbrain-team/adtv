@@ -1,17 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Flex, Text, Button, Tabs, Heading, Badge, Progress } from '@radix-ui/themes';
-import { PlusIcon, CalendarIcon, PersonIcon, VideoIcon } from '@radix-ui/react-icons';
+import { Box, Tabs, Spinner, Flex, Heading, Button, Dialog, AlertDialog, Text } from '@radix-ui/themes';
+import { PlusIcon, PersonIcon, CalendarIcon, VideoIcon } from '@radix-ui/react-icons';
 import { ClientList } from './ClientList';
-import { CalendarView } from './CalendarView';
 import { ClientForm } from './ClientForm';
+import { ClientDetailView } from './ClientDetailView';
+import { CalendarView } from './CalendarView';
 import { PostModal } from './PostModal';
 import { CampaignModal } from './CampaignModal';
-import { ClientSelector } from './ClientSelector';
-import { CampaignsList } from './CampaignsList';
-import { MainLayout } from '../MainLayout';
+import { Client, SocialPost, Campaign } from './types';
 import { api } from '../../services/api';
-import { Client, SocialPost, Campaign, CampaignStatus } from './types';
-import * as Dialog from '@radix-ui/react-dialog';
 
 export const AdTrafficDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState('calendar');
@@ -25,6 +22,7 @@ export const AdTrafficDashboard: React.FC = () => {
   const [activeCampaigns, setActiveCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewingCampaign, setViewingCampaign] = useState<Campaign | null>(null);
+  const [showClientDetail, setShowClientDetail] = useState(false);
   
   // Modal states
   const [showClientForm, setShowClientForm] = useState(false);
@@ -40,10 +38,10 @@ export const AdTrafficDashboard: React.FC = () => {
 
   // Fetch posts when client changes
   useEffect(() => {
-    if (selectedClient) {
+    if (selectedClient && !showClientDetail) {
       fetchClientPosts(selectedClient.id);
     }
-  }, [selectedClient]);
+  }, [selectedClient, showClientDetail]);
 
   const fetchClients = async () => {
     try {
@@ -78,23 +76,30 @@ export const AdTrafficDashboard: React.FC = () => {
     setShowClientForm(true);
   };
 
+  const handleClientSaved = async (client: Client) => {
+    await fetchClients();
+    setShowClientForm(false);
+    setEditingClient(null);
+    setSelectedClient(client);
+  };
+
   const handleDeleteClient = async (clientId: string) => {
-    if (window.confirm('Are you sure you want to delete this client?')) {
-      try {
-        await api.delete(`/api/ad-traffic/clients/${clientId}`);
-        await fetchClients();
-        if (selectedClient?.id === clientId) {
-          setSelectedClient(clients[0] || null);
-        }
-      } catch (error) {
-        console.error('Error deleting client:', error);
+    try {
+      await api.delete(`/api/ad-traffic/clients/${clientId}`);
+      await fetchClients();
+      if (selectedClient?.id === clientId) {
+        setSelectedClient(clients[0] || null);
       }
+    } catch (error) {
+      console.error('Error deleting client:', error);
     }
   };
 
-  const handleClientSaved = async () => {
-    await fetchClients();
-    setShowClientForm(false);
+  const handleSelectClient = (client: Client) => {
+    setSelectedClient(client);
+    if (activeTab === 'clients') {
+      setShowClientDetail(true);
+    }
   };
 
   const handleCreatePost = () => {
@@ -107,24 +112,23 @@ export const AdTrafficDashboard: React.FC = () => {
     setShowPostModal(true);
   };
 
-  const handleDeletePost = async (postId: string) => {
-    if (window.confirm('Are you sure you want to delete this post?')) {
-      try {
-        await api.delete(`/api/ad-traffic/posts/${postId}`);
-        if (selectedClient) {
-          await fetchClientPosts(selectedClient.id);
-        }
-      } catch (error) {
-        console.error('Error deleting post:', error);
-      }
-    }
-  };
-
   const handlePostSaved = async () => {
     if (selectedClient) {
       await fetchClientPosts(selectedClient.id);
     }
     setShowPostModal(false);
+    setEditingPost(null);
+  };
+
+  const handleDeletePost = async (postId: string) => {
+    try {
+      await api.delete(`/api/ad-traffic/posts/${postId}`);
+      if (selectedClient) {
+        await fetchClientPosts(selectedClient.id);
+      }
+    } catch (error) {
+      console.error('Error deleting post:', error);
+    }
   };
 
   const handleCreateCampaign = () => {
@@ -132,284 +136,175 @@ export const AdTrafficDashboard: React.FC = () => {
   };
 
   const handleCampaignCreated = async (campaign: Campaign) => {
-    // Close modal immediately
     setShowCampaignModal(false);
-    
-    // Add campaign to active campaigns list
-    setActiveCampaigns(prev => [...prev, campaign]);
-    
-    // Start polling for this campaign's status
-    pollCampaignStatus(campaign.id);
-    
-    // Refresh posts if we have a selected client
-    if (selectedClient) {
-      await fetchClientPosts(selectedClient.id);
-    }
-  };
-
-  const pollCampaignStatus = (campaignId: string) => {
-    const interval = setInterval(async () => {
-      try {
-        const response = await api.get<Campaign>(`/api/ad-traffic/campaigns/${campaignId}`);
-        const updatedCampaign = response.data;
-        
-        // Update the campaign in our list
-        setActiveCampaigns(prev => 
-          prev.map(c => c.id === campaignId ? updatedCampaign : c)
-        );
-        
-        // Stop polling if campaign is no longer processing
-        if (updatedCampaign.status !== CampaignStatus.PROCESSING) {
-          clearInterval(interval);
-          
-          // Remove from active campaigns after a delay if completed
-          if (updatedCampaign.status === CampaignStatus.READY) {
-            setTimeout(() => {
-              setActiveCampaigns(prev => prev.filter(c => c.id !== campaignId));
-            }, 5000);
-          }
-        }
-      } catch (err) {
-        console.error('Failed to poll campaign status:', err);
-        clearInterval(interval);
-      }
-    }, 3000);
-  };
-
-  const handleViewCampaign = async (campaign: Campaign) => {
+    // Show the campaign view
     setViewingCampaign(campaign);
-    // Fetch campaign posts
-    try {
-      const response = await api.get(`/api/ad-traffic/campaigns/${campaign.id}/posts`);
-      setPosts(response.data);
-      setActiveTab('calendar');
-    } catch (error) {
-      console.error('Error fetching campaign posts:', error);
+    setActiveTab('campaign');
+    
+    // Refresh campaigns
+    if (selectedClient) {
+      const response = await api.get(`/api/ad-traffic/clients/${selectedClient.id}/campaigns`);
+      setActiveCampaigns(response.data);
     }
   };
 
-  const handleBackToAllPosts = () => {
+  const handleCampaignClose = () => {
     setViewingCampaign(null);
-    if (selectedClient) {
-      fetchClientPosts(selectedClient.id);
-    }
+    setActiveTab('calendar');
   };
+
+  if (loading) {
+    return (
+      <Box style={{ padding: '2rem' }}>
+        <Flex align="center" justify="center" style={{ minHeight: '400px' }}>
+          <Spinner size="3" />
+        </Flex>
+      </Box>
+    );
+  }
 
   return (
-    <MainLayout onNewChat={() => {}}>
-      <Box style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        {/* Header */}
-        <Box style={{ 
-          padding: '1rem 2rem', 
-          borderBottom: '1px solid var(--gray-4)',
-          backgroundColor: 'white',
-          flexShrink: 0
+    <Box style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+      {/* Header */}
+      <Box style={{ 
+        padding: '1.5rem 2rem', 
+        borderBottom: '1px solid var(--gray-4)',
+        backgroundColor: 'white'
+      }}>
+        <Flex align="center" justify="between">
+          <Box>
+            <Heading size="7" style={{ color: 'var(--gray-12)' }}>
+              Ad Traffic Manager
+            </Heading>
+            <Text size="2" color="gray" style={{ marginTop: '0.25rem' }}>
+              Manage your social media campaigns and content
+            </Text>
+          </Box>
+          
+          <Flex gap="3">
+            {selectedClient && (
+              <>
+                <Button onClick={handleCreatePost}>
+                  <PlusIcon />
+                  New Post
+                </Button>
+                <Button onClick={handleCreateCampaign} variant="soft">
+                  <VideoIcon />
+                  New Campaign
+                </Button>
+              </>
+            )}
+            <Button onClick={handleCreateClient} variant="outline">
+              <PersonIcon />
+              New Client
+            </Button>
+          </Flex>
+        </Flex>
+      </Box>
+
+      {/* Main Content */}
+      <Box style={{ flex: 1, overflow: 'hidden' }}>
+        <Tabs.Root value={activeTab} onValueChange={(value) => {
+          setActiveTab(value);
+          if (value !== 'clients') {
+            setShowClientDetail(false);
+          }
         }}>
-          <Flex justify="between" align="center">
-            <Box>
-              <Heading size="6">ADTV Traffic Manager</Heading>
-              <Text size="2" color="gray">
-                Manage clients and their social media campaigns
-              </Text>
-            </Box>
-            
-            <Flex gap="3" align="center">
-              {selectedClient && (
-                <ClientSelector
+          <Box style={{ 
+            padding: '0 2rem', 
+            borderBottom: '1px solid var(--gray-4)',
+            backgroundColor: 'white'
+          }}>
+            <Tabs.List>
+              <Tabs.Trigger value="calendar">
+                <CalendarIcon style={{ marginRight: '8px' }} />
+                Calendar
+              </Tabs.Trigger>
+              <Tabs.Trigger value="clients">
+                <PersonIcon style={{ marginRight: '8px' }} />
+                Clients
+              </Tabs.Trigger>
+            </Tabs.List>
+          </Box>
+
+          <Box style={{ height: 'calc(100% - 48px)', overflow: 'auto' }}>
+            <Tabs.Content value="calendar" style={{ height: '100%' }}>
+              {selectedClient ? (
+                <CalendarView
+                  client={selectedClient}
+                  posts={posts}
+                  onCreatePost={handleCreatePost}
+                  onEditPost={handleEditPost}
+                  onDeletePost={handleDeletePost}
+                  onCreateCampaign={handleCreateCampaign}
+                />
+              ) : (
+                <Box style={{ padding: '2rem', textAlign: 'center' }}>
+                  <Text color="gray">No client selected. Please create or select a client.</Text>
+                </Box>
+              )}
+            </Tabs.Content>
+
+            <Tabs.Content value="clients" style={{ height: '100%' }}>
+              {showClientDetail && selectedClient ? (
+                <ClientDetailView 
+                  client={selectedClient}
+                  onBack={() => setShowClientDetail(false)}
+                />
+              ) : (
+                <ClientList
                   clients={clients}
                   selectedClient={selectedClient}
-                  onSelectClient={setSelectedClient}
+                  onSelectClient={handleSelectClient}
+                  onEditClient={handleEditClient}
+                  onDeleteClient={handleDeleteClient}
                 />
               )}
-              
-              <Button 
-                size="2" 
-                onClick={handleCreateClient}
-                style={{ cursor: 'pointer' }}
-              >
-                <PlusIcon /> Add Client
-              </Button>
-            </Flex>
-          </Flex>
-        </Box>
-
-        {/* Main Content */}
-        <Box style={{ flex: 1, overflow: 'auto' }}>
-          {loading ? (
-            <Flex align="center" justify="center" style={{ height: '100%' }}>
-              <Text>Loading...</Text>
-            </Flex>
-          ) : clients.length === 0 ? (
-            <Flex 
-              direction="column" 
-              align="center" 
-              justify="center" 
-              gap="4"
-              style={{ height: '100%' }}
-            >
-              <PersonIcon width="48" height="48" color="gray" />
-              <Text size="4" color="gray">No clients yet</Text>
-              <Button onClick={handleCreateClient}>
-                <PlusIcon /> Create Your First Client
-              </Button>
-            </Flex>
-          ) : (
-            <>
-              {/* Active Campaigns Banner */}
-              {activeCampaigns.length > 0 && (
-                <Box style={{ 
-                  padding: '1rem 2rem', 
-                  backgroundColor: 'var(--blue-2)',
-                  borderBottom: '1px solid var(--blue-6)'
-                }}>
-                  <Text size="2" weight="medium" style={{ marginBottom: '0.5rem' }}>
-                    Active Campaigns
-                  </Text>
-                  <Flex direction="column" gap="2">
-                    {activeCampaigns.map(campaign => (
-                      <Flex key={campaign.id} align="center" gap="3">
-                        <Text size="2">{campaign.name}</Text>
-                        <Badge color={
-                          campaign.status === CampaignStatus.PROCESSING ? 'blue' :
-                          campaign.status === CampaignStatus.READY ? 'green' : 'red'
-                        }>
-                          {campaign.status}
-                        </Badge>
-                        {campaign.status === CampaignStatus.PROCESSING && (
-                          <>
-                            <Progress value={campaign.progress || 0} style={{ width: '100px' }} />
-                            <Text size="1" color="gray">{campaign.progress || 0}%</Text>
-                          </>
-                        )}
-                      </Flex>
-                    ))}
-                  </Flex>
-                </Box>
-              )}
-              
-              <Tabs.Root value={activeTab} onValueChange={setActiveTab}>
-                <Tabs.List style={{ padding: '0 2rem' }}>
-                  <Tabs.Trigger value="calendar">
-                    <CalendarIcon /> Calendar
-                  </Tabs.Trigger>
-                  <Tabs.Trigger value="clients">
-                    <PersonIcon /> Clients
-                  </Tabs.Trigger>
-                </Tabs.List>
-
-                <Box style={{ height: 'calc(100% - 48px)', overflow: 'auto' }}>
-                  <Tabs.Content value="calendar" style={{ height: '100%' }}>
-                    {selectedClient && (
-                      <Flex direction="column" style={{ height: '100%', overflow: 'hidden' }}>
-                        {viewingCampaign && (
-                          <Box style={{ 
-                            padding: '1rem 2rem', 
-                            backgroundColor: 'var(--amber-2)',
-                            borderBottom: '1px solid var(--amber-6)',
-                            flexShrink: 0
-                          }}>
-                            <Flex justify="between" align="center">
-                              <Text size="2">
-                                Viewing campaign: <strong>{viewingCampaign.name}</strong>
-                              </Text>
-                              <Button size="2" variant="soft" onClick={handleBackToAllPosts}>
-                                Back to All Posts
-                              </Button>
-                            </Flex>
-                          </Box>
-                        )}
-                        
-                        {/* Calendar Section */}
-                        <Box style={{ 
-                          flex: '1 1 60%', 
-                          minHeight: '300px',
-                          overflow: 'auto',
-                          borderBottom: '1px solid var(--gray-4)'
-                        }}>
-                          <CalendarView
-                            client={selectedClient}
-                            posts={posts}
-                            onCreatePost={handleCreatePost}
-                            onEditPost={handleEditPost}
-                            onDeletePost={handleDeletePost}
-                            onCreateCampaign={handleCreateCampaign}
-                          />
-                        </Box>
-                        
-                        {/* Campaigns List Section */}
-                        <Box style={{ 
-                          flex: '1 1 40%', 
-                          minHeight: '200px',
-                          padding: '2rem',
-                          backgroundColor: 'var(--gray-1)',
-                          overflow: 'auto'
-                        }}>
-                          <CampaignsList
-                            clientId={selectedClient.id}
-                            onViewCampaign={handleViewCampaign}
-                            onRefresh={() => selectedClient && fetchClientPosts(selectedClient.id)}
-                          />
-                        </Box>
-                      </Flex>
-                    )}
-                  </Tabs.Content>
-
-                  <Tabs.Content value="clients">
-                    <ClientList
-                      clients={clients}
-                      selectedClient={selectedClient}
-                      onSelectClient={setSelectedClient}
-                      onEditClient={handleEditClient}
-                      onDeleteClient={handleDeleteClient}
-                    />
-                  </Tabs.Content>
-                </Box>
-              </Tabs.Root>
-            </>
-          )}
-        </Box>
-
-        {/* Modals */}
-        <Dialog.Root open={showClientForm} onOpenChange={setShowClientForm}>
-          <Dialog.Content style={{ maxWidth: '500px', maxHeight: '90vh', overflow: 'auto' }}>
-            <ClientForm
-              client={editingClient}
-              onSave={handleClientSaved}
-              onCancel={() => setShowClientForm(false)}
-            />
-          </Dialog.Content>
-        </Dialog.Root>
-
-        <Dialog.Root open={showPostModal} onOpenChange={setShowPostModal}>
-          <Dialog.Content style={{ maxWidth: '600px', maxHeight: '90vh', overflow: 'auto' }}>
-            {selectedClient && (
-              <PostModal
-                client={selectedClient}
-                post={editingPost}
-                onSave={handlePostSaved}
-                onCancel={() => setShowPostModal(false)}
-                onDelete={(postId) => {
-                  handleDeletePost(postId);
-                  setShowPostModal(false);
-                }}
-              />
-            )}
-          </Dialog.Content>
-        </Dialog.Root>
-
-        <Dialog.Root open={showCampaignModal} onOpenChange={setShowCampaignModal}>
-          <Dialog.Content style={{ maxWidth: '700px', maxHeight: '90vh', overflow: 'auto' }}>
-            <Dialog.Title style={{ display: 'none' }}>Create Video Campaign</Dialog.Title>
-            {selectedClient && (
-              <CampaignModal
-                client={selectedClient}
-                onComplete={handleCampaignCreated}
-                onCancel={() => setShowCampaignModal(false)}
-              />
-            )}
-          </Dialog.Content>
-        </Dialog.Root>
+            </Tabs.Content>
+          </Box>
+        </Tabs.Root>
       </Box>
-    </MainLayout>
+
+      {/* Modals */}
+      <Dialog.Root open={showClientForm} onOpenChange={setShowClientForm}>
+        <Dialog.Content style={{ maxWidth: 600 }}>
+          <ClientForm
+            client={editingClient}
+            onSave={async () => {
+              await fetchClients();
+              setShowClientForm(false);
+              setEditingClient(null);
+            }}
+            onCancel={() => setShowClientForm(false)}
+          />
+        </Dialog.Content>
+      </Dialog.Root>
+
+      <Dialog.Root open={showPostModal} onOpenChange={setShowPostModal}>
+        <Dialog.Content style={{ maxWidth: 600 }}>
+          {selectedClient && (
+            <PostModal
+              client={selectedClient}
+              post={editingPost}
+              onSave={handlePostSaved}
+              onCancel={() => setShowPostModal(false)}
+              onDelete={editingPost ? handleDeletePost : undefined}
+            />
+          )}
+        </Dialog.Content>
+      </Dialog.Root>
+
+      <Dialog.Root open={showCampaignModal} onOpenChange={setShowCampaignModal}>
+        <Dialog.Content style={{ maxWidth: 600 }}>
+          {selectedClient && (
+            <CampaignModal
+              client={selectedClient}
+              onComplete={handleCampaignCreated}
+              onCancel={() => setShowCampaignModal(false)}
+            />
+          )}
+        </Dialog.Content>
+      </Dialog.Root>
+    </Box>
   );
 }; 

@@ -1,0 +1,420 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  Box, Flex, Text, Heading, Card, Button, Badge, Tabs, 
+  ScrollArea, Dialog, IconButton, Spinner 
+} from '@radix-ui/themes';
+import { 
+  ArrowLeftIcon, VideoIcon, PlayIcon, DownloadIcon, 
+  CalendarIcon, EyeOpenIcon, Cross2Icon 
+} from '@radix-ui/react-icons';
+import { Client, Campaign, VideoClip } from './types';
+import { api } from '../../services/api';
+
+interface ClientDetailViewProps {
+  client: Client;
+  onBack: () => void;
+}
+
+interface CampaignWithClips extends Campaign {
+  video_clips?: VideoClip[];
+  video_urls?: string[];
+}
+
+interface ClientProfile {
+  client: Client;
+  campaigns: CampaignWithClips[];
+  campaign_videos: Record<string, {
+    campaign_name: string;
+    videos: string[];
+    clips: VideoClip[];
+    total_clips: number;
+  }>;
+  metrics: {
+    total_campaigns: number;
+    total_videos: number;
+    total_clips: number;
+    total_posts: number;
+    published_posts: number;
+  };
+}
+
+export const ClientDetailView: React.FC<ClientDetailViewProps> = ({ client, onBack }) => {
+  const [profile, setProfile] = useState<ClientProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
+  const [selectedClip, setSelectedClip] = useState<VideoClip | null>(null);
+
+  useEffect(() => {
+    fetchClientProfile();
+  }, [client.id]);
+
+  const fetchClientProfile = async () => {
+    try {
+      setLoading(true);
+      const response = await api.get(`/api/ad-traffic/clients/${client.id}/profile`);
+      setProfile(response.data);
+    } catch (error) {
+      console.error('Error fetching client profile:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'processing': return 'blue';
+      case 'ready': return 'green';
+      case 'failed': return 'red';
+      default: return 'gray';
+    }
+  };
+
+  if (loading) {
+    return (
+      <Box style={{ padding: '2rem' }}>
+        <Flex align="center" justify="center" style={{ minHeight: '400px' }}>
+          <Spinner size="3" />
+        </Flex>
+      </Box>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <Box style={{ padding: '2rem' }}>
+        <Text>Failed to load client details</Text>
+      </Box>
+    );
+  }
+
+  return (
+    <Box style={{ padding: '2rem' }}>
+      {/* Header */}
+      <Flex align="center" gap="3" mb="4">
+        <IconButton variant="ghost" onClick={onBack}>
+          <ArrowLeftIcon />
+        </IconButton>
+        <Box>
+          <Heading size="6">{client.name}</Heading>
+          {client.company_name && (
+            <Text size="2" color="gray">{client.company_name}</Text>
+          )}
+        </Box>
+      </Flex>
+
+      {/* Summary Stats */}
+      <Flex gap="3" mb="6">
+        <Card>
+          <Flex direction="column" align="center">
+            <Text size="6" weight="bold">{profile.metrics.total_campaigns}</Text>
+            <Text size="2" color="gray">Campaigns</Text>
+          </Flex>
+        </Card>
+        <Card>
+          <Flex direction="column" align="center">
+            <Text size="6" weight="bold">{profile.metrics.total_videos}</Text>
+            <Text size="2" color="gray">Videos Uploaded</Text>
+          </Flex>
+        </Card>
+        <Card>
+          <Flex direction="column" align="center">
+            <Text size="6" weight="bold">{profile.metrics.total_clips}</Text>
+            <Text size="2" color="gray">Clips Generated</Text>
+          </Flex>
+        </Card>
+        <Card>
+          <Flex direction="column" align="center">
+            <Text size="6" weight="bold">{profile.metrics.published_posts}</Text>
+            <Text size="2" color="gray">Published Posts</Text>
+          </Flex>
+        </Card>
+      </Flex>
+
+      {/* Campaigns and Assets */}
+      <Tabs.Root defaultValue="campaigns">
+        <Tabs.List>
+          <Tabs.Trigger value="campaigns">Campaigns & Assets</Tabs.Trigger>
+          <Tabs.Trigger value="timeline">Timeline View</Tabs.Trigger>
+        </Tabs.List>
+
+        <Box mt="4">
+          <Tabs.Content value="campaigns">
+            <ScrollArea style={{ height: '600px' }}>
+              <Flex direction="column" gap="4">
+                {profile.campaigns.map(campaign => {
+                  const campaignVideos = profile.campaign_videos[campaign.id];
+                  
+                  return (
+                    <Card key={campaign.id} size="3">
+                      <Flex direction="column" gap="3">
+                        {/* Campaign Header */}
+                        <Flex justify="between" align="start">
+                          <Box>
+                            <Heading size="4">{campaign.name}</Heading>
+                            <Flex gap="2" mt="1">
+                              <Badge color={getStatusColor(campaign.status)}>
+                                {campaign.status}
+                              </Badge>
+                              <Text size="2" color="gray">
+                                <CalendarIcon style={{ display: 'inline', marginRight: '4px' }} />
+                                {new Date(campaign.created_at).toLocaleDateString()}
+                              </Text>
+                              <Text size="2" color="gray">
+                                {campaign.duration_weeks} weeks
+                              </Text>
+                            </Flex>
+                          </Box>
+                          <Flex gap="2">
+                            {campaign.platforms.map(platform => (
+                              <Badge key={platform} variant="soft">
+                                {platform}
+                              </Badge>
+                            ))}
+                          </Flex>
+                        </Flex>
+
+                        {/* Original Videos */}
+                        {campaignVideos && campaignVideos.videos.length > 0 && (
+                          <Box>
+                            <Text size="2" weight="bold" mb="2">
+                              Original Videos ({campaignVideos.videos.length})
+                            </Text>
+                            <Flex gap="3" wrap="wrap">
+                              {campaignVideos.videos.map((videoUrl, index) => (
+                                <Card key={index} style={{ width: '200px' }}>
+                                  <Box 
+                                    style={{ 
+                                      position: 'relative',
+                                      paddingBottom: '56.25%',
+                                      backgroundColor: 'var(--gray-3)',
+                                      borderRadius: '4px',
+                                      overflow: 'hidden',
+                                      cursor: 'pointer'
+                                    }}
+                                    onClick={() => setSelectedVideo(videoUrl)}
+                                  >
+                                    <Flex
+                                      align="center"
+                                      justify="center"
+                                      style={{
+                                        position: 'absolute',
+                                        inset: 0
+                                      }}
+                                    >
+                                      <VideoIcon width="40" height="40" />
+                                    </Flex>
+                                    <IconButton
+                                      size="3"
+                                      variant="solid"
+                                      style={{
+                                        position: 'absolute',
+                                        top: '50%',
+                                        left: '50%',
+                                        transform: 'translate(-50%, -50%)'
+                                      }}
+                                    >
+                                      <PlayIcon />
+                                    </IconButton>
+                                  </Box>
+                                  <Text size="1" mt="2">
+                                    Original Video {index + 1}
+                                  </Text>
+                                </Card>
+                              ))}
+                            </Flex>
+                          </Box>
+                        )}
+
+                        {/* Generated Clips */}
+                        {campaignVideos && campaignVideos.clips.length > 0 && (
+                          <Box>
+                            <Text size="2" weight="bold" mb="2">
+                              Generated Clips ({campaignVideos.clips.length})
+                            </Text>
+                            <Box 
+                              style={{ 
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+                                gap: '1rem'
+                              }}
+                            >
+                              {campaignVideos.clips.map(clip => (
+                                <Card 
+                                  key={clip.id}
+                                  style={{ cursor: 'pointer' }}
+                                  onClick={() => setSelectedClip(clip)}
+                                >
+                                  <Box 
+                                    style={{ 
+                                      position: 'relative',
+                                      paddingBottom: '56.25%',
+                                      backgroundColor: 'var(--gray-3)',
+                                      borderRadius: '4px',
+                                      overflow: 'hidden'
+                                    }}
+                                  >
+                                    {clip.thumbnail_url ? (
+                                      <img 
+                                        src={clip.thumbnail_url} 
+                                        alt={clip.title}
+                                        style={{
+                                          position: 'absolute',
+                                          width: '100%',
+                                          height: '100%',
+                                          objectFit: 'cover'
+                                        }}
+                                      />
+                                    ) : (
+                                      <Flex
+                                        align="center"
+                                        justify="center"
+                                        style={{
+                                          position: 'absolute',
+                                          inset: 0
+                                        }}
+                                      >
+                                        <VideoIcon width="30" height="30" />
+                                      </Flex>
+                                    )}
+                                    <Badge 
+                                      size="1"
+                                      style={{
+                                        position: 'absolute',
+                                        bottom: '4px',
+                                        right: '4px'
+                                      }}
+                                    >
+                                      {formatDuration(clip.duration)}
+                                    </Badge>
+                                  </Box>
+                                  <Text size="1" weight="medium" mt="2">
+                                    {clip.title}
+                                  </Text>
+                                  {clip.content_type && (
+                                    <Badge size="1" variant="soft" mt="1">
+                                      {clip.content_type}
+                                    </Badge>
+                                  )}
+                                </Card>
+                              ))}
+                            </Box>
+                          </Box>
+                        )}
+
+                        {/* No assets message */}
+                        {(!campaignVideos || (campaignVideos.videos.length === 0 && campaignVideos.clips.length === 0)) && (
+                          <Text size="2" color="gray">No videos or clips available for this campaign</Text>
+                        )}
+                      </Flex>
+                    </Card>
+                  );
+                })}
+
+                {profile.campaigns.length === 0 && (
+                  <Card>
+                    <Flex align="center" justify="center" style={{ padding: '3rem' }}>
+                      <Text color="gray">No campaigns created yet</Text>
+                    </Flex>
+                  </Card>
+                )}
+              </Flex>
+            </ScrollArea>
+          </Tabs.Content>
+
+          <Tabs.Content value="timeline">
+            <Card>
+              <Text color="gray">Timeline view coming soon...</Text>
+            </Card>
+          </Tabs.Content>
+        </Box>
+      </Tabs.Root>
+
+      {/* Video Preview Dialog */}
+      <Dialog.Root open={!!selectedVideo} onOpenChange={() => setSelectedVideo(null)}>
+        <Dialog.Content style={{ maxWidth: '800px' }}>
+          <Dialog.Title>Video Preview</Dialog.Title>
+          <Box mt="3">
+            <video 
+              controls 
+              style={{ width: '100%', maxHeight: '500px' }}
+              src={selectedVideo || ''}
+            />
+          </Box>
+          <Flex gap="3" mt="4" justify="end">
+            <Dialog.Close>
+              <Button variant="soft">Close</Button>
+            </Dialog.Close>
+            <Button>
+              <DownloadIcon />
+              Download
+            </Button>
+          </Flex>
+        </Dialog.Content>
+      </Dialog.Root>
+
+      {/* Clip Preview Dialog */}
+      <Dialog.Root open={!!selectedClip} onOpenChange={() => setSelectedClip(null)}>
+        <Dialog.Content style={{ maxWidth: '800px' }}>
+          <Dialog.Title>{selectedClip?.title}</Dialog.Title>
+          <Box mt="3">
+            <video 
+              controls 
+              style={{ width: '100%', maxHeight: '500px' }}
+              src={selectedClip?.video_url || ''}
+            />
+          </Box>
+          {selectedClip && (
+            <Box mt="3">
+              <Flex direction="column" gap="2">
+                <Text size="2">
+                  <strong>Duration:</strong> {formatDuration(selectedClip.duration)}
+                </Text>
+                <Text size="2">
+                  <strong>Time Range:</strong> {formatDuration(selectedClip.start_time)} - {formatDuration(selectedClip.end_time)}
+                </Text>
+                {selectedClip.description && (
+                  <Text size="2">
+                    <strong>Description:</strong> {selectedClip.description}
+                  </Text>
+                )}
+                {selectedClip.suggested_caption && (
+                  <Box>
+                    <Text size="2" weight="bold">Suggested Caption:</Text>
+                    <Text size="2">{selectedClip.suggested_caption}</Text>
+                  </Box>
+                )}
+                {selectedClip.suggested_hashtags.length > 0 && (
+                  <Box>
+                    <Text size="2" weight="bold">Suggested Hashtags:</Text>
+                    <Flex gap="1" wrap="wrap" mt="1">
+                      {selectedClip.suggested_hashtags.map((tag, i) => (
+                        <Badge key={i} size="1" variant="soft">
+                          #{tag}
+                        </Badge>
+                      ))}
+                    </Flex>
+                  </Box>
+                )}
+              </Flex>
+            </Box>
+          )}
+          <Flex gap="3" mt="4" justify="end">
+            <Dialog.Close>
+              <Button variant="soft">Close</Button>
+            </Dialog.Close>
+            <Button>
+              <DownloadIcon />
+              Download Clip
+            </Button>
+          </Flex>
+        </Dialog.Content>
+      </Dialog.Root>
+    </Box>
+  );
+}; 
