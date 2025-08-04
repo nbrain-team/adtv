@@ -1061,6 +1061,8 @@ const CampaignDetailPage = () => {
                                     <Flex direction="column" gap="3">
                                         {/* Debug log the campaign status */}
                                         {console.log('Campaign status for upload button:', campaign.status)}
+                                        {console.log('Campaign total_contacts:', campaign.total_contacts)}
+                                        {console.log('Should show upload button:', campaign.status === 'draft' || campaign.total_contacts === 0)}
                                         {(campaign.status === 'draft' || campaign.total_contacts === 0) && (
                                             <>
                                                 <input

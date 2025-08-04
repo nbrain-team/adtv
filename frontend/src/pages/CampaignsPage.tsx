@@ -306,7 +306,9 @@ const CampaignsPage = () => {
                     )}
                     
                     {/* Campaign Data Hub */}
+                    {/* Temporarily disabled to debug upload issue
                     <CampaignDataHub />
+                    */}
                 </Box>
 
                 <Dialog.Root open={showCreateDialog} onOpenChange={setShowCreateDialog}>
