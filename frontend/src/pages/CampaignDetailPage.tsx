@@ -20,7 +20,6 @@ import L from 'leaflet';
 import React from 'react'; // Added for React.Fragment
 import { GeneratorWorkflow } from '../components/GeneratorWorkflow';
 import { ContactDataManager } from '../components/ContactDataManager';
-import './CampaignDetailPage.css';
 
 // Fix for default markers in react-leaflet
 delete (L.Icon.Default.prototype as any)._getIconUrl;
