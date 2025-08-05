@@ -47,33 +47,13 @@ export const Sidebar = ({ onNewChat }: { onNewChat: () => void }) => {
             
             <Flex direction="column" align="center" gap="8" style={{ marginTop: '125px', flex: 1 }}>
                 {hasPermission('chat') && (
-                    <button className="sidebar-icon" title="New Chat" onClick={handleNewChatClick}>
-                        <img src="/new-icons/13.png" alt="New Chat" />
-                    </button>
-                )}
-                {hasPermission('history') && (
-                    <button className="sidebar-icon" title="Chat History" onClick={() => navigate('/history')}>
-                        <img src="/new-icons/2.png" alt="History" />
-                    </button>
-                )}
-                {hasPermission('knowledge') && (
-                    <button className="sidebar-icon" title="Knowledge Base" onClick={() => navigate('/knowledge')}>
-                        <img src="/new-icons/4.png" alt="Upload" />
+                    <button className="sidebar-icon" title="Chat" onClick={handleNewChatClick}>
+                        <img src="/new-icons/13.png" alt="Chat" />
                     </button>
                 )}
                 {hasPermission('agents') && (
-                    <button className="sidebar-icon" title="Automation Agents" onClick={() => navigate('/agents')}>
-                        <img src="/new-icons/3.png" alt="Automation Agents" />
-                    </button>
-                )}
-                {hasPermission('realtor') && (
-                    <button className="sidebar-icon" title="Realtor" onClick={() => navigate('/realtor')}>
-                        <img src="/new-icons/15.png" alt="Realtor" />
-                    </button>
-                )}
-                {userProfile?.permissions?.['data-lake'] && (
-                    <button className="sidebar-icon" title="Data Lake" onClick={() => navigate('/data-lake')}>
-                        <img src="/new-icons/14.png" alt="Data Lake" />
+                    <button className="sidebar-icon" title="Agent Ideator" onClick={() => navigate('/agents')}>
+                        <img src="/new-icons/3.png" alt="Agent Ideator" />
                     </button>
                 )}
             </Flex>
