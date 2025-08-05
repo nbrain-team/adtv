@@ -6,12 +6,14 @@ import uuid
 import os
 import shutil
 import asyncio
+import logging
 
 from core.database import get_db, User
 from core.auth import get_current_active_user
 from . import models, schemas, services
 
 router = APIRouter(tags=["ad-traffic"])
+logger = logging.getLogger(__name__)
 
 
 # Client endpoints
@@ -157,7 +159,12 @@ async def approve_post(
         raise HTTPException(status_code=404, detail="Post not found")
     
     if approval.approved:
-        post.status = models.PostStatus.APPROVED
+        # Temporary workaround: use PUBLISHED instead of APPROVED until enum is updated
+        try:
+            post.status = models.PostStatus.APPROVED
+        except Exception as e:
+            logger.warning(f"Could not set APPROVED status, using PUBLISHED instead: {e}")
+            post.status = models.PostStatus.PUBLISHED
         post.approved_by = current_user.id
         post.approved_at = datetime.utcnow()
     else:

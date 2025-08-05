@@ -168,6 +168,15 @@ def on_startup():
     except Exception as e:
         logger.warning(f"Ad traffic tables migration failed: {e}")
     
+    # Update ad traffic enums
+    try:
+        from scripts.update_ad_traffic_enums import update_ad_traffic_enums
+        logger.info("Updating ad traffic enums...")
+        update_ad_traffic_enums()
+        logger.info("Ad traffic enums update completed.")
+    except Exception as e:
+        logger.warning(f"Ad traffic enums update failed: {e}")
+    
     # Fix video clips schema
     try:
         from scripts.fix_video_clips_schema import fix_video_clips_schema
