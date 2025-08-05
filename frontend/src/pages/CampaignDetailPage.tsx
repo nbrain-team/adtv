@@ -18,6 +18,9 @@ import { MapContainer, TileLayer, CircleMarker, Popup, Marker } from 'react-leaf
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import React from 'react'; // Added for React.Fragment
+import { GeneratorWorkflow } from '../components/GeneratorWorkflow';
+import { ContactDataManager } from '../components/ContactDataManager';
+import './CampaignDetailPage.css';
 
 // Fix for default markers in react-leaflet
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -1419,6 +1422,20 @@ const CampaignDetailPage = () => {
                                         )}
                                     </Flex>
                                 </Flex>
+
+                                {/* Add Contact Data Manager for export/import */}
+                                {campaign.total_contacts > 0 && (
+                                    <Box mb="4">
+                                        <ContactDataManager 
+                                            campaignId={campaignId!}
+                                            campaignName={campaign.name}
+                                            onDataUpdate={() => {
+                                                // Refresh contacts when data is updated
+                                                fetchContacts();
+                                            }}
+                                        />
+                                    </Box>
+                                )}
 
                                 <Box style={{ overflowX: 'auto' }}>
                                     <Table.Root style={{ minWidth: '1200px' }}>

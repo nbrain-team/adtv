@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks, Response
 from sqlalchemy.orm import Session
-from sqlalchemy import desc, text
+from sqlalchemy import desc, text, func
 from typing import List, Optional, Dict
 from pydantic import BaseModel, EmailStr
 from datetime import datetime
@@ -561,6 +561,323 @@ async def upload_contacts(
     except Exception as e:
         print(f"Error uploading contacts: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error processing CSV: {str(e)}")
+
+@router.get("/{campaign_id}/export-incomplete")
+async def export_incomplete_contacts(
+    campaign_id: str,
+    missing_fields: str = "email,phone",  # Comma-separated list of fields to check
+    current_user: User = Depends(auth.get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Export contacts with missing email or phone fields as CSV"""
+    campaign = db.query(Campaign).filter(
+        Campaign.id == campaign_id,
+        Campaign.user_id == current_user.id
+    ).first()
+    
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    # Parse the fields to check
+    fields_to_check = [field.strip() for field in missing_fields.split(',')]
+    
+    # Query all contacts for the campaign
+    contacts = db.query(CampaignContact).filter(
+        CampaignContact.campaign_id == campaign_id
+    ).all()
+    
+    # Filter contacts with missing fields
+    incomplete_contacts = []
+    for contact in contacts:
+        is_incomplete = False
+        
+        if 'email' in fields_to_check and (not contact.email or contact.email.strip() == ''):
+            is_incomplete = True
+        if 'phone' in fields_to_check and (not contact.phone or contact.phone.strip() == ''):
+            is_incomplete = True
+        
+        if is_incomplete:
+            incomplete_contacts.append(contact)
+    
+    # Create CSV
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Write headers
+    headers = [
+        'id', 'first_name', 'last_name', 'email', 'phone', 
+        'company', 'title', 'neighborhood', 'state', 'geocoded_address'
+    ]
+    writer.writerow(headers)
+    
+    # Write data
+    for contact in incomplete_contacts:
+        writer.writerow([
+            contact.id,
+            contact.first_name or '',
+            contact.last_name or '',
+            contact.email or '',
+            contact.phone or '',
+            contact.company or '',
+            contact.title or '',
+            contact.neighborhood or '',
+            contact.state or '',
+            contact.geocoded_address or ''
+        ])
+    
+    # Prepare response
+    output.seek(0)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"{campaign.name.replace(' ', '_')}_incomplete_contacts_{timestamp}.csv"
+    
+    return Response(
+        content=output.getvalue(),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f"attachment; filename={filename}"
+        }
+    )
+
+@router.get("/{campaign_id}/export-all")
+async def export_all_contacts(
+    campaign_id: str,
+    current_user: User = Depends(auth.get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Export all contacts as CSV"""
+    campaign = db.query(Campaign).filter(
+        Campaign.id == campaign_id,
+        Campaign.user_id == current_user.id
+    ).first()
+    
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    # Query all contacts for the campaign
+    contacts = db.query(CampaignContact).filter(
+        CampaignContact.campaign_id == campaign_id
+    ).all()
+    
+    # Create CSV
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Write headers - include all fields
+    headers = [
+        'id', 'first_name', 'last_name', 'email', 'phone', 
+        'company', 'title', 'neighborhood', 'state', 'geocoded_address',
+        'enriched_company', 'enriched_title', 'enriched_phone', 
+        'enriched_linkedin', 'enriched_website', 'enriched_industry',
+        'enriched_company_size', 'enriched_location', 'enrichment_status',
+        'excluded', 'is_rsvp', 'rsvp_status'
+    ]
+    writer.writerow(headers)
+    
+    # Write data
+    for contact in contacts:
+        writer.writerow([
+            contact.id,
+            contact.first_name or '',
+            contact.last_name or '',
+            contact.email or '',
+            contact.phone or '',
+            contact.company or '',
+            contact.title or '',
+            contact.neighborhood or '',
+            contact.state or '',
+            contact.geocoded_address or '',
+            contact.enriched_company or '',
+            contact.enriched_title or '',
+            contact.enriched_phone or '',
+            contact.enriched_linkedin or '',
+            contact.enriched_website or '',
+            contact.enriched_industry or '',
+            contact.enriched_company_size or '',
+            contact.enriched_location or '',
+            contact.enrichment_status or '',
+            'Yes' if contact.excluded else 'No',
+            'Yes' if contact.is_rsvp else 'No',
+            contact.rsvp_status or ''
+        ])
+    
+    # Prepare response
+    output.seek(0)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"{campaign.name.replace(' ', '_')}_all_contacts_{timestamp}.csv"
+    
+    return Response(
+        content=output.getvalue(),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f"attachment; filename={filename}"
+        }
+    )
+
+@router.post("/{campaign_id}/reimport-contacts")
+async def reimport_enriched_contacts(
+    campaign_id: str,
+    file: UploadFile = File(...),
+    merge_strategy: str = "update",  # "update" or "replace"
+    current_user: User = Depends(auth.get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Re-import enriched contacts, matching by ID and updating specified fields"""
+    campaign = db.query(Campaign).filter(
+        Campaign.id == campaign_id,
+        Campaign.user_id == current_user.id
+    ).first()
+    
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    try:
+        # Read CSV
+        contents = await file.read()
+        csv_data = io.StringIO(contents.decode('utf-8'))
+        reader = csv.DictReader(csv_data)
+        
+        updated_count = 0
+        not_found_count = 0
+        error_count = 0
+        errors = []
+        
+        for row_num, row in enumerate(reader, 1):
+            try:
+                # Get contact ID
+                contact_id = row.get('id', '').strip()
+                if not contact_id:
+                    error_count += 1
+                    errors.append(f"Row {row_num}: Missing contact ID")
+                    continue
+                
+                # Find existing contact
+                contact = db.query(CampaignContact).filter(
+                    CampaignContact.id == contact_id,
+                    CampaignContact.campaign_id == campaign_id
+                ).first()
+                
+                if not contact:
+                    not_found_count += 1
+                    errors.append(f"Row {row_num}: Contact ID {contact_id} not found in campaign")
+                    continue
+                
+                # Update fields based on merge strategy
+                if merge_strategy == "replace":
+                    # Replace all provided fields
+                    for field in ['first_name', 'last_name', 'email', 'phone', 
+                                 'company', 'title', 'neighborhood', 'state', 'geocoded_address']:
+                        if field in row:
+                            setattr(contact, field, row[field].strip() if row[field] else None)
+                else:  # "update" - only update empty fields
+                    for field in ['first_name', 'last_name', 'email', 'phone', 
+                                 'company', 'title', 'neighborhood', 'state', 'geocoded_address']:
+                        if field in row and row[field] and row[field].strip():
+                            current_value = getattr(contact, field)
+                            if not current_value or current_value.strip() == '':
+                                setattr(contact, field, row[field].strip())
+                
+                contact.updated_at = datetime.utcnow()
+                updated_count += 1
+                
+            except Exception as e:
+                error_count += 1
+                errors.append(f"Row {row_num}: {str(e)}")
+        
+        # Commit all changes
+        db.commit()
+        
+        # Update campaign analytics
+        total_contacts = db.query(func.count(CampaignContact.id)).filter(
+            CampaignContact.campaign_id == campaign_id
+        ).scalar()
+        
+        contacts_with_email = db.query(func.count(CampaignContact.id)).filter(
+            CampaignContact.campaign_id == campaign_id,
+            CampaignContact.email != None,
+            CampaignContact.email != ''
+        ).scalar()
+        
+        contacts_with_phone = db.query(func.count(CampaignContact.id)).filter(
+            CampaignContact.campaign_id == campaign_id,
+            CampaignContact.phone != None,
+            CampaignContact.phone != ''
+        ).scalar()
+        
+        campaign.total_contacts = total_contacts
+        db.commit()
+        
+        return {
+            "success": True,
+            "updated_count": updated_count,
+            "not_found_count": not_found_count,
+            "error_count": error_count,
+            "errors": errors[:10],  # Return first 10 errors
+            "total_contacts": total_contacts,
+            "contacts_with_email": contacts_with_email,
+            "contacts_with_phone": contacts_with_phone
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to reimport contacts: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to process file: {str(e)}")
+
+@router.get("/{campaign_id}/contacts/stats")
+async def get_contact_stats(
+    campaign_id: str,
+    current_user: User = Depends(auth.get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get statistics about campaign contacts"""
+    campaign = db.query(Campaign).filter(
+        Campaign.id == campaign_id,
+        Campaign.user_id == current_user.id
+    ).first()
+    
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    total_contacts = db.query(func.count(CampaignContact.id)).filter(
+        CampaignContact.campaign_id == campaign_id
+    ).scalar()
+    
+    contacts_with_email = db.query(func.count(CampaignContact.id)).filter(
+        CampaignContact.campaign_id == campaign_id,
+        CampaignContact.email != None,
+        CampaignContact.email != ''
+    ).scalar()
+    
+    contacts_with_phone = db.query(func.count(CampaignContact.id)).filter(
+        CampaignContact.campaign_id == campaign_id,
+        CampaignContact.phone != None,
+        CampaignContact.phone != ''
+    ).scalar()
+    
+    contacts_missing_both = db.query(func.count(CampaignContact.id)).filter(
+        CampaignContact.campaign_id == campaign_id,
+        (CampaignContact.email == None) | (CampaignContact.email == ''),
+        (CampaignContact.phone == None) | (CampaignContact.phone == '')
+    ).scalar()
+    
+    contacts_missing_email = db.query(func.count(CampaignContact.id)).filter(
+        CampaignContact.campaign_id == campaign_id,
+        (CampaignContact.email == None) | (CampaignContact.email == '')
+    ).scalar()
+    
+    contacts_missing_phone = db.query(func.count(CampaignContact.id)).filter(
+        CampaignContact.campaign_id == campaign_id,
+        (CampaignContact.phone == None) | (CampaignContact.phone == '')
+    ).scalar()
+    
+    return {
+        "total_contacts": total_contacts,
+        "contacts_with_email": contacts_with_email,
+        "contacts_with_phone": contacts_with_phone,
+        "contacts_missing_both": contacts_missing_both,
+        "contacts_missing_email": contacts_missing_email,
+        "contacts_missing_phone": contacts_missing_phone,
+        "email_coverage_percentage": round((contacts_with_email / total_contacts * 100) if total_contacts > 0 else 0, 1),
+        "phone_coverage_percentage": round((contacts_with_phone / total_contacts * 100) if total_contacts > 0 else 0, 1)
+    }
 
 @router.get("/{campaign_id}/contacts", response_model=List[ContactResponse])
 async def get_campaign_contacts(
