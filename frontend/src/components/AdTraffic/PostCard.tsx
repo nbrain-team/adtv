@@ -85,15 +85,6 @@ export const PostCard: React.FC<PostCardProps> = ({
   const isApproved = post.status === PostStatus.APPROVED || post.status === PostStatus.PUBLISHED;
   const needsApproval = post.status === PostStatus.SCHEDULED || post.status === PostStatus.PENDING_APPROVAL;
 
-  // Debug logging
-  console.log('PostCard Debug:', {
-    postId: post.id,
-    status: post.status,
-    isApproved,
-    needsApproval,
-    hasOnApprove: !!onApprove
-  });
-
   if (compact) {
     return (
       <Card 
@@ -101,7 +92,9 @@ export const PostCard: React.FC<PostCardProps> = ({
         style={{ 
           cursor: 'pointer',
           transition: 'all 0.2s',
-          padding: '0.5rem'
+          padding: '0.5rem',
+          opacity: needsApproval ? 0.7 : 1,
+          border: needsApproval ? '1px solid var(--orange-6)' : undefined
         }}
         onClick={onEdit}
       >
@@ -126,6 +119,17 @@ export const PostCard: React.FC<PostCardProps> = ({
                   color="var(--purple-9)"
                   style={{ marginLeft: '4px' }}
                 />
+              )}
+              {needsApproval && (
+                <Badge size="1" variant="soft" color="orange" style={{ marginLeft: '4px' }}>
+                  Needs Approval
+                </Badge>
+              )}
+              {isApproved && (
+                <Badge size="1" variant="soft" color="green" style={{ marginLeft: '4px' }}>
+                  <CheckIcon width="10" height="10" style={{ marginRight: '2px' }} />
+                  Approved
+                </Badge>
               )}
             </Flex>
             <Text size="1" color="gray">
