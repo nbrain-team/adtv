@@ -159,14 +159,10 @@ async def approve_post(
         raise HTTPException(status_code=404, detail="Post not found")
     
     if approval.approved:
-        # Temporary workaround: use PUBLISHED instead of APPROVED until enum is updated
-        try:
-            post.status = models.PostStatus.APPROVED
-        except Exception as e:
-            logger.warning(f"Could not set APPROVED status, using PUBLISHED instead: {e}")
-            post.status = models.PostStatus.PUBLISHED
+        post.status = models.PostStatus.APPROVED
         post.approved_by = current_user.id
         post.approved_at = datetime.utcnow()
+        logger.info(f"Post {post_id} approved")
     else:
         post.status = models.PostStatus.DRAFT
         post.approved_by = None

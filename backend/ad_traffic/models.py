@@ -17,8 +17,8 @@ class Platform(str, enum.Enum):
 class PostStatus(str, enum.Enum):
     DRAFT = "draft"
     SCHEDULED = "scheduled"
-    PENDING_APPROVAL = "pending_approval"  # New status
-    APPROVED = "approved"  # New status
+    PENDING_APPROVAL = "pending_approval"
+    APPROVED = "approved"
     PUBLISHED = "published"
     FAILED = "failed"
 
