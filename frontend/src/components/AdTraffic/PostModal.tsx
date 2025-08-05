@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Flex, Text, TextArea, Button, Heading, Checkbox, TextField, Badge } from '@radix-ui/themes';
-import { CalendarIcon, ImageIcon, TrashIcon } from '@radix-ui/react-icons';
-import { Client, SocialPost, PostFormData, Platform } from './types';
+import { CalendarIcon, ImageIcon, TrashIcon, CheckIcon } from '@radix-ui/react-icons';
+import { Client, SocialPost, PostFormData, Platform, PostStatus } from './types';
 import { api } from '../../services/api';
 
 interface PostModalProps {
@@ -10,6 +10,7 @@ interface PostModalProps {
   onSave: () => void;
   onCancel: () => void;
   onDelete?: (postId: string) => void;
+  onApprove?: (postId: string) => void;
 }
 
 export const PostModal: React.FC<PostModalProps> = ({
@@ -17,7 +18,8 @@ export const PostModal: React.FC<PostModalProps> = ({
   post,
   onSave,
   onCancel,
-  onDelete
+  onDelete,
+  onApprove
 }) => {
   const [formData, setFormData] = useState<PostFormData>({
     content: '',
@@ -105,6 +107,20 @@ export const PostModal: React.FC<PostModalProps> = ({
           setError(err.response?.data?.detail || 'Failed to delete post');
           setLoading(false);
         }
+      }
+    }
+  };
+
+  const handleApprove = async () => {
+    if (post && onApprove) {
+      setLoading(true);
+      try {
+        await api.post(`/api/ad-traffic/posts/${post.id}/approve`, { approved: true });
+        onApprove(post.id);
+        onCancel(); // Close modal after approval
+      } catch (err: any) {
+        setError(err.response?.data?.detail || 'Failed to approve post');
+        setLoading(false);
       }
     }
   };
@@ -276,6 +292,17 @@ export const PostModal: React.FC<PostModalProps> = ({
                 style={{ marginRight: 'auto' }}
               >
                 <TrashIcon /> Delete Post
+              </Button>
+            )}
+            {post && onApprove && (post.status === PostStatus.SCHEDULED || post.status === PostStatus.PENDING_APPROVAL) && (
+              <Button 
+                type="button" 
+                variant="soft" 
+                color="green"
+                onClick={handleApprove}
+                disabled={loading}
+              >
+                <CheckIcon /> Approve Post
               </Button>
             )}
             <Button 

@@ -649,6 +649,10 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({ client, onBa
             onSave={handlePostSaved}
             onCancel={() => setShowPostModal(false)}
             onDelete={editingPost ? handleDeletePost : undefined}
+            onApprove={editingPost ? (postId) => {
+              handleApprovePost(postId, true);
+              setShowPostModal(false);
+            } : undefined}
           />
         </Dialog.Content>
       </Dialog.Root>
