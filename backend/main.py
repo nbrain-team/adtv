@@ -728,3 +728,10 @@ async def delete_template_agent(
     db.commit()
     
     return {"message": "Template agent deleted successfully"}
+
+# Start the server when running directly
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.getenv("PORT", 10000))
+    logger.info(f"Starting server on port {port}")
+    uvicorn.run(app, host="0.0.0.0", port=port)
