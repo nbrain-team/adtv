@@ -186,7 +186,6 @@ class Campaign(Base):
     # Relationships
     user = relationship("User", back_populates="campaigns")
     contacts = relationship("CampaignContact", back_populates="campaign", cascade="all, delete-orphan")
-    templates = relationship("CampaignTemplate", back_populates="campaign")
     analytics = relationship("CampaignAnalytics", back_populates="campaign", uselist=False)
     email_templates = relationship("CampaignEmailTemplate", back_populates="campaign", cascade="all, delete-orphan")
 
