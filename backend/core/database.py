@@ -186,7 +186,26 @@ class Campaign(Base):
     # Relationships
     user = relationship("User", back_populates="campaigns")
     contacts = relationship("CampaignContact", back_populates="campaign", cascade="all, delete-orphan")
-    analytics = relationship("CampaignAnalytics", back_populates="campaign", cascade="all, delete-orphan")
+    templates = relationship("CampaignTemplate", back_populates="campaign")
+    analytics = relationship("CampaignAnalytics", back_populates="campaign", uselist=False)
+    email_templates = relationship("CampaignEmailTemplate", back_populates="campaign", cascade="all, delete-orphan")
+
+class CampaignEmailTemplate(Base):
+    __tablename__ = "campaign_email_templates"
+    
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    campaign_id = Column(String, ForeignKey("campaigns.id"))
+    name = Column(String, nullable=False)
+    subject = Column(String, nullable=False)
+    body = Column(Text, nullable=False)
+    template_type = Column(String, default='general')  # general, rsvp_confirmation, reminder, follow_up
+    is_active = Column(Boolean, default=True)
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    campaign = relationship("Campaign", back_populates="email_templates")
 
 class CampaignContact(Base):
     __tablename__ = "campaign_contacts"
@@ -228,6 +247,11 @@ class CampaignContact(Base):
     # Flags
     excluded = Column(Boolean, default=False)
     manually_edited = Column(Boolean, default=False)
+    
+    # RSVP tracking
+    is_rsvp = Column(Boolean, default=False)
+    rsvp_status = Column(String, default=None)  # None, attended, no_show, signed_agreement, cancelled
+    rsvp_date = Column(DateTime)
     
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

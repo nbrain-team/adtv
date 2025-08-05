@@ -9,7 +9,7 @@ import {
     ArrowLeftIcon, UploadIcon, PersonIcon, EnvelopeClosedIcon, 
     BarChartIcon, InfoCircledIcon, MagnifyingGlassIcon, 
     Pencil1Icon, TrashIcon, CheckIcon, Cross2Icon, DotsHorizontalIcon,
-    DownloadIcon, ReloadIcon
+    DownloadIcon, ReloadIcon, PlusIcon
 } from '@radix-ui/react-icons';
 import { MainLayout } from '../components/MainLayout';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
@@ -80,7 +80,8 @@ interface Contact {
     title?: string;
     phone?: string;
     neighborhood?: string;
-    // Enriched data
+    state?: string;
+    geocoded_address?: string;
     enriched_company?: string;
     enriched_title?: string;
     enriched_phone?: string;
@@ -89,12 +90,17 @@ interface Contact {
     enriched_industry?: string;
     enriched_company_size?: string;
     enriched_location?: string;
-    // Status
-    enrichment_status: string;
-    email_status: string;
-    excluded: boolean;
+    enrichment_status?: string;
+    enrichment_error?: string;
+    email_status?: string;
+    email_sent_at?: string;
+    excluded?: boolean;
+    manually_edited?: boolean;
     personalized_email?: string;
     personalized_subject?: string;
+    is_rsvp?: boolean;
+    rsvp_status?: string;
+    rsvp_date?: string;
 }
 
 interface EmailTemplate {
@@ -263,12 +269,29 @@ const CampaignDetailPage = () => {
     const [showBulkEditModal, setShowBulkEditModal] = useState(false);
     const [bulkEditField, setBulkEditField] = useState<string>('');
     const [bulkEditValue, setBulkEditValue] = useState<string>('');
+    
+    // Email Template Management
+    const [emailTemplates, setEmailTemplates] = useState<any[]>([]);
+    const [showTemplateModal, setShowTemplateModal] = useState(false);
+    const [editingTemplate, setEditingTemplate] = useState<any>(null);
+    const [templateForm, setTemplateForm] = useState({
+        name: '',
+        subject: '',
+        body: '',
+        template_type: 'general'
+    });
+    
+    // RSVP Management
+    const [rsvpContacts, setRsvpContacts] = useState<Contact[]>([]);
+    const [showSendCommunicationModal, setShowSendCommunicationModal] = useState(false);
+    const [selectedRsvpTemplateId, setSelectedRsvpTemplateId] = useState<string>('');
 
     useEffect(() => {
         if (campaignId) {
             fetchCampaign();
             fetchContacts();
             fetchTemplates();
+            fetchEmailTemplates();
         }
     }, [campaignId]);
 
@@ -383,6 +406,49 @@ const CampaignDetailPage = () => {
             console.error('Failed to fetch templates:', err);
         } finally {
             setIsLoadingTemplates(false);
+        }
+    };
+
+    const fetchEmailTemplates = async () => {
+        try {
+            const response = await api.get(`/api/campaigns/${campaignId}/email-templates`);
+            setEmailTemplates(response.data);
+        } catch (err) {
+            console.error('Failed to fetch email templates:', err);
+        }
+    };
+    
+    const handleCreateTemplate = async () => {
+        try {
+            await api.post(`/api/campaigns/${campaignId}/email-templates`, templateForm);
+            await fetchEmailTemplates();
+            setShowTemplateModal(false);
+            setTemplateForm({ name: '', subject: '', body: '', template_type: 'general' });
+        } catch (err) {
+            console.error('Failed to create template:', err);
+        }
+    };
+    
+    const handleUpdateTemplate = async () => {
+        if (!editingTemplate) return;
+        
+        try {
+            await api.put(`/api/campaigns/${campaignId}/email-templates/${editingTemplate.id}`, templateForm);
+            await fetchEmailTemplates();
+            setShowTemplateModal(false);
+            setEditingTemplate(null);
+            setTemplateForm({ name: '', subject: '', body: '', template_type: 'general' });
+        } catch (err) {
+            console.error('Failed to update template:', err);
+        }
+    };
+    
+    const handleDeleteTemplate = async (templateId: string) => {
+        try {
+            await api.delete(`/api/campaigns/${campaignId}/email-templates/${templateId}`);
+            await fetchEmailTemplates();
+        } catch (err) {
+            console.error('Failed to delete template:', err);
         }
     };
 
@@ -526,30 +592,69 @@ const CampaignDetailPage = () => {
     };
 
     const handleBulkEdit = async () => {
-        if (!bulkEditField || !bulkEditValue) return;
+        if (!bulkEditField || bulkEditValue === '') return;
         
         try {
-            const updateData: any = {};
-            updateData[bulkEditField] = bulkEditValue;
+            const contactIds = Array.from(selectedContacts);
+            const updates: any = {};
+            updates[bulkEditField] = bulkEditValue;
             
-            // Update all selected contacts
-            const promises = Array.from(selectedContacts).map(contactId => 
-                api.put(`/api/campaigns/${campaignId}/contacts/${contactId}`, updateData)
-            );
+            await api.put(`/api/campaigns/${campaignId}/contacts/bulk`, {
+                contact_ids: contactIds,
+                updates
+            });
             
-            await Promise.all(promises);
-            
-            // Update local state
-            setContacts(contacts.map(c => 
-                selectedContacts.has(c.id) ? { ...c, ...updateData } : c
-            ));
-            
+            await fetchContacts();
             setShowBulkEditModal(false);
             setBulkEditField('');
             setBulkEditValue('');
             setSelectedContacts(new Set());
         } catch (err) {
-            setError('Failed to update contacts');
+            console.error('Failed to bulk edit contacts:', err);
+        }
+    };
+    
+    // RSVP Management Functions
+    const handleMoveToRSVP = async () => {
+        try {
+            const contactIds = Array.from(selectedContacts);
+            await api.post(`/api/campaigns/${campaignId}/contacts/rsvp`, {
+                contact_ids: contactIds,
+                is_rsvp: true
+            });
+            await fetchContacts();
+            setSelectedContacts(new Set());
+        } catch (err) {
+            console.error('Failed to move contacts to RSVP:', err);
+        }
+    };
+    
+    const handleUpdateRSVPStatus = async (contactId: string, status: string) => {
+        try {
+            await api.put(`/api/campaigns/${campaignId}/contacts/${contactId}/rsvp-status`, {
+                rsvp_status: status
+            });
+            await fetchContacts();
+        } catch (err) {
+            console.error('Failed to update RSVP status:', err);
+        }
+    };
+    
+    const handleSendCommunication = async () => {
+        if (!selectedRsvpTemplateId) return;
+        
+        try {
+            const contactIds = selectedContacts.size > 0 ? Array.from(selectedContacts) : undefined;
+            await api.post(`/api/campaigns/${campaignId}/send-communication`, {
+                template_id: selectedRsvpTemplateId,
+                contact_ids: contactIds
+            });
+            
+            setShowSendCommunicationModal(false);
+            setSelectedRsvpTemplateId('');
+            setSelectedContacts(new Set());
+        } catch (err) {
+            console.error('Failed to send communication:', err);
         }
     };
 
@@ -572,6 +677,20 @@ const CampaignDetailPage = () => {
     };
 
     const filteredContacts = contacts.filter(contact => {
+        const searchLower = searchTerm.toLowerCase();
+        return (
+            contact.first_name?.toLowerCase().includes(searchLower) ||
+            contact.last_name?.toLowerCase().includes(searchLower) ||
+            contact.email?.toLowerCase().includes(searchLower) ||
+            contact.company?.toLowerCase().includes(searchLower) ||
+            contact.title?.toLowerCase().includes(searchLower) ||
+            contact.phone?.toLowerCase().includes(searchLower) ||
+            contact.neighborhood?.toLowerCase().includes(searchLower)
+        );
+    });
+    
+    const filteredRsvpContacts = contacts.filter(contact => {
+        if (!contact.is_rsvp) return false;
         const searchLower = searchTerm.toLowerCase();
         return (
             contact.first_name?.toLowerCase().includes(searchLower) ||
@@ -814,6 +933,8 @@ const CampaignDetailPage = () => {
                         <Tabs.List>
                             <Tabs.Trigger value="overview">Overview</Tabs.Trigger>
                             <Tabs.Trigger value="contacts">Contacts ({campaign.total_contacts})</Tabs.Trigger>
+                            <Tabs.Trigger value="rsvp">RSVPs ({contacts.filter(c => c.is_rsvp).length})</Tabs.Trigger>
+                            <Tabs.Trigger value="email-templates">Email Templates</Tabs.Trigger>
                             <Tabs.Trigger value="emails">Generate Emails</Tabs.Trigger>
                             <Tabs.Trigger value="analytics">Analytics</Tabs.Trigger>
                             <Tabs.Trigger value="map">Map View</Tabs.Trigger>
@@ -1284,6 +1405,11 @@ const CampaignDetailPage = () => {
                                                         Include in Campaign
                                                     </DropdownMenu.Item>
                                                     <DropdownMenu.Separator />
+                                                    <DropdownMenu.Item onClick={handleMoveToRSVP}>
+                                                        <CheckIcon style={{ marginRight: '8px' }} />
+                                                        Move to RSVP
+                                                    </DropdownMenu.Item>
+                                                    <DropdownMenu.Separator />
                                                     <DropdownMenu.Item onClick={() => setShowBulkEditModal(true)}>
                                                         <Pencil1Icon style={{ marginRight: '8px' }} />
                                                         Bulk Edit
@@ -1511,59 +1637,205 @@ const CampaignDetailPage = () => {
                             </Card>
                         </Tabs.Content>
 
+                        {/* RSVP Tab */}
+                        <Tabs.Content value="rsvp">
+                            <Card>
+                                <Flex align="center" justify="between" mb="4">
+                                    <Heading size="4">RSVP List</Heading>
+                                    <Flex gap="3" align="center">
+                                        <TextField.Root
+                                            placeholder="Search RSVPs..."
+                                            value={searchTerm}
+                                            onChange={(e) => setSearchTerm(e.target.value)}
+                                            style={{ width: '300px' }}
+                                        >
+                                            <TextField.Slot>
+                                                <MagnifyingGlassIcon />
+                                            </TextField.Slot>
+                                        </TextField.Root>
+                                        
+                                        <Button 
+                                            variant="solid"
+                                            onClick={() => setShowSendCommunicationModal(true)}
+                                        >
+                                            <EnvelopeClosedIcon />
+                                            Send Communication
+                                        </Button>
+                                    </Flex>
+                                </Flex>
+
+                                <Box style={{ overflowX: 'auto' }}>
+                                    <Table.Root style={{ minWidth: '1200px' }}>
+                                        <Table.Header>
+                                            <Table.Row>
+                                                <Table.ColumnHeaderCell style={{ position: 'sticky', left: 0, backgroundColor: 'var(--color-background)', zIndex: 1 }}>
+                                                    <Checkbox
+                                                        checked={selectedContacts.size === filteredRsvpContacts.length && filteredRsvpContacts.length > 0}
+                                                        onCheckedChange={toggleAllContacts}
+                                                    />
+                                                </Table.ColumnHeaderCell>
+                                                <Table.ColumnHeaderCell>First Name</Table.ColumnHeaderCell>
+                                                <Table.ColumnHeaderCell>Last Name</Table.ColumnHeaderCell>
+                                                <Table.ColumnHeaderCell>Email</Table.ColumnHeaderCell>
+                                                <Table.ColumnHeaderCell>Phone</Table.ColumnHeaderCell>
+                                                <Table.ColumnHeaderCell>Company</Table.ColumnHeaderCell>
+                                                <Table.ColumnHeaderCell>RSVP Date</Table.ColumnHeaderCell>
+                                                <Table.ColumnHeaderCell>RSVP Status</Table.ColumnHeaderCell>
+                                                <Table.ColumnHeaderCell>Actions</Table.ColumnHeaderCell>
+                                            </Table.Row>
+                                        </Table.Header>
+                                        <Table.Body>
+                                            {filteredRsvpContacts.map(contact => (
+                                                <Table.Row key={contact.id}>
+                                                    <Table.Cell style={{ position: 'sticky', left: 0, backgroundColor: 'var(--color-background)', zIndex: 1 }}>
+                                                        <Checkbox
+                                                            checked={selectedContacts.has(contact.id)}
+                                                            onCheckedChange={() => toggleContactSelection(contact.id)}
+                                                        />
+                                                    </Table.Cell>
+                                                    <Table.Cell>{contact.first_name || '-'}</Table.Cell>
+                                                    <Table.Cell>{contact.last_name || '-'}</Table.Cell>
+                                                    <Table.Cell>{contact.email || '-'}</Table.Cell>
+                                                    <Table.Cell>{contact.enriched_phone || contact.phone || '-'}</Table.Cell>
+                                                    <Table.Cell>{contact.enriched_company || contact.company || '-'}</Table.Cell>
+                                                    <Table.Cell>
+                                                        {contact.rsvp_date ? new Date(contact.rsvp_date).toLocaleDateString() : '-'}
+                                                    </Table.Cell>
+                                                    <Table.Cell>
+                                                        <Select.Root 
+                                                            value={contact.rsvp_status || 'none'}
+                                                            onValueChange={(value) => handleUpdateRSVPStatus(contact.id, value)}
+                                                        >
+                                                            <Select.Trigger />
+                                                            <Select.Content>
+                                                                <Select.Item value="none">-</Select.Item>
+                                                                <Select.Item value="attended">Attended</Select.Item>
+                                                                <Select.Item value="no_show">No Show</Select.Item>
+                                                                <Select.Item value="signed_agreement">Signed Agreement</Select.Item>
+                                                                <Select.Item value="cancelled">Cancelled</Select.Item>
+                                                            </Select.Content>
+                                                        </Select.Root>
+                                                    </Table.Cell>
+                                                    <Table.Cell>
+                                                        <Flex gap="2">
+                                                            {contact.personalized_email && (
+                                                                <IconButton 
+                                                                    size="1" 
+                                                                    variant="ghost"
+                                                                    onClick={() => {
+                                                                        setPreviewContact(contact);
+                                                                        setShowEmailPreview(true);
+                                                                    }}
+                                                                >
+                                                                    <EnvelopeClosedIcon />
+                                                                </IconButton>
+                                                            )}
+                                                        </Flex>
+                                                    </Table.Cell>
+                                                </Table.Row>
+                                            ))}
+                                        </Table.Body>
+                                    </Table.Root>
+                                </Box>
+                            </Card>
+                        </Tabs.Content>
+
+                        {/* Email Templates Tab */}
+                        <Tabs.Content value="email-templates">
+                            <Card>
+                                <Flex align="center" justify="between" mb="4">
+                                    <Heading size="4">Email Templates</Heading>
+                                    <Button 
+                                        variant="solid"
+                                        onClick={() => {
+                                            setEditingTemplate(null);
+                                            setTemplateForm({ name: '', subject: '', body: '', template_type: 'general' });
+                                            setShowTemplateModal(true);
+                                        }}
+                                    >
+                                        <PlusIcon />
+                                        Create Template
+                                    </Button>
+                                </Flex>
+
+                                {emailTemplates.length === 0 ? (
+                                    <Flex align="center" justify="center" style={{ padding: '4rem' }}>
+                                        <Text color="gray">No email templates yet. Create your first template!</Text>
+                                    </Flex>
+                                ) : (
+                                    <Box style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1rem' }}>
+                                        {emailTemplates.map(template => (
+                                            <Card key={template.id} style={{ padding: '1.5rem' }}>
+                                                <Flex direction="column" gap="3">
+                                                    <Flex align="center" justify="between">
+                                                        <Heading size="3">{template.name}</Heading>
+                                                        <Badge>{template.template_type}</Badge>
+                                                    </Flex>
+                                                    <Text size="2" color="gray" weight="bold">Subject:</Text>
+                                                    <Text size="2">{template.subject}</Text>
+                                                    <Text size="2" color="gray" weight="bold">Preview:</Text>
+                                                    <Text size="2" style={{ 
+                                                        whiteSpace: 'pre-wrap',
+                                                        overflow: 'hidden',
+                                                        textOverflow: 'ellipsis',
+                                                        display: '-webkit-box',
+                                                        WebkitLineClamp: 3,
+                                                        WebkitBoxOrient: 'vertical'
+                                                    }}>
+                                                        {template.body}
+                                                    </Text>
+                                                    <Flex gap="2" mt="2">
+                                                        <Button 
+                                                            size="2" 
+                                                            variant="soft"
+                                                            onClick={() => {
+                                                                setEditingTemplate(template);
+                                                                setTemplateForm({
+                                                                    name: template.name,
+                                                                    subject: template.subject,
+                                                                    body: template.body,
+                                                                    template_type: template.template_type
+                                                                });
+                                                                setShowTemplateModal(true);
+                                                            }}
+                                                        >
+                                                            <Pencil1Icon />
+                                                            Edit
+                                                        </Button>
+                                                        <Button 
+                                                            size="2" 
+                                                            variant="soft" 
+                                                            color="red"
+                                                            onClick={() => handleDeleteTemplate(template.id)}
+                                                        >
+                                                            <TrashIcon />
+                                                            Delete
+                                                        </Button>
+                                                    </Flex>
+                                                </Flex>
+                                            </Card>
+                                        ))}
+                                    </Box>
+                                )}
+                            </Card>
+                        </Tabs.Content>
+
                         {/* Generate Emails Tab */}
                         <Tabs.Content value="emails">
                             <Card>
-                                <Heading size="4" mb="4">Generate Personalized Emails</Heading>
+                                <Heading size="4" mb="4">Generate Emails</Heading>
                                 
-                                {campaign.status === 'ready_for_personalization' ? (
+                                {campaign.status !== 'draft' ? (
                                     <Flex direction="column" gap="4">
                                         <Callout.Root color="blue">
                                             <Callout.Icon>
                                                 <InfoCircledIcon />
                                             </Callout.Icon>
                                             <Callout.Text>
-                                                {campaign.enriched_contacts} contacts are ready for email personalization. 
-                                                Configure your email template below and generate personalized emails.
+                                                {campaign.total_contacts} contacts are ready for email generation. 
+                                                Configure your email template below using mail merge variables.
                                             </Callout.Text>
                                         </Callout.Root>
-
-                                        <Box>
-                                            <Flex align="center" justify="between" mb="2">
-                                                <Text as="label" size="2" weight="medium">
-                                                    Select Email Template
-                                                </Text>
-                                                <Button 
-                                                    size="1" 
-                                                    variant="ghost"
-                                                    onClick={() => navigate('/template-manager')}
-                                                >
-                                                    Manage Templates
-                                                </Button>
-                                            </Flex>
-                                            <Select.Root 
-                                                value={selectedTemplateId} 
-                                                onValueChange={handleTemplateSelect}
-                                            >
-                                                <Select.Trigger placeholder="Choose a template or start from scratch..." />
-                                                <Select.Content>
-                                                    <Select.Item value="scratch">Start from scratch</Select.Item>
-                                                    <Select.Separator />
-                                                    {availableTemplates.map(template => (
-                                                        <Select.Item key={template.id} value={template.id}>
-                                                            <Flex direction="column" gap="1" style={{ minWidth: '300px' }}>
-                                                                <Text size="2" weight="medium" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                                    {template.name}
-                                                                </Text>
-                                                                <Text size="1" color="gray" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                                    {template.goal}
-                                                                </Text>
-                                                            </Flex>
-                                                        </Select.Item>
-                                                    ))}
-                                                </Select.Content>
-                                            </Select.Root>
-                                        </Box>
                                         
                                         <Box>
                                             <Text as="label" size="2" mb="1" weight="medium">
@@ -1572,7 +1844,7 @@ const CampaignDetailPage = () => {
                                             <TextField.Root
                                                 value={emailSubject}
                                                 onChange={(e) => setEmailSubject(e.target.value)}
-                                                placeholder="Join us for an exclusive event..."
+                                                placeholder="Join us for an exclusive event, {{first_name}}!"
                                             />
                                         </Box>
                                         
@@ -1583,13 +1855,23 @@ const CampaignDetailPage = () => {
                                             <TextArea
                                                 value={emailTemplate}
                                                 onChange={(e) => setEmailTemplate(e.target.value)}
-                                                placeholder="Dear {first_name},\n\nWe're excited to invite you to our upcoming event..."
+                                                placeholder="Dear {{first_name}},
+
+We're excited to invite you to our upcoming event on {{event_date}} at {{event_time}}.
+
+{{#if event_type == 'in_person'}}
+Location: {{hotel_name}}
+Address: {{hotel_address}}
+{{else}}
+Join us virtually via: {{calendly_link}}
+{{/if}}
+
+Best regards,
+{{owner_name}}"
                                                 rows={15}
                                             />
                                             <Text size="1" color="gray" mt="1">
-                                                Available variables: {'{first_name}'}, {'{last_name}'}, {'{company}'}, {'{title}'},
-                                                {'{event_date}'}, {'{event_time}'}, {'{hotel_name}'}, {'{hotel_address}'}, {'{calendly_link}'},
-                                                {'{owner_name}'}, {'{campaign_name}'}, {'{target_cities}'}
+                                                Available variables: {`{{first_name}}, {{last_name}}, {{company}}, {{title}}, {{event_date}}, {{event_time}}, {{hotel_name}}, {{hotel_address}}, {{calendly_link}}, {{owner_name}}, {{campaign_name}}, {{target_cities}}`}
                                             </Text>
                                         </Box>
                                         
@@ -1608,57 +1890,17 @@ const CampaignDetailPage = () => {
                                                 disabled={!emailTemplate || !emailSubject}
                                             >
                                                 <EnvelopeClosedIcon />
-                                                Generate {campaign.enriched_contacts} Personalized Emails
+                                                Generate Emails for {campaign.total_contacts} Contacts
                                             </Button>
                                         </Flex>
                                     </Flex>
-                                ) : campaign.status === 'generating_emails' ? (
-                                    <Flex direction="column" align="center" justify="center" style={{ minHeight: '400px' }}>
-                                        <ReloadIcon style={{ width: '48px', height: '48px', animation: 'spin 1s linear infinite' }} />
-                                        <Text size="2" color="gray" mt="4">
-                                            This may take a few minutes. You can navigate away and come back.
-                                        </Text>
-                                    </Flex>
-                                ) : campaign.emails_generated > 0 ? (
-                                    <Box>
-                                        <Callout.Root color="green" mb="4">
-                                            <Callout.Icon>
-                                                <CheckIcon />
-                                            </Callout.Icon>
-                                            <Callout.Text>
-                                                Successfully generated {campaign.emails_generated} personalized emails. 
-                                                Review them in the Contacts tab.
-                                            </Callout.Text>
-                                        </Callout.Root>
-                                        
-                                        <Box p="4" style={{ backgroundColor: 'var(--gray-2)', borderRadius: '8px' }}>
-                                            <Text size="2" weight="medium" mb="2">Current Email Template:</Text>
-                                            <Box mb="3">
-                                                <Text size="2" color="gray">Subject:</Text>
-                                                <Text size="3">{campaign.email_subject || emailSubject}</Text>
-                                            </Box>
-                                            <Box>
-                                                <Text size="2" color="gray">Template:</Text>
-                                                <Text size="2" style={{ whiteSpace: 'pre-wrap' }}>
-                                                    {campaign.email_template || emailTemplate}
-                                                </Text>
-                                            </Box>
-                                        </Box>
-                                        
-                                        <Button 
-                                            mt="4"
-                                            onClick={() => navigate(`/campaigns/${campaignId}`)}
-                                        >
-                                            Go to Contacts Tab to Review
-                                        </Button>
-                                    </Box>
                                 ) : (
                                     <Callout.Root color="gray">
                                         <Callout.Icon>
                                             <InfoCircledIcon />
                                         </Callout.Icon>
                                         <Callout.Text>
-                                            Please complete contact enrichment before generating emails.
+                                            Please upload contacts before generating emails.
                                         </Callout.Text>
                                     </Callout.Root>
                                 )}
@@ -2276,6 +2518,163 @@ const CampaignDetailPage = () => {
                                         disabled={!bulkEditField || (!bulkEditValue && bulkEditField !== 'excluded')}
                                     >
                                         Update {selectedContacts.size} Contacts
+                                    </Button>
+                                </Flex>
+                            </Flex>
+                        </Box>
+                    </Dialog.Content>
+                </Dialog.Root>
+                
+                {/* Email Template Modal */}
+                <Dialog.Root open={showTemplateModal} onOpenChange={setShowTemplateModal}>
+                    <Dialog.Content style={{ maxWidth: 600 }}>
+                        <Dialog.Title>
+                            {editingTemplate ? 'Edit Email Template' : 'Create Email Template'}
+                        </Dialog.Title>
+                        <Box mt="4">
+                            <Flex direction="column" gap="3">
+                                <Box>
+                                    <Text as="label" size="2" mb="1" weight="medium">
+                                        Template Name
+                                    </Text>
+                                    <TextField.Root
+                                        value={templateForm.name}
+                                        onChange={(e) => setTemplateForm({ ...templateForm, name: e.target.value })}
+                                        placeholder="e.g., RSVP Confirmation"
+                                    />
+                                </Box>
+                                
+                                <Box>
+                                    <Text as="label" size="2" mb="1" weight="medium">
+                                        Template Type
+                                    </Text>
+                                    <Select.Root 
+                                        value={templateForm.template_type}
+                                        onValueChange={(value) => setTemplateForm({ ...templateForm, template_type: value })}
+                                    >
+                                        <Select.Trigger />
+                                        <Select.Content>
+                                            <Select.Item value="general">General</Select.Item>
+                                            <Select.Item value="rsvp_confirmation">RSVP Confirmation</Select.Item>
+                                            <Select.Item value="reminder">Reminder</Select.Item>
+                                            <Select.Item value="follow_up">Follow Up</Select.Item>
+                                        </Select.Content>
+                                    </Select.Root>
+                                </Box>
+                                
+                                <Box>
+                                    <Text as="label" size="2" mb="1" weight="medium">
+                                        Subject Line
+                                    </Text>
+                                    <TextField.Root
+                                        value={templateForm.subject}
+                                        onChange={(e) => setTemplateForm({ ...templateForm, subject: e.target.value })}
+                                        placeholder="e.g., Thank you for your RSVP!"
+                                    />
+                                </Box>
+                                
+                                <Box>
+                                    <Text as="label" size="2" mb="1" weight="medium">
+                                        Email Body
+                                    </Text>
+                                    <TextArea
+                                        value={templateForm.body}
+                                        onChange={(e) => setTemplateForm({ ...templateForm, body: e.target.value })}
+                                        placeholder="Dear {{first_name}},
+
+Thank you for confirming your attendance..."
+                                        rows={10}
+                                    />
+                                    <Text size="1" color="gray" mt="1">
+                                        {`Available variables: {{first_name}}, {{last_name}}, {{email}}, {{company}}, 
+                                        {{title}}, {{phone}}, {{neighborhood}}, {{state}}`}
+                                    </Text>
+                                </Box>
+                                
+                                <Flex gap="3" justify="end">
+                                    <Dialog.Close>
+                                        <Button variant="soft">Cancel</Button>
+                                    </Dialog.Close>
+                                    <Button 
+                                        onClick={editingTemplate ? handleUpdateTemplate : handleCreateTemplate}
+                                        disabled={!templateForm.name || !templateForm.subject || !templateForm.body}
+                                    >
+                                        {editingTemplate ? 'Update Template' : 'Create Template'}
+                                    </Button>
+                                </Flex>
+                            </Flex>
+                        </Box>
+                    </Dialog.Content>
+                </Dialog.Root>
+                
+                {/* Send Communication Modal */}
+                <Dialog.Root open={showSendCommunicationModal} onOpenChange={setShowSendCommunicationModal}>
+                    <Dialog.Content style={{ maxWidth: 500 }}>
+                        <Dialog.Title>Send Communication to RSVPs</Dialog.Title>
+                        <Box mt="4">
+                            <Flex direction="column" gap="3">
+                                <Box>
+                                    <Text size="2" mb="2">
+                                        Select an email template to send to {selectedContacts.size > 0 ? selectedContacts.size : 'all'} RSVP contacts
+                                    </Text>
+                                </Box>
+                                
+                                <Box>
+                                    <Text as="label" size="2" mb="1" weight="medium">
+                                        Email Template
+                                    </Text>
+                                    <Select.Root 
+                                        value={selectedRsvpTemplateId}
+                                        onValueChange={setSelectedRsvpTemplateId}
+                                    >
+                                        <Select.Trigger placeholder="Select a template..." />
+                                        <Select.Content>
+                                            {emailTemplates.map(template => (
+                                                <Select.Item key={template.id} value={template.id}>
+                                                    <Flex direction="column" gap="1">
+                                                        <Text size="2" weight="medium">{template.name}</Text>
+                                                        <Text size="1" color="gray">{template.template_type}</Text>
+                                                    </Flex>
+                                                </Select.Item>
+                                            ))}
+                                        </Select.Content>
+                                    </Select.Root>
+                                </Box>
+                                
+                                {selectedRsvpTemplateId && (
+                                    <Box style={{ 
+                                        backgroundColor: 'var(--gray-2)', 
+                                        padding: '1rem', 
+                                        borderRadius: '8px' 
+                                    }}>
+                                        <Text size="2" weight="medium" mb="2">Preview</Text>
+                                        {(() => {
+                                            const template = emailTemplates.find(t => t.id === selectedRsvpTemplateId);
+                                            if (!template) return null;
+                                            return (
+                                                <>
+                                                    <Text size="2" color="gray">Subject:</Text>
+                                                    <Text size="2" mb="2">{template.subject}</Text>
+                                                    <Text size="2" color="gray">Body:</Text>
+                                                    <Text size="2" style={{ whiteSpace: 'pre-wrap' }}>
+                                                        {template.body.substring(0, 200)}...
+                                                    </Text>
+                                                </>
+                                            );
+                                        })()}
+                                    </Box>
+                                )}
+                                
+                                <Flex gap="3" justify="end">
+                                    <Dialog.Close>
+                                        <Button variant="soft">Cancel</Button>
+                                    </Dialog.Close>
+                                    <Button 
+                                        onClick={handleSendCommunication}
+                                        disabled={!selectedRsvpTemplateId}
+                                    >
+                                        <EnvelopeClosedIcon />
+                                        Send Email
                                     </Button>
                                 </Flex>
                             </Flex>

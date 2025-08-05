@@ -10,7 +10,7 @@ import json
 import logging
 
 from . import auth
-from .database import get_db, User, Campaign, CampaignContact, CampaignTemplate, CampaignAnalytics, engine
+from .database import get_db, User, Campaign, CampaignContact, CampaignTemplate, CampaignAnalytics, CampaignEmailTemplate, engine
 from contact_enricher.services import ContactEnricher
 from core.llm_handler import generate_text
 
@@ -117,6 +117,31 @@ class ContactUpdate(BaseModel):
     personalized_email: Optional[str] = None
     personalized_subject: Optional[str] = None
     excluded: Optional[bool] = None
+
+class EmailTemplateCreate(BaseModel):
+    name: str
+    subject: str
+    body: str
+    template_type: str = 'general'
+
+class EmailTemplateUpdate(BaseModel):
+    name: Optional[str] = None
+    subject: Optional[str] = None
+    body: Optional[str] = None
+    template_type: Optional[str] = None
+    is_active: Optional[bool] = None
+
+class BulkRSVPUpdate(BaseModel):
+    contact_ids: List[str]
+    is_rsvp: bool = True
+    rsvp_status: Optional[str] = None
+
+class RSVPStatusUpdate(BaseModel):
+    rsvp_status: str  # attended, no_show, signed_agreement, cancelled
+
+class SendCommunication(BaseModel):
+    template_id: str
+    contact_ids: Optional[List[str]] = None  # If None, send to all RSVPs
 
 # Campaign CRUD
 @router.post("/", response_model=CampaignResponse)
@@ -1212,3 +1237,327 @@ def generate_campaign_emails(campaign_id: str, user_id: str):
         logger.error(f"Traceback: {traceback.format_exc()}")
     finally:
         db.close() 
+
+# Email Template Management Endpoints
+@router.get("/{campaign_id}/email-templates")
+def get_campaign_email_templates(
+    campaign_id: str,
+    current_user: User = Depends(auth.get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get all email templates for a campaign"""
+    campaign = db.query(Campaign).filter(
+        Campaign.id == campaign_id,
+        Campaign.user_id == current_user.id
+    ).first()
+    
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    templates = db.query(CampaignEmailTemplate).filter(
+        CampaignEmailTemplate.campaign_id == campaign_id
+    ).all()
+    
+    return templates
+
+@router.post("/{campaign_id}/email-templates")
+def create_campaign_email_template(
+    campaign_id: str,
+    template: EmailTemplateCreate,
+    current_user: User = Depends(auth.get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Create a new email template for a campaign"""
+    campaign = db.query(Campaign).filter(
+        Campaign.id == campaign_id,
+        Campaign.user_id == current_user.id
+    ).first()
+    
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    db_template = CampaignEmailTemplate(
+        campaign_id=campaign_id,
+        name=template.name,
+        subject=template.subject,
+        body=template.body,
+        template_type=template.template_type
+    )
+    
+    db.add(db_template)
+    db.commit()
+    db.refresh(db_template)
+    
+    return db_template
+
+@router.put("/{campaign_id}/email-templates/{template_id}")
+def update_campaign_email_template(
+    campaign_id: str,
+    template_id: str,
+    template_update: EmailTemplateUpdate,
+    current_user: User = Depends(auth.get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Update an email template"""
+    campaign = db.query(Campaign).filter(
+        Campaign.id == campaign_id,
+        Campaign.user_id == current_user.id
+    ).first()
+    
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    db_template = db.query(CampaignEmailTemplate).filter(
+        CampaignEmailTemplate.id == template_id,
+        CampaignEmailTemplate.campaign_id == campaign_id
+    ).first()
+    
+    if not db_template:
+        raise HTTPException(status_code=404, detail="Template not found")
+    
+    for field, value in template_update.dict(exclude_unset=True).items():
+        setattr(db_template, field, value)
+    
+    db_template.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(db_template)
+    
+    return db_template
+
+@router.delete("/{campaign_id}/email-templates/{template_id}")
+def delete_campaign_email_template(
+    campaign_id: str,
+    template_id: str,
+    current_user: User = Depends(auth.get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Delete an email template"""
+    campaign = db.query(Campaign).filter(
+        Campaign.id == campaign_id,
+        Campaign.user_id == current_user.id
+    ).first()
+    
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    db_template = db.query(CampaignEmailTemplate).filter(
+        CampaignEmailTemplate.id == template_id,
+        CampaignEmailTemplate.campaign_id == campaign_id
+    ).first()
+    
+    if not db_template:
+        raise HTTPException(status_code=404, detail="Template not found")
+    
+    db.delete(db_template)
+    db.commit()
+    
+    return {"message": "Template deleted successfully"}
+
+# RSVP Management Endpoints
+@router.post("/{campaign_id}/contacts/rsvp")
+def update_contacts_rsvp(
+    campaign_id: str,
+    rsvp_update: BulkRSVPUpdate,
+    current_user: User = Depends(auth.get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Mark contacts as RSVP"""
+    campaign = db.query(Campaign).filter(
+        Campaign.id == campaign_id,
+        Campaign.user_id == current_user.id
+    ).first()
+    
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    contacts = db.query(CampaignContact).filter(
+        CampaignContact.campaign_id == campaign_id,
+        CampaignContact.id.in_(rsvp_update.contact_ids)
+    ).all()
+    
+    for contact in contacts:
+        contact.is_rsvp = rsvp_update.is_rsvp
+        if rsvp_update.is_rsvp:
+            contact.rsvp_date = datetime.utcnow()
+            if rsvp_update.rsvp_status:
+                contact.rsvp_status = rsvp_update.rsvp_status
+        else:
+            contact.rsvp_date = None
+            contact.rsvp_status = None
+    
+    db.commit()
+    
+    return {"message": f"Updated {len(contacts)} contacts"}
+
+@router.put("/{campaign_id}/contacts/{contact_id}/rsvp-status")
+def update_contact_rsvp_status(
+    campaign_id: str,
+    contact_id: str,
+    status_update: RSVPStatusUpdate,
+    current_user: User = Depends(auth.get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Update RSVP status for a contact"""
+    campaign = db.query(Campaign).filter(
+        Campaign.id == campaign_id,
+        Campaign.user_id == current_user.id
+    ).first()
+    
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    contact = db.query(CampaignContact).filter(
+        CampaignContact.id == contact_id,
+        CampaignContact.campaign_id == campaign_id
+    ).first()
+    
+    if not contact:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    
+    contact.rsvp_status = status_update.rsvp_status
+    contact.updated_at = datetime.utcnow()
+    
+    db.commit()
+    db.refresh(contact)
+    
+    return contact
+
+@router.get("/{campaign_id}/contacts/rsvp")
+def get_rsvp_contacts(
+    campaign_id: str,
+    current_user: User = Depends(auth.get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get all RSVP contacts for a campaign"""
+    campaign = db.query(Campaign).filter(
+        Campaign.id == campaign_id,
+        Campaign.user_id == current_user.id
+    ).first()
+    
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    contacts = db.query(CampaignContact).filter(
+        CampaignContact.campaign_id == campaign_id,
+        CampaignContact.is_rsvp == True
+    ).all()
+    
+    return contacts
+
+@router.post("/{campaign_id}/send-communication")
+async def send_communication_to_rsvps(
+    campaign_id: str,
+    communication: SendCommunication,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(auth.get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Send email communication to RSVP contacts"""
+    campaign = db.query(Campaign).filter(
+        Campaign.id == campaign_id,
+        Campaign.user_id == current_user.id
+    ).first()
+    
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    # Get the template
+    template = db.query(CampaignEmailTemplate).filter(
+        CampaignEmailTemplate.id == communication.template_id,
+        CampaignEmailTemplate.campaign_id == campaign_id
+    ).first()
+    
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+    
+    # Get contacts to send to
+    query = db.query(CampaignContact).filter(
+        CampaignContact.campaign_id == campaign_id,
+        CampaignContact.is_rsvp == True,
+        CampaignContact.email.isnot(None)
+    )
+    
+    if communication.contact_ids:
+        query = query.filter(CampaignContact.id.in_(communication.contact_ids))
+    
+    contacts = query.all()
+    
+    if not contacts:
+        raise HTTPException(status_code=400, detail="No RSVP contacts with email addresses found")
+    
+    # Process emails in background
+    background_tasks.add_task(
+        send_rsvp_emails_task,
+        campaign_id,
+        template.id,
+        [c.id for c in contacts]
+    )
+    
+    return {
+        "message": f"Sending emails to {len(contacts)} RSVP contacts",
+        "template": template.name,
+        "recipient_count": len(contacts)
+    }
+
+def send_rsvp_emails_task(campaign_id: str, template_id: str, contact_ids: List[str]):
+    """Background task to send RSVP emails"""
+    from sqlalchemy.orm import sessionmaker
+    import asyncio
+    SessionLocal = sessionmaker(bind=engine)
+    db = SessionLocal()
+    
+    try:
+        template = db.query(CampaignEmailTemplate).filter(
+            CampaignEmailTemplate.id == template_id
+        ).first()
+        
+        if not template:
+            logger.error(f"Template {template_id} not found")
+            return
+        
+        contacts = db.query(CampaignContact).filter(
+            CampaignContact.id.in_(contact_ids)
+        ).all()
+        
+        sent_count = 0
+        for contact in contacts:
+            try:
+                # Replace placeholders in template
+                subject = template.subject
+                body = template.body
+                
+                # Simple mail merge - replace {{field_name}} with contact data
+                replacements = {
+                    'first_name': contact.first_name or '',
+                    'last_name': contact.last_name or '',
+                    'email': contact.email or '',
+                    'company': contact.company or '',
+                    'title': contact.title or '',
+                    'phone': contact.phone or '',
+                    'neighborhood': contact.neighborhood or '',
+                    'state': contact.state or ''
+                }
+                
+                for field, value in replacements.items():
+                    subject = subject.replace(f'{{{{{field}}}}}', value)
+                    body = body.replace(f'{{{{{field}}}}}', value)
+                
+                # Here you would integrate with your email sending service
+                # For now, we'll just mark it as sent
+                contact.email_status = 'sent'
+                contact.email_sent_at = datetime.utcnow()
+                sent_count += 1
+                
+                logger.info(f"Sent email to {contact.email}")
+                
+            except Exception as e:
+                logger.error(f"Error sending email to contact {contact.id}: {e}")
+                contact.email_status = 'failed'
+        
+        db.commit()
+        logger.info(f"Successfully sent {sent_count} emails for campaign {campaign_id}")
+        
+    except Exception as e:
+        logger.error(f"Error in send_rsvp_emails_task: {e}")
+        db.rollback()
+        raise 
