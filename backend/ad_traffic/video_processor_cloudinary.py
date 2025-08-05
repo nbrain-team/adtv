@@ -261,17 +261,31 @@ This is frame from timestamp {frame_time:.1f}s of a video titled "{campaign.name
             # Vary the caption style based on clip index
             caption_styles = [
                 "storytelling", "question-based", "inspirational", 
-                "behind-the-scenes", "educational", "call-to-action focused"
+                "behind-the-scenes", "educational", "call-to-action focused",
+                "testimonial", "announcement", "tips and tricks"
             ]
             style = caption_styles[i % len(caption_styles)]
             
-            prompt = f"""Generate an engaging social media caption for this video clip using a {style} approach.
+            # Add more variation with tone and perspective
+            tones = ["enthusiastic", "professional", "casual", "urgent", "friendly", "informative"]
+            tone = tones[(i + 1) % len(tones)]
+            
+            # Vary the focus of the caption
+            focus_areas = [
+                "the main benefit", "a unique feature", "the story behind it",
+                "why this matters", "what makes this special", "the impact",
+                "the process", "the results", "the experience"
+            ]
+            focus = focus_areas[(i + 2) % len(focus_areas)]
+            
+            prompt = f"""Generate an engaging social media caption for this video clip using a {style} approach with a {tone} tone.
 
 Campaign: {campaign.name}
 Client: {campaign.client_id}
 Platforms: {', '.join(platforms)}
 Clip: {i+1} of {len(clips)}
 Duration: {db_clip.duration:.0f} seconds
+Focus on: {focus}
 
 Style Guide for {style}:
 - Storytelling: Start with a compelling hook, share a brief story or moment
@@ -280,20 +294,20 @@ Style Guide for {style}:
 - Behind-the-scenes: Give insider perspective, use casual tone
 - Educational: Share a tip, fact, or insight that provides value
 - Call-to-action focused: Direct viewers to take specific action
+- Testimonial: Share customer success or satisfaction
+- Announcement: Create excitement about news or updates
+- Tips and tricks: Provide actionable advice
 
 Create a caption that:
-- Uses the {style} approach
-- Includes 2-3 relevant emojis
+- Uses the {style} approach with {tone} tone
+- Focuses on {focus}
+- Includes 2-3 relevant emojis (vary the emojis used)
 - Has natural, conversational language
-- Ends with 5-7 hashtags
+- Ends with 5-7 hashtags (vary hashtags between posts)
 - Stays under 280 characters
+- Is distinctly different from other captions
 
-Examples of great captions:
-🎬 Ever wonder what goes into creating the perfect shot? Here's a sneak peek behind the lens! 👀✨ #BehindTheScenes #VideoProduction #ContentCreation #CreativeProcess #FilmMaking
-
-What's your biggest challenge when creating content? 🤔 Drop a comment below - we'd love to help! 💡 #ContentStrategy #CreatorCommunity #VideoMarketing #SocialMediaTips #AskUsAnything
-
-The best stories aren't scripted - they're discovered. 🎯 Watch how we captured this authentic moment... #Storytelling #AuthenticContent #VideoMarketing #RealMoments #ContentCreators
+Make sure this caption is unique and doesn't repeat phrases from previous clips.
 
 Caption:"""
         else:
@@ -534,12 +548,25 @@ async def process_campaign_with_multiple_videos(
                         if ig_mobile and isinstance(ig_mobile, dict):
                             video_url = ig_mobile.get("url", clip.video_url)
                     
+                    # Generate platform-specific caption
+                    platform_caption = clip.suggested_caption
+                    if platform_lower == "facebook":
+                        # Facebook allows longer captions, add more context
+                        platform_caption = f"📹 {platform_caption}\n\n👉 Watch the full video and let us know what you think!"
+                    elif platform_lower == "instagram":
+                        # Instagram - make it more visual and emoji-heavy
+                        platform_caption = platform_caption.replace("🎬", "✨").replace("🔥", "💫")
+                        # Add Instagram-specific CTA
+                        if "#" in platform_caption:
+                            hashtag_start = platform_caption.find("#")
+                            platform_caption = platform_caption[:hashtag_start].strip() + "\n\n💬 Comment below!\n\n" + platform_caption[hashtag_start:]
+                    
                     post = models.SocialPost(
                         id=str(uuid.uuid4()),
                         client_id=client_id,
                         campaign_id=campaign.id,
                         video_clip_id=clip.id,
-                        content=clip.suggested_caption,
+                        content=platform_caption,
                         platforms=[platform],  # Single platform per post
                         scheduled_time=current_date,
                         status=models.PostStatus.SCHEDULED,
