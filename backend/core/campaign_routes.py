@@ -1159,147 +1159,20 @@ def enrich_campaign_contacts(campaign_id: str, user_id: str):
         logger.info(f"Found {len(contacts)} contacts to enrich for campaign {campaign_id}")
         
         enricher = ContactEnricher()
-        enriched_count = 0
-        failed_count = 0
         
         # Create event loop for async operations
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         
-        for i, contact in enumerate(contacts):
-            try:
-                # Check if campaign still exists every 10 contacts
-                if i % 10 == 0:
-                    campaign_check = db.query(Campaign).filter(Campaign.id == campaign_id).first()
-                    if not campaign_check:
-                        logger.warning(f"Campaign {campaign_id} no longer exists, stopping enrichment")
-                        break
-                
-                # Check if this contact has been cancelled
-                db.refresh(contact)
-                if contact.enrichment_status == 'cancelled':
-                    logger.info(f"Contact {contact.id} cancelled, skipping")
-                    continue
-                
-                logger.info(f"Enriching contact {i+1}/{len(contacts)}: {contact.first_name} {contact.last_name} at {contact.company}")
-                contact.enrichment_status = 'processing'
-                db.commit()
-                
-                # Enrich contact using the exact same format as contact enricher
-                state = contact.state or 'Alabama'  # Use stored state or default to Alabama for this campaign
-                
-                # Prepare data in the exact format expected by ContactEnricher
-                contact_data = {
-                    'Name': f"{contact.first_name} {contact.last_name}".strip(),
-                    'Company': contact.company or '',
-                    'Email': contact.email or '',
-                    'Phone': contact.phone or '',
-                    'City': contact.neighborhood or '',  # Use neighborhood as city for location-based searches
-                    'State': state
-                }
-                
-                logger.info(f"Enriching with data: {contact_data}")
-                
-                enriched_data = loop.run_until_complete(enricher.enrich_contact(contact_data))
-                
-                # Extract enrichment results using the same logic as contact enricher
-                if enriched_data and 'enrichment_results' in enriched_data:
-                    results = enriched_data['enrichment_results']
-                    
-                    # Process Google SERP results
-                    if 'google' in results:
-                        google_data = results['google']
-                        
-                        # Extract best email
-                        best_email = None
-                        best_email_confidence = 0
-                        for email_data in google_data.get('emails', []):
-                            if email_data['confidence'] > best_email_confidence:
-                                best_email = email_data['email']
-                                best_email_confidence = email_data['confidence']
-                        
-                        if best_email and not contact.email:  # Only update if no original email
-                            contact.email = best_email
-                        
-                        # Extract best phone
-                        best_phone = None
-                        best_phone_confidence = 0
-                        for phone_data in google_data.get('phones', []):
-                            if phone_data.get('confidence', 0) > best_phone_confidence:
-                                best_phone = phone_data['phone']
-                                best_phone_confidence = phone_data.get('confidence', 0)
-                        
-                        if best_phone:
-                            contact.enriched_phone = best_phone
-                        
-                        # Extract LinkedIn from sources
-                        for source in google_data.get('sources', []):
-                            if 'linkedin.com' in source.lower():
-                                contact.enriched_linkedin = source
-                                break
-                    
-                    # Process website scraping results
-                    if 'website' in results:
-                        website_data = results['website']
-                        
-                        # Website emails take priority
-                        website_emails = website_data.get('emails', [])
-                        if website_emails and not contact.email:
-                            contact.email = website_emails[0]
-                        
-                        # Website phones
-                        website_phones = website_data.get('phones', [])
-                        if website_phones and not contact.enriched_phone:
-                            contact.enriched_phone = website_phones[0]
-                        
-                        # Company info
-                        contact.enriched_company = website_data.get('company_name') or contact.company
-                        contact.enriched_location = website_data.get('location') or contact.enriched_location
-                        contact.enriched_industry = website_data.get('industry')
-                        contact.enriched_website = website_data.get('website')
-                    
-                    # Process Facebook results if available
-                    if 'facebook' in results:
-                        facebook_data = results['facebook']
-                        fb_emails = facebook_data.get('emails', [])
-                        if fb_emails and not contact.email:
-                            contact.email = fb_emails[0]
-                        
-                        fb_phones = facebook_data.get('phones', [])
-                        if fb_phones and not contact.enriched_phone:
-                            contact.enriched_phone = fb_phones[0]
-                    
-                    # Use original values as fallback
-                    contact.enriched_company = contact.enriched_company or contact.company
-                    contact.enriched_title = contact.enriched_title or contact.title
-                    
-                    contact.enrichment_status = 'success'
-                    enriched_count += 1
-                    logger.info(f"Successfully enriched contact {i+1}/{len(contacts)}")
-                else:
-                    contact.enrichment_status = 'failed'
-                    contact.enrichment_error = 'No enrichment data found'
-                    failed_count += 1
-                    logger.warning(f"No enrichment data found for contact {i+1}/{len(contacts)}")
-                    
-            except Exception as e:
-                contact.enrichment_status = 'failed'
-                contact.enrichment_error = str(e)
-                failed_count += 1
-                logger.error(f"Error enriching contact {i+1}/{len(contacts)}: {str(e)}")
-            
-            contact.updated_at = datetime.utcnow()
-            db.commit()
-            
-            # Update campaign stats periodically
-            if (i + 1) % 10 == 0:
-                campaign.enriched_contacts = enriched_count
-                campaign.failed_enrichments = failed_count
-                db.commit()
-                logger.info(f"Progress: {i+1}/{len(contacts)} contacts processed")
-        
-        # Close the event loop
-        loop.close()
+        # Run the async enrichment
+        try:
+            enriched_count, failed_count = loop.run_until_complete(
+                enrich_contacts_concurrently(
+                    contacts, campaign_id, enricher, db, SessionLocal
+                )
+            )
+        finally:
+            loop.close()
         
         # Update campaign stats
         campaign.enriched_contacts = enriched_count
@@ -1346,6 +1219,187 @@ def enrich_campaign_contacts(campaign_id: str, user_id: str):
         print(f"Error enriching contacts: {e}")
     finally:
         db.close()
+
+async def enrich_contacts_concurrently(contacts, campaign_id, enricher, db, SessionLocal):
+    """
+    Enrich multiple contacts concurrently with rate limiting.
+    Process up to 10 contacts at once for optimal performance.
+    """
+    import asyncio
+    
+    # Limit concurrent requests to avoid API rate limits while maximizing speed
+    # Increased from sequential (1) to 10 concurrent for ~10x speed improvement
+    MAX_CONCURRENT = 10  # Process 10 contacts at once
+    semaphore = asyncio.Semaphore(MAX_CONCURRENT)
+    
+    enriched_count = 0
+    failed_count = 0
+    total_contacts = len(contacts)
+    
+    async def process_single_contact(contact, index):
+        """Process a single contact with rate limiting"""
+        async with semaphore:
+            # Use a separate session for each contact to avoid conflicts
+            contact_db = SessionLocal()
+            try:
+                # Get fresh contact from database
+                fresh_contact = contact_db.query(CampaignContact).filter(
+                    CampaignContact.id == contact.id
+                ).first()
+                
+                if not fresh_contact:
+                    logger.error(f"Contact {contact.id} not found")
+                    return 0, 1
+                
+                # Check if campaign still exists (only check every 20 contacts)
+                if index % 20 == 0:
+                    campaign_check = contact_db.query(Campaign).filter(
+                        Campaign.id == campaign_id
+                    ).first()
+                    if not campaign_check:
+                        logger.warning(f"Campaign {campaign_id} no longer exists, stopping enrichment")
+                        return 0, 0
+                
+                # Check if this contact has been cancelled
+                if fresh_contact.enrichment_status == 'cancelled':
+                    logger.info(f"Contact {fresh_contact.id} cancelled, skipping")
+                    return 0, 0
+                
+                logger.info(f"Enriching contact {index+1}/{total_contacts}: {fresh_contact.first_name} {fresh_contact.last_name} at {fresh_contact.company}")
+                fresh_contact.enrichment_status = 'processing'
+                contact_db.commit()
+                
+                # Prepare data for enrichment
+                state = fresh_contact.state or 'Alabama'
+                contact_data = {
+                    'Name': f"{fresh_contact.first_name} {fresh_contact.last_name}".strip(),
+                    'Company': fresh_contact.company or '',
+                    'Email': fresh_contact.email or '',
+                    'Phone': fresh_contact.phone or '',
+                    'City': fresh_contact.neighborhood or '',
+                    'State': state
+                }
+                
+                # Enrich contact
+                enriched_data = await enricher.enrich_contact(contact_data)
+                
+                # Process enrichment results
+                success = False
+                if enriched_data and 'enrichment_results' in enriched_data:
+                    results = enriched_data['enrichment_results']
+                    
+                    # Process Google SERP results
+                    if 'google' in results:
+                        google_data = results['google']
+                        
+                        # Extract best email
+                        best_email = None
+                        best_email_confidence = 0
+                        for email_data in google_data.get('emails', []):
+                            if email_data['confidence'] > best_email_confidence:
+                                best_email = email_data['email']
+                                best_email_confidence = email_data['confidence']
+                        
+                        if best_email and not fresh_contact.email:
+                            fresh_contact.email = best_email
+                        
+                        # Extract best phone
+                        best_phone = None
+                        best_phone_confidence = 0
+                        for phone_data in google_data.get('phones', []):
+                            if phone_data.get('confidence', 0) > best_phone_confidence:
+                                best_phone = phone_data['phone']
+                                best_phone_confidence = phone_data.get('confidence', 0)
+                        
+                        if best_phone:
+                            fresh_contact.enriched_phone = best_phone
+                        
+                        # Extract LinkedIn
+                        for source in google_data.get('sources', []):
+                            if 'linkedin.com' in source.lower():
+                                fresh_contact.enriched_linkedin = source
+                                break
+                    
+                    # Process website scraping results
+                    if 'website' in results:
+                        website_data = results['website']
+                        
+                        website_emails = website_data.get('emails', [])
+                        if website_emails and not fresh_contact.email:
+                            fresh_contact.email = website_emails[0]
+                        
+                        website_phones = website_data.get('phones', [])
+                        if website_phones and not fresh_contact.enriched_phone:
+                            fresh_contact.enriched_phone = website_phones[0]
+                        
+                        fresh_contact.enriched_company = website_data.get('company_name') or fresh_contact.company
+                        fresh_contact.enriched_location = website_data.get('location') or fresh_contact.enriched_location
+                        fresh_contact.enriched_industry = website_data.get('industry')
+                        fresh_contact.enriched_website = website_data.get('website')
+                    
+                    # Process Facebook results
+                    if 'facebook' in results:
+                        facebook_data = results['facebook']
+                        fb_emails = facebook_data.get('emails', [])
+                        if fb_emails and not fresh_contact.email:
+                            fresh_contact.email = fb_emails[0]
+                        
+                        fb_phones = facebook_data.get('phones', [])
+                        if fb_phones and not fresh_contact.enriched_phone:
+                            fresh_contact.enriched_phone = fb_phones[0]
+                    
+                    # Use original values as fallback
+                    fresh_contact.enriched_company = fresh_contact.enriched_company or fresh_contact.company
+                    fresh_contact.enriched_title = fresh_contact.enriched_title or fresh_contact.title
+                    
+                    fresh_contact.enrichment_status = 'success'
+                    success = True
+                    logger.info(f"Successfully enriched contact {index+1}/{total_contacts}")
+                else:
+                    fresh_contact.enrichment_status = 'failed'
+                    fresh_contact.enrichment_error = 'No enrichment data found'
+                    logger.warning(f"No enrichment data found for contact {index+1}/{total_contacts}")
+                
+                fresh_contact.updated_at = datetime.utcnow()
+                contact_db.commit()
+                
+                return (1 if success else 0), (0 if success else 1)
+                
+            except Exception as e:
+                logger.error(f"Error enriching contact {index+1}/{total_contacts}: {str(e)}")
+                try:
+                    fresh_contact = contact_db.query(CampaignContact).filter(
+                        CampaignContact.id == contact.id
+                    ).first()
+                    if fresh_contact:
+                        fresh_contact.enrichment_status = 'failed'
+                        fresh_contact.enrichment_error = str(e)
+                        fresh_contact.updated_at = datetime.utcnow()
+                        contact_db.commit()
+                except Exception as db_error:
+                    logger.error(f"Failed to update contact status: {db_error}")
+                return 0, 1
+            finally:
+                contact_db.close()
+    
+    # Process all contacts concurrently
+    tasks = [process_single_contact(contact, i) for i, contact in enumerate(contacts)]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    
+    # Count successes and failures
+    for result in results:
+        if isinstance(result, tuple):
+            enriched_count += result[0]
+            failed_count += result[1]
+        else:
+            # Exception occurred
+            failed_count += 1
+            logger.error(f"Task exception: {result}")
+    
+    # Log progress updates
+    logger.info(f"Enrichment complete: {enriched_count} successful, {failed_count} failed out of {total_contacts} total")
+    
+    return enriched_count, failed_count
 
 def generate_campaign_emails(campaign_id: str, user_id: str):
     """Background task to generate personalized emails"""
