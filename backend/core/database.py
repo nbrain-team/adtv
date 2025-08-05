@@ -11,7 +11,17 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     raise ValueError("No DATABASE_URL found in environment. Please set it.")
 
-engine = create_engine(DATABASE_URL)
+# Increase pool size to support concurrent enrichment operations
+# pool_size: number of permanent connections (increased from default 5 to 20)
+# max_overflow: additional connections that can be created (increased from default 10 to 30)
+# This allows up to 50 total connections for high concurrency operations
+engine = create_engine(
+    DATABASE_URL,
+    pool_size=20,
+    max_overflow=30,
+    pool_pre_ping=True,  # Verify connections are alive before using
+    pool_recycle=3600,   # Recycle connections after 1 hour
+)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 

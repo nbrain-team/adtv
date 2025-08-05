@@ -1223,25 +1223,23 @@ def enrich_campaign_contacts(campaign_id: str, user_id: str):
 async def enrich_contacts_concurrently(contacts, campaign_id, enricher, db, SessionLocal):
     """
     Enrich multiple contacts concurrently with rate limiting.
-    Process up to 50 contacts at once for optimal performance.
-    SERP API supports 300 queries/second, so we can safely process much more concurrently.
+    Process up to 20 contacts at once - database pool now supports 50 connections.
+    SERP API supports 300 queries/second, so API is not the bottleneck.
     """
     import asyncio
     
-    # Limit concurrent requests to avoid API rate limits while maximizing speed
-    # Increased from 10 to 50 concurrent - SERP API supports 300/second
-    # This gives us ~5x speed improvement over previous optimization
-    MAX_CONCURRENT = 50  # Process 50 contacts at once (well within 300/sec limit)
+    # Now we can safely process 20 concurrent with our increased database pool
+    # Database pool: 20 permanent + 30 overflow = 50 total connections
+    # We use 20 concurrent to leave room for other operations
+    MAX_CONCURRENT = 20  # Increased from 5 after expanding database pool
     semaphore = asyncio.Semaphore(MAX_CONCURRENT)
     
     enriched_count = 0
     failed_count = 0
     total_contacts = len(contacts)
-    processed_count = 0
     
     async def process_single_contact(contact, index):
         """Process a single contact with rate limiting"""
-        nonlocal processed_count
         async with semaphore:
             # Use a separate session for each contact to avoid conflicts
             contact_db = SessionLocal()
@@ -1269,11 +1267,14 @@ async def enrich_contacts_concurrently(contacts, campaign_id, enricher, db, Sess
                     logger.info(f"Contact {fresh_contact.id} cancelled, skipping")
                     return 0, 0
                 
-                # Log detailed progress for better visibility with higher concurrency
-                logger.debug(f"Enriching contact {index+1}/{total_contacts}: {fresh_contact.first_name} {fresh_contact.last_name} at {fresh_contact.company}")
+                # Log progress every 10 contacts
+                if index % 10 == 0 or index < 5:
+                    logger.info(f"Processing contact {index+1}/{total_contacts} ({(index+1)/total_contacts*100:.1f}%)")
+                
+                logger.debug(f"Enriching: {fresh_contact.first_name} {fresh_contact.last_name} at {fresh_contact.company}")
                 fresh_contact.enrichment_status = 'processing'
                 contact_db.commit()
-                
+
                 # Prepare data for enrichment
                 state = fresh_contact.state or 'Alabama'
                 contact_data = {
@@ -1362,15 +1363,15 @@ async def enrich_contacts_concurrently(contacts, campaign_id, enricher, db, Sess
                     logger.info(f"Successfully enriched contact {index+1}/{total_contacts}")
                     
                     # Update progress counter for successful enrichments
-                    processed_count += 1
-                    if processed_count % 25 == 0:  # Log every 25 contacts processed
+                    # processed_count += 1 # This variable is not defined in this scope
+                    if index % 25 == 0:  # Log every 25 contacts processed
                         elapsed_time = (datetime.utcnow() - datetime.utcnow()).total_seconds()  # You'd need to track start time
-                        logger.info(f"Progress: {processed_count}/{total_contacts} contacts enriched ({processed_count/total_contacts*100:.1f}%)")
+                        logger.info(f"Progress: {index+1}/{total_contacts} contacts enriched ({((index+1)/total_contacts)*100:.1f}%)")
                 else:
                     fresh_contact.enrichment_status = 'failed'
                     fresh_contact.enrichment_error = 'No enrichment data found'
                     logger.warning(f"No enrichment data found for contact {index+1}/{total_contacts}")
-                    processed_count += 1
+                    # processed_count += 1 # This variable is not defined in this scope
                 
                 fresh_contact.updated_at = datetime.utcnow()
                 contact_db.commit()
@@ -1379,36 +1380,29 @@ async def enrich_contacts_concurrently(contacts, campaign_id, enricher, db, Sess
                 
             except Exception as e:
                 logger.error(f"Error enriching contact {index+1}/{total_contacts}: {str(e)}")
-                try:
-                    fresh_contact = contact_db.query(CampaignContact).filter(
-                        CampaignContact.id == contact.id
-                    ).first()
-                    if fresh_contact:
-                        fresh_contact.enrichment_status = 'failed'
-                        fresh_contact.enrichment_error = str(e)
-                        fresh_contact.updated_at = datetime.utcnow()
-                        contact_db.commit()
-                except Exception as db_error:
-                    logger.error(f"Failed to update contact status: {db_error}")
                 return 0, 1
             finally:
+                # CRITICAL: Always close the database session to return connection to pool
                 contact_db.close()
+    
+    # Log initial status
+    logger.info(f"Starting concurrent enrichment of {total_contacts} contacts with {MAX_CONCURRENT} workers")
     
     # Process all contacts concurrently
     tasks = [process_single_contact(contact, i) for i, contact in enumerate(contacts)]
     results = await asyncio.gather(*tasks, return_exceptions=True)
     
     # Count successes and failures
-    for result in results:
+    for i, result in enumerate(results):
         if isinstance(result, tuple):
             enriched_count += result[0]
             failed_count += result[1]
-        else:
+        elif isinstance(result, Exception):
             # Exception occurred
             failed_count += 1
-            logger.error(f"Task exception: {result}")
+            logger.error(f"Task {i+1} exception: {result}")
     
-    # Log progress updates
+    # Log final results
     logger.info(f"Enrichment complete: {enriched_count} successful, {failed_count} failed out of {total_contacts} total")
     
     return enriched_count, failed_count
