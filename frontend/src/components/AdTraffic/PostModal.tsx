@@ -198,9 +198,10 @@ export const PostModal: React.FC<PostModalProps> = ({
             />
           </Box>
 
-          {post?.video_clip && (
+          {/* Video Preview Section */}
+          {((formData.media_urls && formData.media_urls.length > 0) || post?.video_clip) && (
             <Box>
-              <Text size="2" weight="medium">Attached Video Clip</Text>
+              <Text size="2" weight="medium">Video Preview</Text>
               <Box style={{ 
                 backgroundColor: 'var(--gray-2)', 
                 borderRadius: '8px',
@@ -220,35 +221,42 @@ export const PostModal: React.FC<PostModalProps> = ({
                       backgroundColor: 'black'
                     }}
                   >
-                    <source src={post.video_clip.video_url} type="video/mp4" />
+                    <source 
+                      src={formData.media_urls?.[0] || post?.video_clip?.video_url} 
+                      type="video/mp4" 
+                    />
                     Your browser does not support the video tag.
                   </video>
                 </Box>
                 
-                {/* Video Info */}
-                <Box style={{ padding: '1rem' }}>
-                  <Flex justify="between" align="start">
-                    <Box>
-                      <Text size="3" weight="medium">{post.video_clip.title}</Text>
-                      <Text size="2" color="gray" style={{ marginTop: '0.25rem' }}>
-                        {post.video_clip.description}
-                      </Text>
-                    </Box>
-                    <Badge variant="soft">
-                      {Math.round(post.video_clip.duration)}s
-                    </Badge>
-                  </Flex>
-                  
-                  {post.video_clip.suggested_hashtags && post.video_clip.suggested_hashtags.length > 0 && (
-                    <Flex gap="2" wrap="wrap" style={{ marginTop: '1rem' }}>
-                      {post.video_clip.suggested_hashtags.map((tag, index) => (
-                        <Badge key={index} variant="outline" size="1">
-                          {tag}
-                        </Badge>
-                      ))}
+                {/* Video Info - only show if there's a video_clip with metadata */}
+                {post?.video_clip && (
+                  <Box style={{ padding: '1rem' }}>
+                    <Flex justify="between" align="start">
+                      <Box>
+                        <Text size="3" weight="medium">{post.video_clip.title}</Text>
+                        {post.video_clip.description && (
+                          <Text size="2" color="gray" style={{ marginTop: '0.25rem' }}>
+                            {post.video_clip.description}
+                          </Text>
+                        )}
+                      </Box>
+                      <Badge variant="soft">
+                        {Math.round(post.video_clip.duration)}s
+                      </Badge>
                     </Flex>
-                  )}
-                </Box>
+                    
+                    {post.video_clip.suggested_hashtags && post.video_clip.suggested_hashtags.length > 0 && (
+                      <Flex gap="2" wrap="wrap" style={{ marginTop: '1rem' }}>
+                        {post.video_clip.suggested_hashtags.map((tag, index) => (
+                          <Badge key={index} variant="outline" size="1">
+                            {tag}
+                          </Badge>
+                        ))}
+                      </Flex>
+                    )}
+                  </Box>
+                )}
               </Box>
             </Box>
           )}
