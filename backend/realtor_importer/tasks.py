@@ -92,7 +92,7 @@ def process_scrape_job(job_id: str):
             logger.error(f"Error in job {job_id}: {str(e)}")
             session.refresh(job)
             if job.status != "CANCELLED":
-            job.status = ScrapingJobStatus.FAILED
+                job.status = ScrapingJobStatus.FAILED
                 job.error_message = str(e)
                 session.commit()
             logger.error(f"Job {job_id} failed with error: {str(e)}")
