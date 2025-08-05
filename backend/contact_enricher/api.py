@@ -445,8 +445,9 @@ async def enrich_project_contacts(project_id: str):
     import asyncio
     import os
     
-    # Get max concurrent workers from env, default to 4 (was 2)
-    max_workers = int(os.getenv('ENRICHER_MAX_CONCURRENT', '4'))
+    # Get max concurrent workers from env, default to 30 (was 4)
+    # SERP API supports 300 queries/second, so we can safely handle much more concurrency
+    max_workers = int(os.getenv('ENRICHER_MAX_CONCURRENT', '30'))
     logger.info(f"Starting enrichment with {max_workers} concurrent workers")
     
     try:
