@@ -357,25 +357,171 @@ Caption:"""
     posts_per_week = max(1, len(clips) // duration_weeks)
     
     current_date = start_date
+    post_count = 0  # Track total posts for variation
+    
     for i, clip in enumerate(clips):
-        post = models.SocialPost(
-            id=str(uuid.uuid4()),
-            client_id=client_id,
-            campaign_id=campaign.id,
-            video_clip_id=clip.id,
-            content=clip.suggested_caption,
-            platforms=platforms,
-            scheduled_time=current_date,
-            status=models.PostStatus.SCHEDULED,
-            media_urls=[clip.video_url]  # Include the clip's video URL
-        )
-        db.add(post)
+        # Create separate posts for each platform
+        for platform_idx, platform in enumerate(platforms):
+            # Generate completely unique caption for each platform
+            unique_caption = await generate_platform_specific_caption(
+                clip, 
+                platform.lower(), 
+                campaign, 
+                post_count,
+                i,
+                len(clips)
+            )
+            
+            post = models.SocialPost(
+                id=str(uuid.uuid4()),
+                client_id=client_id,
+                campaign_id=campaign.id,
+                video_clip_id=clip.id,
+                content=unique_caption,
+                platforms=[platform],  # Single platform per post
+                scheduled_time=current_date,
+                status=models.PostStatus.SCHEDULED,
+                media_urls=[clip.video_url]  # Include the clip's video URL
+            )
+            db.add(post)
+            post_count += 1
         
         # Schedule next post 2-3 days later
         current_date += timedelta(days=2 if i % 2 == 0 else 3)
     
     db.commit()
     logger.info(f"Created {len(clips)} scheduled posts") 
+
+
+async def generate_platform_specific_caption(clip, platform, campaign, post_index, clip_index, total_clips):
+    """Generate a unique caption for each platform, ensuring no duplicates"""
+    
+    # Platform-specific styles
+    platform_styles = {
+        "facebook": {
+            "styles": ["storytelling", "educational", "behind-the-scenes", "announcement"],
+            "emoji_sets": [
+                ["📹", "👀", "✨"], ["🎬", "💡", "🔥"], ["🎯", "📢", "⭐"],
+                ["🚀", "💪", "🎉"], ["📍", "🌟", "💫"], ["🎥", "👏", "💯"]
+            ],
+            "cta_options": [
+                "Watch the full video and share your thoughts!",
+                "Drop a comment below - we'd love to hear from you!",
+                "Tag someone who needs to see this!",
+                "What's your take on this? Let us know!",
+                "Save this for later and share with friends!",
+                "Click to watch more amazing content!"
+            ]
+        },
+        "instagram": {
+            "styles": ["question-based", "inspirational", "tips and tricks", "testimonial"],
+            "emoji_sets": [
+                ["✨", "💫", "🌟"], ["💕", "🙌", "✅"], ["🔥", "💪", "🎯"],
+                ["📸", "❤️", "👇"], ["🌈", "💖", "🦋"], ["⚡", "🌺", "💎"]
+            ],
+            "cta_options": [
+                "Double tap if you agree! 💕",
+                "Save this for your feed! 📌",
+                "Share to your story! 🔄",
+                "Comment your thoughts below 💬",
+                "Tag your bestie! 👯‍♀️",
+                "Swipe up for more! ⬆️"
+            ]
+        },
+        "tiktok": {
+            "styles": ["call-to-action focused", "question-based", "tips and tricks", "behind-the-scenes"],
+            "emoji_sets": [
+                ["🎬", "🔥", "💯"], ["✨", "👀", "🚀"], ["💫", "🎯", "⚡"],
+                ["🌟", "💪", "🎉"], ["📱", "🔮", "💥"], ["🎵", "🌈", "✅"]
+            ],
+            "cta_options": [
+                "Follow for more content like this!",
+                "Share if this helped you!",
+                "Duet this with your take!",
+                "Save & try this yourself!",
+                "Comment if you want part 2!",
+                "Like if you learned something new!"
+            ]
+        }
+    }
+    
+    # Get platform-specific configuration
+    platform_config = platform_styles.get(platform, platform_styles["facebook"])
+    
+    # Select style based on post index to ensure variety
+    style = platform_config["styles"][post_index % len(platform_config["styles"])]
+    
+    # Select emoji set
+    emoji_set = platform_config["emoji_sets"][post_index % len(platform_config["emoji_sets"])]
+    
+    # Select CTA
+    cta = platform_config["cta_options"][post_index % len(platform_config["cta_options"])]
+    
+    # Vary tone based on platform and index
+    tones = {
+        "facebook": ["professional", "friendly", "informative", "enthusiastic"],
+        "instagram": ["casual", "inspirational", "playful", "authentic"],
+        "tiktok": ["energetic", "trendy", "direct", "fun"]
+    }
+    tone = tones.get(platform, tones["facebook"])[post_index % 4]
+    
+    # Generate unique hashtags for each platform
+    hashtag_sets = {
+        "facebook": [
+            ["VideoMarketing", "ContentCreation", "BehindTheScenes", "CreativeProcess", "VideoContent"],
+            ["DigitalMarketing", "SocialMediaTips", "ContentStrategy", "MarketingTips", "VideoProduction"],
+            ["BusinessGrowth", "EntrepreneurLife", "SmallBusiness", "MarketingStrategy", "ContentMarketing"]
+        ],
+        "instagram": [
+            ["InstaVideo", "ContentCreator", "ReelsDaily", "VideoOfTheDay", "CreativeContent"],
+            ["IGDaily", "InstaGood", "VideoGram", "ContentTips", "SocialMediaMarketing"],
+            ["ReelItFeelIt", "VideoContent", "CreatorCommunity", "InstaMarketing", "ViralContent"]
+        ],
+        "tiktok": [
+            ["TikTokVideo", "ForYouPage", "VideoTips", "ContentHacks", "TikTokTips"],
+            ["FYP", "VideoMarketing", "TikTokStrategy", "ContentIdeas", "ViralVideo"],
+            ["TikTokContent", "CreatorTips", "VideoEditing", "TrendingNow", "ForYou"]
+        ]
+    }
+    hashtags = hashtag_sets.get(platform, hashtag_sets["facebook"])[post_index % 3]
+    
+    # Build the prompt with all platform-specific elements
+    prompt = f"""Generate a unique {platform} social media caption for this video clip.
+
+Platform: {platform.upper()}
+Style: {style}
+Tone: {tone}
+Campaign: {campaign.name}
+Clip: {clip_index + 1} of {total_clips}
+Post number: {post_index + 1}
+
+IMPORTANT: This caption must be COMPLETELY DIFFERENT from all other captions, even for the same video clip.
+
+Platform-specific requirements for {platform}:
+- Use these specific emojis: {', '.join(emoji_set)}
+- End with this call-to-action: "{cta}"
+- Use these hashtags: {', '.join(['#' + tag for tag in hashtags])}
+- Match the {tone} tone typical for {platform}
+
+Create a caption that:
+1. Starts with an attention-grabbing {style} opening
+2. Uses the provided emojis naturally throughout
+3. Maintains a {tone} voice
+4. Ends with the specified CTA
+5. Includes the provided hashtags
+6. Stays under 280 characters total
+7. Is completely unique - do not repeat any phrases from other posts
+
+Caption:"""
+    
+    try:
+        caption = await llm_handler.generate_text(prompt)
+        return caption
+    except Exception as e:
+        logger.error(f"Error generating platform-specific caption: {str(e)}")
+        # Fallback with platform-specific default
+        emoji = emoji_set[0]
+        return f"{emoji} {campaign.name} - {platform.capitalize()} exclusive! {emoji}\n\n{cta}\n\n#{hashtags[0]} #{hashtags[1]} #{hashtags[2]}"
 
 
 async def process_campaign_with_multiple_videos(
@@ -529,9 +675,11 @@ async def process_campaign_with_multiple_videos(
             posts_per_week = max(1, len(all_clips) // duration_weeks)
             
             current_date = start_date
+            post_count = 0  # Track total posts created for better variation
+            
             for i, clip in enumerate(all_clips):
                 # Create separate posts for each platform
-                for platform in platforms:
+                for platform_idx, platform in enumerate(platforms):
                     # Determine which video version to use based on platform
                     platform_lower = platform.lower()
                     video_url = clip.video_url  # Default
@@ -548,31 +696,30 @@ async def process_campaign_with_multiple_videos(
                         if ig_mobile and isinstance(ig_mobile, dict):
                             video_url = ig_mobile.get("url", clip.video_url)
                     
-                    # Generate platform-specific caption
-                    platform_caption = clip.suggested_caption
-                    if platform_lower == "facebook":
-                        # Facebook allows longer captions, add more context
-                        platform_caption = f"📹 {platform_caption}\n\n👉 Watch the full video and let us know what you think!"
-                    elif platform_lower == "instagram":
-                        # Instagram - make it more visual and emoji-heavy
-                        platform_caption = platform_caption.replace("🎬", "✨").replace("🔥", "💫")
-                        # Add Instagram-specific CTA
-                        if "#" in platform_caption:
-                            hashtag_start = platform_caption.find("#")
-                            platform_caption = platform_caption[:hashtag_start].strip() + "\n\n💬 Comment below!\n\n" + platform_caption[hashtag_start:]
+                    # Generate completely unique caption for each platform
+                    # Use post_count to ensure variation even for same-time posts
+                    unique_caption = await generate_platform_specific_caption(
+                        clip, 
+                        platform_lower, 
+                        campaign, 
+                        post_count,
+                        i,
+                        len(all_clips)
+                    )
                     
                     post = models.SocialPost(
                         id=str(uuid.uuid4()),
                         client_id=client_id,
                         campaign_id=campaign.id,
                         video_clip_id=clip.id,
-                        content=platform_caption,
+                        content=unique_caption,
                         platforms=[platform],  # Single platform per post
                         scheduled_time=current_date,
                         status=models.PostStatus.SCHEDULED,
                         media_urls=[video_url]  # Include the platform-specific video URL
                     )
                     db.add(post)
+                    post_count += 1
                 
                 # Schedule next post 2-3 days later
                 current_date += timedelta(days=2 if i % 2 == 0 else 3)
