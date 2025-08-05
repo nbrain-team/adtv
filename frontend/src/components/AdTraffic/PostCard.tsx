@@ -85,6 +85,15 @@ export const PostCard: React.FC<PostCardProps> = ({
   const isApproved = post.status === PostStatus.APPROVED || post.status === PostStatus.PUBLISHED;
   const needsApproval = post.status === PostStatus.SCHEDULED || post.status === PostStatus.PENDING_APPROVAL;
 
+  // Debug logging
+  console.log('PostCard Debug:', {
+    postId: post.id,
+    status: post.status,
+    isApproved,
+    needsApproval,
+    hasOnApprove: !!onApprove
+  });
+
   if (compact) {
     return (
       <Card 

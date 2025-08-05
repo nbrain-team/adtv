@@ -72,8 +72,8 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({ client, onBa
   const fetchClientPosts = async () => {
     try {
       const response = await api.get(`/api/ad-traffic/clients/${client.id}/calendar`);
-      console.log('Fetched posts:', response.data);
       setPosts(response.data);
+      console.log('Fetched posts:', response.data);
     } catch (error) {
       console.error('Error fetching posts:', error);
     }
