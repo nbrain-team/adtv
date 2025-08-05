@@ -248,17 +248,34 @@ def on_startup():
     except Exception as e:
         logger.warning(f"Campaign fields migration failed: {e}")
     
-    # Fix campaign foreign key constraint
-    logger.info("Fixing campaign foreign key constraint...")
-    from scripts.fix_campaign_foreign_key import fix_campaign_foreign_key
-    fix_campaign_foreign_key()
-    logger.info("Campaign foreign key constraint fixed.")
+    # Fix campaign foreign key constraint - skip if it hangs or fails
+    logger.info("Attempting to fix campaign foreign key constraint...")
+    try:
+        from scripts.fix_campaign_foreign_key import fix_campaign_foreign_key
+        # Comment out for now - this is causing deployment to hang
+        # fix_campaign_foreign_key()
+        logger.warning("Campaign foreign key fix skipped to prevent deployment hang")
+    except Exception as e:
+        logger.warning(f"Could not fix campaign foreign key: {e}, continuing anyway...")
     
     # Fix campaign analytics table
-    logger.info("Fixing campaign analytics table...")
-    from scripts.fix_campaign_analytics_table import fix_campaign_analytics_table
-    fix_campaign_analytics_table()
-    logger.info("Campaign analytics table fixed.")
+    logger.info("Attempting to fix campaign analytics table...")
+    try:
+        from scripts.fix_campaign_analytics_table import fix_campaign_analytics_table
+        # Comment out for now - might cause deployment to hang
+        # fix_campaign_analytics_table()
+        logger.warning("Campaign analytics table fix skipped to prevent deployment hang")
+    except Exception as e:
+        logger.warning(f"Could not fix campaign analytics table: {e}, continuing anyway...")
+    
+    # Add missing columns to campaign_analytics if table exists
+    logger.info("Adding missing columns to campaign_analytics...")
+    try:
+        from scripts.fix_campaign_analytics_missing_columns import add_missing_columns
+        add_missing_columns()
+        logger.info("Campaign analytics columns updated.")
+    except Exception as e:
+        logger.warning(f"Could not add missing columns to campaign_analytics: {e}")
     
     # Add neighborhood field to campaign_contacts
     logger.info("Adding neighborhood field to campaign_contacts...")
