@@ -72,12 +72,12 @@ export enum Platform {
 }
 
 export enum PostStatus {
-  DRAFT = 'draft',
-  SCHEDULED = 'scheduled',
-  PENDING_APPROVAL = 'pending_approval',
-  APPROVED = 'approved',
-  PUBLISHED = 'published',
-  FAILED = 'failed'
+  DRAFT = 'DRAFT',
+  SCHEDULED = 'SCHEDULED',
+  PENDING_APPROVAL = 'PENDING_APPROVAL',
+  APPROVED = 'APPROVED',
+  PUBLISHED = 'PUBLISHED',
+  FAILED = 'FAILED'
 }
 
 export enum CampaignStatus {
