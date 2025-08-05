@@ -279,9 +279,13 @@ def on_startup():
     
     # Add neighborhood field to campaign_contacts
     logger.info("Adding neighborhood field to campaign_contacts...")
-    from scripts.add_neighborhood_to_contacts import add_neighborhood_field
-    add_neighborhood_field()
-    logger.info("Neighborhood field added.")
+    try:
+        from scripts.add_neighborhood_to_contacts import add_neighborhood_field
+        # Comment out for now - causing deployment to hang
+        # add_neighborhood_field()
+        logger.warning("Neighborhood field migration skipped to prevent deployment hang")
+    except Exception as e:
+        logger.warning(f"Could not add neighborhood field: {e}, continuing anyway...")
     
     # Ensure danny@nbrain.ai has ad-traffic permission
     try:

@@ -141,6 +141,57 @@ def add_analytics_columns():
     finally:
         session.close()
 
+def add_neighborhood_field():
+    """Add neighborhood and state fields to campaign_contacts table"""
+    session = Session()
+    try:
+        logger.info("Adding neighborhood and state fields to campaign_contacts...")
+        
+        # Check if table exists
+        inspector = inspect(engine)
+        if 'campaign_contacts' not in inspector.get_table_names():
+            logger.warning("campaign_contacts table does not exist")
+            return
+        
+        # Add neighborhood field if it doesn't exist
+        try:
+            session.execute(text("""
+                ALTER TABLE campaign_contacts 
+                ADD COLUMN IF NOT EXISTS neighborhood VARCHAR
+            """))
+            logger.info("✓ Added neighborhood column")
+        except Exception as e:
+            logger.debug(f"Neighborhood column might already exist: {e}")
+        
+        # Add state field if it doesn't exist
+        try:
+            session.execute(text("""
+                ALTER TABLE campaign_contacts 
+                ADD COLUMN IF NOT EXISTS state VARCHAR
+            """))
+            logger.info("✓ Added state column")
+        except Exception as e:
+            logger.debug(f"State column might already exist: {e}")
+        
+        # Add geocoded_address field if it doesn't exist
+        try:
+            session.execute(text("""
+                ALTER TABLE campaign_contacts 
+                ADD COLUMN IF NOT EXISTS geocoded_address VARCHAR
+            """))
+            logger.info("✓ Added geocoded_address column")
+        except Exception as e:
+            logger.debug(f"Geocoded_address column might already exist: {e}")
+        
+        session.commit()
+        logger.info("✅ Updated campaign_contacts fields")
+        
+    except Exception as e:
+        logger.error(f"Error adding neighborhood fields: {e}")
+        session.rollback()
+    finally:
+        session.close()
+
 def main():
     """Run all manual migrations"""
     logger.info("=" * 60)
@@ -152,6 +203,9 @@ def main():
     
     # Add analytics columns
     add_analytics_columns()
+    
+    # Add neighborhood fields
+    add_neighborhood_field()
     
     logger.info("=" * 60)
     logger.info("Manual migrations completed!")
