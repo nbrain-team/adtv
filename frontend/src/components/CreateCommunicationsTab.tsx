@@ -103,7 +103,8 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
 
     const fetchTemplates = async () => {
         try {
-            const response = await api.get(`/api/campaigns/${campaignId}/email-templates`);
+            // Add timestamp to prevent caching issues
+            const response = await api.get(`/api/campaigns/${campaignId}/email-templates?t=${Date.now()}`);
             setAvailableTemplates(response.data);
         } catch (err) {
             console.error('Failed to fetch templates:', err);
@@ -176,7 +177,10 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
                 template_type: templateForm.template_type
             };
             
-            await api.put(`/api/campaigns/${campaignId}/email-templates/${editingTemplate.id}`, updateData);
+            const response = await api.put(`/api/campaigns/${campaignId}/email-templates/${editingTemplate.id}`, updateData);
+            
+            // Log the response to debug
+            console.log('Template update response:', response.data);
             
             // Immediately update the local state with the new template data
             setAvailableTemplates(prev => prev.map(t => 
@@ -185,16 +189,22 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
                     : t
             ));
             
-            // Then fetch fresh data from server to ensure sync
-            await fetchTemplates();
-            
+            // Close modal first
             setShowEditModal(false);
             setEditingTemplate(null);
             setUploadedImages([]); // Clear uploaded images after save
+            
+            // Wait a moment for backend to fully commit
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // Then fetch fresh data from server to ensure sync
+            await fetchTemplates();
+            
             alert('Template updated successfully');
-        } catch (err) {
+        } catch (err: any) {
             console.error('Failed to update template:', err);
-            alert('Failed to update template');
+            const errorMessage = err.response?.data?.detail || err.message || 'Failed to update template';
+            alert(`Error updating template: ${errorMessage}`);
         }
     };
 

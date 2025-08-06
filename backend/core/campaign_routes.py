@@ -1836,6 +1836,9 @@ def update_campaign_email_template(
     db: Session = Depends(get_db)
 ):
     """Update an email template"""
+    logger.info(f"Updating template {template_id} for campaign {campaign_id}")
+    logger.info(f"Update data: {template_update.dict()}")
+    
     campaign = db.query(Campaign).filter(
         Campaign.id == campaign_id,
         Campaign.user_id == current_user.id
@@ -1852,12 +1855,19 @@ def update_campaign_email_template(
     if not db_template:
         raise HTTPException(status_code=404, detail="Template not found")
     
+    # Log the before state
+    logger.info(f"Template before update - name: {db_template.name}, subject: {db_template.subject[:50] if db_template.subject else None}")
+    
     for field, value in template_update.dict(exclude_unset=True).items():
         setattr(db_template, field, value)
     
     db_template.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(db_template)
+    
+    # Log the after state
+    logger.info(f"Template after update - name: {db_template.name}, subject: {db_template.subject[:50] if db_template.subject else None}")
+    logger.info(f"Successfully updated template {template_id}")
     
     return db_template
 
