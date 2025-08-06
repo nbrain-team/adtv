@@ -466,9 +466,18 @@ const CampaignDetailPage = () => {
         try {
             const updateData = {
                 name: editedCampaign.name,
+                owner_name: editedCampaign.owner_name,
+                owner_email: editedCampaign.owner_email,
+                owner_phone: editedCampaign.owner_phone,
+                video_link: editedCampaign.video_link,
+                event_link: editedCampaign.event_link,
+                city: editedCampaign.city,
+                state: editedCampaign.state,
                 launch_date: editedCampaign.launch_date,
+                event_type: editedCampaign.event_type,
                 event_date: editedCampaign.event_date,
                 event_times: editedCampaign.event_times,
+                event_slots: editedCampaign.event_slots,
                 target_cities: editedCampaign.target_cities,
                 hotel_name: editedCampaign.hotel_name,
                 hotel_address: editedCampaign.hotel_address,
@@ -839,6 +848,150 @@ const CampaignDetailPage = () => {
                                                 />
                                             )}
                                         </Box>
+
+                                        {/* Event Type (Read-only in edit mode) */}
+                                        <Box>
+                                            <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>Event Type: </Text>
+                                            <Text size="2" style={{ color: 'var(--gray-12)' }}>
+                                                {campaign.event_type === 'in_person' ? 'In-Person' : 'Virtual'}
+                                            </Text>
+                                        </Box>
+
+                                        {/* Associate Producer Info */}
+                                        <Box>
+                                            <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>Associate Producer: </Text>
+                                            {!isEditingCampaign ? (
+                                                <Text size="2" style={{ color: 'var(--gray-12)' }}>
+                                                    {campaign.owner_name}
+                                                </Text>
+                                            ) : (
+                                                <TextField.Root
+                                                    value={editedCampaign?.owner_name || ''}
+                                                    onChange={(e) => setEditedCampaign({
+                                                        ...editedCampaign!,
+                                                        owner_name: e.target.value
+                                                    })}
+                                                    placeholder="Producer Name"
+                                                    style={{ marginTop: '0.25rem' }}
+                                                />
+                                            )}
+                                        </Box>
+
+                                        <Box>
+                                            <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>Associate Email: </Text>
+                                            {!isEditingCampaign ? (
+                                                <Text size="2" style={{ color: 'var(--gray-12)' }}>
+                                                    {campaign.owner_email}
+                                                </Text>
+                                            ) : (
+                                                <TextField.Root
+                                                    value={editedCampaign?.owner_email || ''}
+                                                    onChange={(e) => setEditedCampaign({
+                                                        ...editedCampaign!,
+                                                        owner_email: e.target.value
+                                                    })}
+                                                    placeholder="email@example.com"
+                                                    style={{ marginTop: '0.25rem' }}
+                                                />
+                                            )}
+                                        </Box>
+
+                                        <Box>
+                                            <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>Associate Phone: </Text>
+                                            {!isEditingCampaign ? (
+                                                <Text size="2" style={{ color: 'var(--gray-12)' }}>
+                                                    {campaign.owner_phone || '-'}
+                                                </Text>
+                                            ) : (
+                                                <TextField.Root
+                                                    value={editedCampaign?.owner_phone || ''}
+                                                    onChange={(e) => setEditedCampaign({
+                                                        ...editedCampaign!,
+                                                        owner_phone: e.target.value
+                                                    })}
+                                                    placeholder="(555) 123-4567"
+                                                    style={{ marginTop: '0.25rem' }}
+                                                />
+                                            )}
+                                        </Box>
+
+                                        {/* Location Info */}
+                                        <Box>
+                                            <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>City: </Text>
+                                            {!isEditingCampaign ? (
+                                                <Text size="2" style={{ color: 'var(--gray-12)' }}>
+                                                    {campaign.city || '-'}
+                                                </Text>
+                                            ) : (
+                                                <TextField.Root
+                                                    value={editedCampaign?.city || ''}
+                                                    onChange={(e) => setEditedCampaign({
+                                                        ...editedCampaign!,
+                                                        city: e.target.value
+                                                    })}
+                                                    placeholder="City Name"
+                                                    style={{ marginTop: '0.25rem' }}
+                                                />
+                                            )}
+                                        </Box>
+
+                                        <Box>
+                                            <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>State: </Text>
+                                            {!isEditingCampaign ? (
+                                                <Text size="2" style={{ color: 'var(--gray-12)' }}>
+                                                    {campaign.state || '-'}
+                                                </Text>
+                                            ) : (
+                                                <TextField.Root
+                                                    value={editedCampaign?.state || ''}
+                                                    onChange={(e) => setEditedCampaign({
+                                                        ...editedCampaign!,
+                                                        state: e.target.value
+                                                    })}
+                                                    placeholder="State"
+                                                    style={{ marginTop: '0.25rem' }}
+                                                />
+                                            )}
+                                        </Box>
+
+                                        {/* Links */}
+                                        <Box>
+                                            <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>Video Link: </Text>
+                                            {!isEditingCampaign ? (
+                                                <Text size="2" style={{ color: 'var(--gray-12)' }}>
+                                                    {campaign.video_link || '-'}
+                                                </Text>
+                                            ) : (
+                                                <TextField.Root
+                                                    value={editedCampaign?.video_link || ''}
+                                                    onChange={(e) => setEditedCampaign({
+                                                        ...editedCampaign!,
+                                                        video_link: e.target.value
+                                                    })}
+                                                    placeholder="https://..."
+                                                    style={{ marginTop: '0.25rem' }}
+                                                />
+                                            )}
+                                        </Box>
+
+                                        <Box>
+                                            <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>Event Link: </Text>
+                                            {!isEditingCampaign ? (
+                                                <Text size="2" style={{ color: 'var(--gray-12)' }}>
+                                                    {campaign.event_link || '-'}
+                                                </Text>
+                                            ) : (
+                                                <TextField.Root
+                                                    value={editedCampaign?.event_link || ''}
+                                                    onChange={(e) => setEditedCampaign({
+                                                        ...editedCampaign!,
+                                                        event_link: e.target.value
+                                                    })}
+                                                    placeholder="https://..."
+                                                    style={{ marginTop: '0.25rem' }}
+                                                />
+                                            )}
+                                        </Box>
                                         
                                         {/* Launch Date */}
                                         <Box>
@@ -867,83 +1020,123 @@ const CampaignDetailPage = () => {
                                                 />
                                             )}
                                         </Box>
-                                        
-                                        {/* Event Date */}
-                                        <Box>
-                                            <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>Event Date: </Text>
-                                            {!isEditingCampaign ? (
-                                                <Text size="2" style={{ color: 'var(--gray-12)' }}>
-                                                    {new Date(campaign.event_date).toLocaleDateString()}
-                                                </Text>
-                                            ) : (
-                                                <input
-                                                    type="date"
-                                                    value={editedCampaign?.event_date ? 
-                                                        new Date(editedCampaign.event_date).toISOString().split('T')[0] : ''
-                                                    }
-                                                    onChange={(e) => setEditedCampaign({
-                                                        ...editedCampaign!,
-                                                        event_date: new Date(e.target.value).toISOString()
-                                                    })}
-                                                    style={{ 
-                                                        marginTop: '0.25rem',
-                                                        padding: '0.5rem',
-                                                        borderRadius: '4px',
-                                                        border: '1px solid var(--gray-6)',
-                                                        width: '100%'
-                                                    }}
-                                                />
-                                            )}
-                                        </Box>
-                                        
-                                        {/* Event Times */}
-                                        {(campaign.event_times && campaign.event_times.length > 0) || isEditingCampaign ? (
-                                            <Box>
-                                                <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>Event Times: </Text>
-                                                {!isEditingCampaign ? (
-                                                    <Text size="2" style={{ color: 'var(--gray-12)' }}>
-                                                        {campaign.event_times?.join(', ')}
-                                                    </Text>
-                                                ) : (
-                                                    <TextField.Root
-                                                        value={editedCampaign?.event_times?.join(', ') || ''}
-                                                        onChange={(e) => setEditedCampaign({
-                                                            ...editedCampaign!,
-                                                            event_times: e.target.value.split(',').map(t => t.trim()).filter(t => t)
-                                                        })}
-                                                        placeholder="e.g., 10:00 AM, 2:00 PM"
-                                                        style={{ marginTop: '0.25rem' }}
-                                                    />
-                                                )}
-                                            </Box>
-                                        ) : null}
-                                        
-                                        {/* Target Cities */}
-                                        {campaign.target_cities || isEditingCampaign ? (
-                                            <Box>
-                                                <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>Target Cities: </Text>
-                                                {!isEditingCampaign ? (
-                                                    <Text size="2" style={{ color: 'var(--gray-12)', whiteSpace: 'pre-wrap' }}>
-                                                        {campaign.target_cities}
-                                                    </Text>
-                                                ) : (
-                                                    <TextArea
-                                                        value={editedCampaign?.target_cities || ''}
-                                                        onChange={(e) => setEditedCampaign({
-                                                            ...editedCampaign!,
-                                                            target_cities: e.target.value
-                                                        })}
-                                                        placeholder="Enter cities, one per line"
-                                                        rows={3}
-                                                        style={{ marginTop: '0.25rem' }}
-                                                    />
-                                                )}
-                                            </Box>
-                                        ) : null}
-                                        
-                                        {/* Event Type Specific Fields */}
+
+                                        {/* Event Dates/Times - Conditional based on event type */}
                                         {campaign.event_type === 'in_person' ? (
                                             <>
+                                                {/* In-Person Event Slots */}
+                                                <Box>
+                                                    <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>Event Date 1: </Text>
+                                                    {!isEditingCampaign ? (
+                                                        <Text size="2" style={{ color: 'var(--gray-12)' }}>
+                                                            {campaign.event_slots?.[0]?.date ? new Date(campaign.event_slots[0].date).toLocaleDateString() : '-'}
+                                                        </Text>
+                                                    ) : (
+                                                        <input
+                                                            type="date"
+                                                            value={editedCampaign?.event_slots?.[0]?.date ? 
+                                                                new Date(editedCampaign.event_slots[0].date).toISOString().split('T')[0] : ''
+                                                            }
+                                                            onChange={(e) => {
+                                                                const slots = [...(editedCampaign?.event_slots || [])];
+                                                                if (!slots[0]) slots[0] = { date: '', time: '', calendly_link: '' };
+                                                                slots[0].date = e.target.value;
+                                                                setEditedCampaign({
+                                                                    ...editedCampaign!,
+                                                                    event_slots: slots
+                                                                });
+                                                            }}
+                                                            style={{ 
+                                                                marginTop: '0.25rem',
+                                                                padding: '0.5rem',
+                                                                borderRadius: '4px',
+                                                                border: '1px solid var(--gray-6)',
+                                                                width: '100%'
+                                                            }}
+                                                        />
+                                                    )}
+                                                </Box>
+
+                                                <Box>
+                                                    <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>Event Time 1: </Text>
+                                                    {!isEditingCampaign ? (
+                                                        <Text size="2" style={{ color: 'var(--gray-12)' }}>
+                                                            {campaign.event_slots?.[0]?.time || '-'}
+                                                        </Text>
+                                                    ) : (
+                                                        <TextField.Root
+                                                            value={editedCampaign?.event_slots?.[0]?.time || ''}
+                                                            onChange={(e) => {
+                                                                const slots = [...(editedCampaign?.event_slots || [])];
+                                                                if (!slots[0]) slots[0] = { date: '', time: '', calendly_link: '' };
+                                                                slots[0].time = e.target.value;
+                                                                setEditedCampaign({
+                                                                    ...editedCampaign!,
+                                                                    event_slots: slots
+                                                                });
+                                                            }}
+                                                            placeholder="10:00 AM"
+                                                            style={{ marginTop: '0.25rem' }}
+                                                        />
+                                                    )}
+                                                </Box>
+
+                                                <Box>
+                                                    <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>Event Date 2 (Optional): </Text>
+                                                    {!isEditingCampaign ? (
+                                                        <Text size="2" style={{ color: 'var(--gray-12)' }}>
+                                                            {campaign.event_slots?.[1]?.date ? new Date(campaign.event_slots[1].date).toLocaleDateString() : '-'}
+                                                        </Text>
+                                                    ) : (
+                                                        <input
+                                                            type="date"
+                                                            value={editedCampaign?.event_slots?.[1]?.date ? 
+                                                                new Date(editedCampaign.event_slots[1].date).toISOString().split('T')[0] : ''
+                                                            }
+                                                            onChange={(e) => {
+                                                                const slots = [...(editedCampaign?.event_slots || [])];
+                                                                if (!slots[1]) slots[1] = { date: '', time: '', calendly_link: '' };
+                                                                slots[1].date = e.target.value;
+                                                                setEditedCampaign({
+                                                                    ...editedCampaign!,
+                                                                    event_slots: slots
+                                                                });
+                                                            }}
+                                                            style={{ 
+                                                                marginTop: '0.25rem',
+                                                                padding: '0.5rem',
+                                                                borderRadius: '4px',
+                                                                border: '1px solid var(--gray-6)',
+                                                                width: '100%'
+                                                            }}
+                                                        />
+                                                    )}
+                                                </Box>
+
+                                                <Box>
+                                                    <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>Event Time 2 (Optional): </Text>
+                                                    {!isEditingCampaign ? (
+                                                        <Text size="2" style={{ color: 'var(--gray-12)' }}>
+                                                            {campaign.event_slots?.[1]?.time || '-'}
+                                                        </Text>
+                                                    ) : (
+                                                        <TextField.Root
+                                                            value={editedCampaign?.event_slots?.[1]?.time || ''}
+                                                            onChange={(e) => {
+                                                                const slots = [...(editedCampaign?.event_slots || [])];
+                                                                if (!slots[1]) slots[1] = { date: '', time: '', calendly_link: '' };
+                                                                slots[1].time = e.target.value;
+                                                                setEditedCampaign({
+                                                                    ...editedCampaign!,
+                                                                    event_slots: slots
+                                                                });
+                                                            }}
+                                                            placeholder="2:00 PM"
+                                                            style={{ marginTop: '0.25rem' }}
+                                                        />
+                                                    )}
+                                                </Box>
+
                                                 <Box>
                                                     <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>Hotel Name: </Text>
                                                     {!isEditingCampaign ? (
@@ -957,10 +1150,12 @@ const CampaignDetailPage = () => {
                                                                 ...editedCampaign!,
                                                                 hotel_name: e.target.value
                                                             })}
+                                                            placeholder="Hotel Name"
                                                             style={{ marginTop: '0.25rem' }}
                                                         />
                                                     )}
                                                 </Box>
+
                                                 <Box>
                                                     <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>Hotel Address: </Text>
                                                     {!isEditingCampaign ? (
@@ -974,30 +1169,147 @@ const CampaignDetailPage = () => {
                                                                 ...editedCampaign!,
                                                                 hotel_address: e.target.value
                                                             })}
+                                                            placeholder="123 Main St, City, State ZIP"
+                                                            style={{ marginTop: '0.25rem' }}
+                                                        />
+                                                    )}
+                                                </Box>
+
+                                                <Box>
+                                                    <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>Calendly Link: </Text>
+                                                    {!isEditingCampaign ? (
+                                                        <Text size="2" style={{ color: 'var(--gray-12)' }}>
+                                                            {campaign.calendly_link || '-'}
+                                                        </Text>
+                                                    ) : (
+                                                        <TextField.Root
+                                                            value={editedCampaign?.calendly_link || ''}
+                                                            onChange={(e) => setEditedCampaign({
+                                                                ...editedCampaign!,
+                                                                calendly_link: e.target.value
+                                                            })}
+                                                            placeholder="https://calendly.com/..."
                                                             style={{ marginTop: '0.25rem' }}
                                                         />
                                                     )}
                                                 </Box>
                                             </>
                                         ) : (
-                                            <Box>
-                                                <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>Calendly Link: </Text>
-                                                {!isEditingCampaign ? (
-                                                    <Text size="2" style={{ color: 'var(--gray-12)' }}>
-                                                        {campaign.calendly_link || '-'}
-                                                    </Text>
-                                                ) : (
-                                                    <TextField.Root
-                                                        value={editedCampaign?.calendly_link || ''}
-                                                        onChange={(e) => setEditedCampaign({
-                                                            ...editedCampaign!,
-                                                            calendly_link: e.target.value
-                                                        })}
-                                                        style={{ marginTop: '0.25rem' }}
-                                                    />
-                                                )}
-                                            </Box>
+                                            <>
+                                                {/* Virtual Event Slots */}
+                                                {[0, 1, 2].map((index) => (
+                                                    <React.Fragment key={index}>
+                                                        <Box>
+                                                            <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>
+                                                                Event Date {index + 1}{index > 0 ? ' (Optional)' : ''}: 
+                                                            </Text>
+                                                            {!isEditingCampaign ? (
+                                                                <Text size="2" style={{ color: 'var(--gray-12)' }}>
+                                                                    {campaign.event_slots?.[index]?.date ? 
+                                                                        new Date(campaign.event_slots[index].date).toLocaleDateString() : '-'}
+                                                                </Text>
+                                                            ) : (
+                                                                <input
+                                                                    type="date"
+                                                                    value={editedCampaign?.event_slots?.[index]?.date ? 
+                                                                        new Date(editedCampaign.event_slots[index].date).toISOString().split('T')[0] : ''
+                                                                    }
+                                                                    onChange={(e) => {
+                                                                        const slots = [...(editedCampaign?.event_slots || [])];
+                                                                        if (!slots[index]) slots[index] = { date: '', time: '', calendly_link: '' };
+                                                                        slots[index].date = e.target.value;
+                                                                        setEditedCampaign({
+                                                                            ...editedCampaign!,
+                                                                            event_slots: slots
+                                                                        });
+                                                                    }}
+                                                                    style={{ 
+                                                                        marginTop: '0.25rem',
+                                                                        padding: '0.5rem',
+                                                                        borderRadius: '4px',
+                                                                        border: '1px solid var(--gray-6)',
+                                                                        width: '100%'
+                                                                    }}
+                                                                />
+                                                            )}
+                                                        </Box>
+
+                                                        <Box>
+                                                            <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>
+                                                                Event Time {index + 1}{index > 0 ? ' (Optional)' : ''}: 
+                                                            </Text>
+                                                            {!isEditingCampaign ? (
+                                                                <Text size="2" style={{ color: 'var(--gray-12)' }}>
+                                                                    {campaign.event_slots?.[index]?.time || '-'}
+                                                                </Text>
+                                                            ) : (
+                                                                <TextField.Root
+                                                                    value={editedCampaign?.event_slots?.[index]?.time || ''}
+                                                                    onChange={(e) => {
+                                                                        const slots = [...(editedCampaign?.event_slots || [])];
+                                                                        if (!slots[index]) slots[index] = { date: '', time: '', calendly_link: '' };
+                                                                        slots[index].time = e.target.value;
+                                                                        setEditedCampaign({
+                                                                            ...editedCampaign!,
+                                                                            event_slots: slots
+                                                                        });
+                                                                    }}
+                                                                    placeholder="10:00 AM"
+                                                                    style={{ marginTop: '0.25rem' }}
+                                                                />
+                                                            )}
+                                                        </Box>
+
+                                                        <Box>
+                                                            <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>
+                                                                Calendly Link {index + 1}{index > 0 ? ' (Optional)' : ''}: 
+                                                            </Text>
+                                                            {!isEditingCampaign ? (
+                                                                <Text size="2" style={{ color: 'var(--gray-12)' }}>
+                                                                    {campaign.event_slots?.[index]?.calendly_link || '-'}
+                                                                </Text>
+                                                            ) : (
+                                                                <TextField.Root
+                                                                    value={editedCampaign?.event_slots?.[index]?.calendly_link || ''}
+                                                                    onChange={(e) => {
+                                                                        const slots = [...(editedCampaign?.event_slots || [])];
+                                                                        if (!slots[index]) slots[index] = { date: '', time: '', calendly_link: '' };
+                                                                        slots[index].calendly_link = e.target.value;
+                                                                        setEditedCampaign({
+                                                                            ...editedCampaign!,
+                                                                            event_slots: slots
+                                                                        });
+                                                                    }}
+                                                                    placeholder="https://calendly.com/..."
+                                                                    style={{ marginTop: '0.25rem' }}
+                                                                />
+                                                            )}
+                                                        </Box>
+                                                    </React.Fragment>
+                                                ))}
+                                            </>
                                         )}
+
+                                        {/* Locations To Scrape */}
+                                        <Box>
+                                            <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>Locations To Scrape: </Text>
+                                            {!isEditingCampaign ? (
+                                                <Text size="2" style={{ color: 'var(--gray-12)', whiteSpace: 'pre-wrap' }}>
+                                                    {campaign.target_cities || '-'}
+                                                </Text>
+                                            ) : (
+                                                <TextArea
+                                                    value={editedCampaign?.target_cities || ''}
+                                                    onChange={(e) => setEditedCampaign({
+                                                        ...editedCampaign!,
+                                                        target_cities: e.target.value
+                                                    })}
+                                                    placeholder="Enter locations, one per line"
+                                                    rows={3}
+                                                    style={{ marginTop: '0.25rem' }}
+                                                />
+                                            )}
+                                        </Box>
                                     </Flex>
                                 </Card>
 
