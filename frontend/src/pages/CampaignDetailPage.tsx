@@ -377,7 +377,8 @@ const CampaignDetailPage = () => {
 
     const fetchContacts = async () => {
         try {
-            const response = await api.get(`/api/campaigns/${campaignId}/contacts`);
+            // Fetch ALL contacts by setting a high limit
+            const response = await api.get(`/api/campaigns/${campaignId}/contacts?limit=10000`);
             setContacts(response.data);
         } catch (err) {
             console.error('Failed to load contacts:', err);
