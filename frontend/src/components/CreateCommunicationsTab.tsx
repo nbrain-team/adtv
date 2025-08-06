@@ -504,9 +504,6 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
                                                 />
                                                 <Box style={{ flex: 1 }}>
                                                     <Text weight="medium">{template.name}</Text>
-                                                    <Text size="1" color="gray">
-                                                        Subject: {template.subject.substring(0, 50)}...
-                                                    </Text>
                                                 </Box>
                                                 <IconButton
                                                     size="1"
