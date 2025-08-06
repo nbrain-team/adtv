@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Export Functionality</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 10px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        #results {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            background-color: #f9f9f9;
+            white-space: pre-wrap;
+            font-family: monospace;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .phone-cell {
+            background-color: #ffff99;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test Campaign Export - Phone Number Check</h1>
+    
+    <div>
+        <label for="token">Access Token:</label>
+        <input type="text" id="token" style="width: 500px;" placeholder="Paste your bearer token here">
+    </div>
+    
+    <div>
+        <label for="campaignId">Campaign ID:</label>
+        <input type="text" id="campaignId" style="width: 500px;" placeholder="Enter campaign ID">
+    </div>
+    
+    <button onclick="testExport()">Test Export All Contacts</button>
+    <button onclick="getCampaigns()">Get All Campaigns</button>
+    <button onclick="testFirstContacts()">Test First 5 Contacts</button>
+    
+    <div id="results"></div>
+    
+    <script>
+        const API_BASE = 'https://adtv.onrender.com';
+        
+        async function getCampaigns() {
+            const token = document.getElementById('token').value;
+            if (!token) {
+                alert('Please enter your access token');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/campaigns`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const campaigns = await response.json();
+                let html = '<h3>Available Campaigns:</h3><ul>';
+                campaigns.forEach(c => {
+                    html += `<li><strong>${c.name}</strong> - ID: ${c.id} (${c.total_contacts} contacts)</li>`;
+                });
+                html += '</ul>';
+                document.getElementById('results').innerHTML = html;
+                
+                if (campaigns.length > 0) {
+                    document.getElementById('campaignId').value = campaigns[0].id;
+                }
+            } catch (error) {
+                document.getElementById('results').innerHTML = `Error: ${error.message}`;
+            }
+        }
+        
+        async function testFirstContacts() {
+            const token = document.getElementById('token').value;
+            const campaignId = document.getElementById('campaignId').value;
+            
+            if (!token || !campaignId) {
+                alert('Please enter token and campaign ID');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/campaigns/${campaignId}/contacts?limit=5`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const contacts = await response.json();
+                let html = '<h3>First 5 Contacts:</h3>';
+                html += '<table>';
+                html += '<tr><th>Name</th><th>Email</th><th class="phone-cell">Phone</th><th class="phone-cell">Enriched Phone</th><th>Company</th></tr>';
+                
+                contacts.forEach(c => {
+                    html += '<tr>';
+                    html += `<td>${c.first_name || ''} ${c.last_name || ''}</td>`;
+                    html += `<td>${c.email || ''}</td>`;
+                    html += `<td class="phone-cell">${c.phone || 'NO PHONE'}</td>`;
+                    html += `<td class="phone-cell">${c.enriched_phone || 'NO ENRICHED'}</td>`;
+                    html += `<td>${c.company || ''}</td>`;
+                    html += '</tr>';
+                });
+                
+                html += '</table>';
+                document.getElementById('results').innerHTML = html;
+            } catch (error) {
+                document.getElementById('results').innerHTML = `Error: ${error.message}`;
+            }
+        }
+        
+        async function testExport() {
+            const token = document.getElementById('token').value;
+            const campaignId = document.getElementById('campaignId').value;
+            
+            if (!token || !campaignId) {
+                alert('Please enter token and campaign ID');
+                return;
+            }
+            
+            document.getElementById('results').innerHTML = 'Loading...';
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/campaigns/${campaignId}/export-all`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const csvText = await response.text();
+                
+                // Parse CSV to check headers and first few rows
+                const lines = csvText.split('\n');
+                const headers = lines[0].split(',');
+                
+                let html = '<h3>Export Test Results:</h3>';
+                html += `<p><strong>Total lines in CSV:</strong> ${lines.length}</p>`;
+                html += '<h4>Headers:</h4>';
+                html += '<ul>';
+                headers.forEach((h, i) => {
+                    const isPhone = h.toLowerCase().includes('phone');
+                    html += `<li ${isPhone ? 'style="background-color: #ffff99; font-weight: bold;"' : ''}>${i}: ${h}</li>`;
+                });
+                html += '</ul>';
+                
+                // Check phone column index
+                const phoneIndex = headers.findIndex(h => h.trim() === 'phone');
+                const enrichedPhoneIndex = headers.findIndex(h => h.trim() === 'enriched_phone');
+                
+                html += `<p><strong>Phone column index:</strong> ${phoneIndex}</p>`;
+                html += `<p><strong>Enriched phone column index:</strong> ${enrichedPhoneIndex}</p>`;
+                
+                // Show first 5 data rows
+                html += '<h4>First 5 rows of data:</h4>';
+                html += '<table>';
+                html += '<tr>';
+                headers.forEach(h => {
+                    const isPhone = h.toLowerCase().includes('phone');
+                    html += `<th ${isPhone ? 'class="phone-cell"' : ''}>${h}</th>`;
+                });
+                html += '</tr>';
+                
+                for (let i = 1; i < Math.min(6, lines.length); i++) {
+                    const cells = lines[i].split(',');
+                    html += '<tr>';
+                    cells.forEach((cell, j) => {
+                        const isPhone = j === phoneIndex || j === enrichedPhoneIndex;
+                        html += `<td ${isPhone ? 'class="phone-cell"' : ''}>${cell || 'EMPTY'}</td>`;
+                    });
+                    html += '</tr>';
+                }
+                html += '</table>';
+                
+                // Add download button
+                html += '<br><button onclick="downloadCSV(\'' + btoa(csvText) + '\')">Download Full CSV</button>';
+                
+                document.getElementById('results').innerHTML = html;
+            } catch (error) {
+                document.getElementById('results').innerHTML = `Error: ${error.message}`;
+            }
+        }
+        
+        function downloadCSV(base64CSV) {
+            const csvText = atob(base64CSV);
+            const blob = new Blob([csvText], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'test_export.csv';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html> 
