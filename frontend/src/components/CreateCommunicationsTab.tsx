@@ -154,7 +154,14 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
         if (!editingTemplate) return;
         
         try {
-            await api.put(`/api/email-templates/${editingTemplate.id}`, templateForm);
+            // Map frontend fields to backend expected fields
+            const updateData = {
+                name: templateForm.name,
+                content: templateForm.body,  // Backend expects 'content' not 'body'
+                goal: templateForm.subject    // Backend expects 'goal' not 'subject'
+            };
+            
+            await api.put(`/api/email-templates/${editingTemplate.id}`, updateData);
             await fetchTemplates();
             setShowEditModal(false);
             setEditingTemplate(null);
@@ -172,22 +179,16 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
         setIsUploadingImage(true);
         
         try {
-            // For now, we'll use a data URL for the image
-            // In production, you'd upload to a server or cloud storage
+            // Create a data URL for the image
             const reader = new FileReader();
             reader.onloadend = () => {
                 const imageUrl = reader.result as string;
                 const newImage = { url: imageUrl, name: file.name };
                 setUploadedImages(prev => [...prev, newImage]);
-                
-                // Insert image reference at cursor position in the template body
-                const imageTag = `<img src="${imageUrl}" alt="${file.name}" style="max-width: 100%; height: auto;" />`;
-                setTemplateForm(prev => ({
-                    ...prev,
-                    body: prev.body + '\n' + imageTag + '\n'
-                }));
-                
                 setIsUploadingImage(false);
+                
+                // Don't auto-insert, let user copy HTML instead
+                alert(`Image "${file.name}" uploaded! Click on the image below to copy its HTML code, then paste it where you want it in the template.`);
             };
             reader.readAsDataURL(file);
         } catch (error) {
@@ -197,12 +198,22 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
         }
     };
 
-    const insertImageReference = (imageUrl: string, imageName: string) => {
+    const copyImageHTML = (imageUrl: string, imageName: string) => {
         const imageTag = `<img src="${imageUrl}" alt="${imageName}" style="max-width: 100%; height: auto;" />`;
-        setTemplateForm(prev => ({
-            ...prev,
-            body: prev.body + '\n' + imageTag + '\n'
-        }));
+        
+        // Copy to clipboard
+        navigator.clipboard.writeText(imageTag).then(() => {
+            alert(`Image HTML copied to clipboard! Now paste it in the email body where you want the image to appear.`);
+        }).catch(err => {
+            // Fallback for older browsers
+            const textArea = document.createElement('textarea');
+            textArea.value = imageTag;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            alert(`Image HTML copied! Paste it in the email body where you want the image.`);
+        });
     };
 
     const applyMailMerge = (template: EmailTemplate, contact: Contact): { subject: string; body: string } => {
@@ -814,7 +825,7 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
                                 
                                 {uploadedImages.length > 0 && (
                                     <Box mt="3">
-                                        <Text size="1" weight="medium" mb="2">Uploaded Images (click to insert):</Text>
+                                        <Text size="1" weight="medium" mb="2">Click an image to copy its HTML code:</Text>
                                         <Flex gap="2" wrap="wrap">
                                             {uploadedImages.map((img, index) => (
                                                 <Card 
@@ -822,9 +833,10 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
                                                     style={{ 
                                                         padding: '4px', 
                                                         cursor: 'pointer',
-                                                        border: '1px solid var(--gray-5)'
+                                                        border: '1px solid var(--gray-5)',
+                                                        position: 'relative'
                                                     }}
-                                                    onClick={() => insertImageReference(img.url, img.name)}
+                                                    onClick={() => copyImageHTML(img.url, img.name)}
                                                 >
                                                     <Flex direction="column" align="center" gap="1">
                                                         <img 
@@ -845,6 +857,7 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
                                                         }}>
                                                             {img.name}
                                                         </Text>
+                                                        <Badge size="1" color="blue">Click to copy</Badge>
                                                     </Flex>
                                                 </Card>
                                             ))}
@@ -852,9 +865,15 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
                                     </Box>
                                 )}
                                 
-                                <Text size="1" color="gray" mt="2">
-                                    Images will be embedded in the email template. Click on an uploaded image to insert it at the current cursor position.
-                                </Text>
+                                <Card style={{ padding: '8px', backgroundColor: 'var(--blue-1)', marginTop: '8px' }}>
+                                    <Text size="1" color="blue">
+                                        <strong>How to use images:</strong><br/>
+                                        1. Upload an image using the button above<br/>
+                                        2. Click on the uploaded image thumbnail to copy its HTML code<br/>
+                                        3. Paste the code (Ctrl+V or Cmd+V) anywhere in the email body<br/>
+                                        4. The image will appear in that location when the email is sent
+                                    </Text>
+                                </Card>
                             </Card>
                         </Box>
                         
