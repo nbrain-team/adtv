@@ -1,34 +1,35 @@
 #!/usr/bin/env python3
-"""
-Add default email template for testing mail merge
-"""
-import os
-import sys
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+"""Add default email template for testing mail merge"""
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from backend.core.database import CampaignEmailTemplate
-import uuid
+import sys
+import os
 from datetime import datetime
 import logging
 
-logging.basicConfig(level=logging.INFO)
+# Add parent directory to path for imports
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from core.database import CampaignEmailTemplate, SessionLocal, Campaign
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-def add_default_template(campaign_id: str):
-    """Add default mail merge template to a campaign"""
-    
-    DATABASE_URL = os.getenv("DATABASE_URL")
-    if not DATABASE_URL:
-        # Local development
-        DATABASE_URL = "postgresql://adtv_user:SecureP@ss2024!@localhost/adtv_db"
-    
-    engine = create_engine(DATABASE_URL)
-    SessionLocal = sessionmaker(bind=engine)
+def add_default_template(campaign_id: str = None):
+    """Add the ADTV Referral Outreach template"""
     db = SessionLocal()
     
     try:
+        # If no campaign_id provided, find the first campaign
+        if not campaign_id:
+            campaign = db.query(Campaign).first()
+            if campaign:
+                campaign_id = campaign.id
+                logger.info(f"Using campaign {campaign.name} (ID: {campaign_id})")
+            else:
+                logger.error("No campaigns found in database")
+                return
+        
         # Check if template already exists
         existing = db.query(CampaignEmailTemplate).filter(
             CampaignEmailTemplate.campaign_id == campaign_id,
@@ -40,119 +41,79 @@ def add_default_template(campaign_id: str):
             existing.subject = "Hey {{FirstName}}, You were referred to us"
             existing.body = """Hey {{FirstName}},
 
-I'll keep short and sweet, as I know you're very busy (very real email here by the way). 
-I also intend to text and call you.
+You were personally referred to me by someone in your market who said you would be a great fit for our team.
 
-I'm an Associate Producer for a 2x Emmy Nominated National TV series, about real estate and lifestyles. I've been asked to set up a personal meeting with you and our CEO, Craig Sewing (also, Inman News Nominee for Most Influential in Real Estate).
+I'm [[Associate Name]], and I'm the Associate Producer for ADTV. We are the authority site for [[City]], [[State]], real estate and all the great things happening here.
 
-Here is a personal video from Craig explaining in more detail:
-[[VIDEO-LINK]]
+I am looking for an agent to be our host for a new show we are launching. The show is designed to educate buyers and sellers on everything they need to know about real estate and all the great things happening in [[City]]. Think of it as your own show where you are the local expert!
 
-Reason for the outreach, we are launching a series called Selling [[State]]...
-Positive stories, highlighting the different areas and neighborhoods of [[State]].
+Here's a quick video that explains it all: [[VIDEO-LINK]]
 
-Will be airing on HGTV, and other major networks.
+This is designed to make you the most well-known agent in [[City]], and it comes at NO COST to you.
 
-The show touches on real estate, but dives deep into the communities, culture, and lifestyle that make places like [[State]] and the micro markets...ie- {{Neighborhood_1}} etc in addition to plenty of other areas around there I'm not mentioning, that are great places to live. We are looking for real estate experts from all areas to share the stories.
+We have event slots available:
+- [[Date1]] at [[Time1]]{{#if [[Calendly Link 1]]}} - Book here: [[Calendly Link 1]]{{/if}}
+{{#if [[Date2]]}}- [[Date2]] at [[Time2]]{{#if [[Calendly Link 2]]}} - Book here: [[Calendly Link 2]]{{/if}}{{/if}}
+{{#if [[Date3]]}}- [[Date3]] at [[Time3]]{{#if [[Calendly Link 3]]}} - Book here: [[Calendly Link 3]]{{/if}}{{/if}}
 
-Through a little bit of research, you were referred to us as someone he should connect with about possibly being on the show as a community expert. My intention is to connect you for an exploratory conversation in person next week.
+{{#if [[Hotel Name]]}}Location: [[Hotel Name]], [[Hotel Address]]{{/if}}
 
-If you'd like to warm up to the show/media model: [[Event-Link]], provides some preliminary info, Craig will talk through with you. I'm sure you have questions, Craig has set aside these days/times next week to connect with you and a handful of others I'm reaching out to.
-He'd love to meet with you. Just an exploratory conversation, to share the show and concept.
+I'd love to show you exactly how this works and see if you'd be interested.
 
-Quick note, the agents we align into the show tend to get listing referrals from consumers.
-Craig can explain how that all works in conversation with you.
-
-The meeting times available are listed below. If you are interested and would like to attend, please email me back with which day works best and I will add you to the RSVP list.
-
-Dates/Times:
-[[Date1]] [[Time1]]
-[[Date2]] [[Time2]]
-
-Location: 
-[[Hotel Name]]
-[[Hotel Address]]
-
-Thanks!
+Best regards,
 [[Associate Name]]
-Associate Director
 [[Associate email]]
-[[Associate Phone]]"""
-            existing.updated_at = datetime.utcnow()
+{{#if [[Associate Phone]]}}[[Associate Phone]]{{/if}}
+
+P.S. You can also learn more and register at: [[Event-Link]]"""
             db.commit()
             logger.info("Template updated successfully")
         else:
-            # Create new template
             template = CampaignEmailTemplate(
-                id=str(uuid.uuid4()),
                 campaign_id=campaign_id,
                 name="ADTV Referral Outreach",
                 subject="Hey {{FirstName}}, You were referred to us",
                 body="""Hey {{FirstName}},
 
-I'll keep short and sweet, as I know you're very busy (very real email here by the way). 
-I also intend to text and call you.
+You were personally referred to me by someone in your market who said you would be a great fit for our team.
 
-I'm an Associate Producer for a 2x Emmy Nominated National TV series, about real estate and lifestyles. I've been asked to set up a personal meeting with you and our CEO, Craig Sewing (also, Inman News Nominee for Most Influential in Real Estate).
+I'm [[Associate Name]], and I'm the Associate Producer for ADTV. We are the authority site for [[City]], [[State]], real estate and all the great things happening here.
 
-Here is a personal video from Craig explaining in more detail:
-[[VIDEO-LINK]]
+I am looking for an agent to be our host for a new show we are launching. The show is designed to educate buyers and sellers on everything they need to know about real estate and all the great things happening in [[City]]. Think of it as your own show where you are the local expert!
 
-Reason for the outreach, we are launching a series called Selling [[State]]...
-Positive stories, highlighting the different areas and neighborhoods of [[State]].
+Here's a quick video that explains it all: [[VIDEO-LINK]]
 
-Will be airing on HGTV, and other major networks.
+This is designed to make you the most well-known agent in [[City]], and it comes at NO COST to you.
 
-The show touches on real estate, but dives deep into the communities, culture, and lifestyle that make places like [[State]] and the micro markets...ie- {{Neighborhood_1}} etc in addition to plenty of other areas around there I'm not mentioning, that are great places to live. We are looking for real estate experts from all areas to share the stories.
+We have event slots available:
+- [[Date1]] at [[Time1]]{{#if [[Calendly Link 1]]}} - Book here: [[Calendly Link 1]]{{/if}}
+{{#if [[Date2]]}}- [[Date2]] at [[Time2]]{{#if [[Calendly Link 2]]}} - Book here: [[Calendly Link 2]]{{/if}}{{/if}}
+{{#if [[Date3]]}}- [[Date3]] at [[Time3]]{{#if [[Calendly Link 3]]}} - Book here: [[Calendly Link 3]]{{/if}}{{/if}}
 
-Through a little bit of research, you were referred to us as someone he should connect with about possibly being on the show as a community expert. My intention is to connect you for an exploratory conversation in person next week.
+{{#if [[Hotel Name]]}}Location: [[Hotel Name]], [[Hotel Address]]{{/if}}
 
-If you'd like to warm up to the show/media model: [[Event-Link]], provides some preliminary info, Craig will talk through with you. I'm sure you have questions, Craig has set aside these days/times next week to connect with you and a handful of others I'm reaching out to.
-He'd love to meet with you. Just an exploratory conversation, to share the show and concept.
+I'd love to show you exactly how this works and see if you'd be interested.
 
-Quick note, the agents we align into the show tend to get listing referrals from consumers.
-Craig can explain how that all works in conversation with you.
-
-The meeting times available are listed below. If you are interested and would like to attend, please email me back with which day works best and I will add you to the RSVP list.
-
-Dates/Times:
-[[Date1]] [[Time1]]
-[[Date2]] [[Time2]]
-
-Location: 
-[[Hotel Name]]
-[[Hotel Address]]
-
-Thanks!
+Best regards,
 [[Associate Name]]
-Associate Director
 [[Associate email]]
-[[Associate Phone]]""",
-                template_type='invitation',
-                is_active=True,
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow()
+{{#if [[Associate Phone]]}}[[Associate Phone]]{{/if}}
+
+P.S. You can also learn more and register at: [[Event-Link]]""",
+                template_type='invitation'
             )
             db.add(template)
             db.commit()
-            logger.info("Template created successfully")
+            logger.info(f"Template 'ADTV Referral Outreach' added successfully to campaign {campaign_id}")
         
-        return True
     except Exception as e:
         logger.error(f"Error adding template: {e}")
         db.rollback()
-        return False
     finally:
         db.close()
 
 if __name__ == "__main__":
+    # You can pass a campaign_id as argument or it will use the first campaign
     import sys
-    if len(sys.argv) < 2:
-        print("Usage: python add_default_email_template.py <campaign_id>")
-        sys.exit(1)
-    
-    campaign_id = sys.argv[1]
-    if add_default_template(campaign_id):
-        logger.info("Default template added successfully")
-    else:
-        logger.error("Failed to add default template") 
+    campaign_id = sys.argv[1] if len(sys.argv) > 1 else None
+    add_default_template(campaign_id) 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Box, Flex, Heading, Text, Card, Button, Badge, Dialog, TextField, Select, TextArea, Callout, IconButton, AlertDialog } from '@radix-ui/themes';
-import { PlusIcon, CalendarIcon, PersonIcon, EnvelopeClosedIcon, BarChartIcon, InfoCircledIcon, TrashIcon } from '@radix-ui/react-icons';
+import { PlusIcon, CalendarIcon, PersonIcon, EnvelopeClosedIcon, BarChartIcon, InfoCircledIcon, TrashIcon, Cross2Icon } from '@radix-ui/react-icons';
 import { MainLayout } from '../components/MainLayout';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
@@ -72,18 +72,24 @@ const CampaignsPage = () => {
     const [deletingCampaignId, setDeletingCampaignId] = useState<string | null>(null);
     const navigate = useNavigate();
 
-    // Form state
+    // Form state with updated structure
     const [formData, setFormData] = useState({
         name: '',
         owner: '',
+        owner_phone: '',
+        video_link: '',
+        event_link: '',
+        city: '',
+        state: '',
         launch_date: '',
-        event_type: 'in_person' as 'virtual' | 'in_person',
-        event_date: '',
-        event_times: [''],
+        event_type: '' as 'virtual' | 'in_person' | '',  // Start empty to force selection
+        event_slots: [
+            { date: '', time: '', calendly_link: '' }
+        ],
         target_cities: '',
         hotel_name: '',
         hotel_address: '',
-        calendly_link: ''
+        calendly_link: ''  // For in-person events
     });
 
     useEffect(() => {
@@ -106,19 +112,29 @@ const CampaignsPage = () => {
             const selectedOwner = CAMPAIGN_OWNERS.find(o => o.value === formData.owner);
             if (!selectedOwner) return;
 
+            // Filter out empty event slots
+            const validEventSlots = formData.event_slots.filter(slot => 
+                slot.date && slot.time
+            );
+
             const campaignData = {
                 name: formData.name,
                 owner_name: selectedOwner.label,
                 owner_email: selectedOwner.email,
-                // owner_phone: selectedOwner.phone,  // TEMPORARILY DISABLED UNTIL MIGRATION RUNS
+                owner_phone: formData.owner_phone || selectedOwner.phone,
+                video_link: formData.video_link,
+                event_link: formData.event_link,
+                city: formData.city,
+                state: formData.state,
                 launch_date: new Date(formData.launch_date).toISOString(),
                 event_type: formData.event_type,
-                event_date: new Date(formData.event_date).toISOString(),
-                event_times: formData.event_times.filter(time => time.trim() !== ''),
+                event_date: validEventSlots.length > 0 ? new Date(validEventSlots[0].date).toISOString() : new Date().toISOString(),
+                event_times: validEventSlots.map(slot => slot.time),
+                event_slots: validEventSlots,
                 target_cities: formData.target_cities,
                 hotel_name: formData.event_type === 'in_person' ? formData.hotel_name : undefined,
                 hotel_address: formData.event_type === 'in_person' ? formData.hotel_address : undefined,
-                calendly_link: formData.event_type === 'virtual' ? formData.calendly_link : undefined
+                calendly_link: formData.event_type === 'in_person' ? formData.calendly_link : undefined
             };
 
             console.log('Creating campaign with data:', campaignData);
@@ -134,10 +150,14 @@ const CampaignsPage = () => {
             setFormData({
                 name: '',
                 owner: '',
+                owner_phone: '',
+                video_link: '',
+                event_link: '',
+                city: '',
+                state: '',
                 launch_date: '',
-                event_type: 'in_person',
-                event_date: '',
-                event_times: [''],
+                event_type: '',
+                event_slots: [{ date: '', time: '', calendly_link: '' }],
                 target_cities: '',
                 hotel_name: '',
                 hotel_address: '',
@@ -148,9 +168,9 @@ const CampaignsPage = () => {
             if (response.data && response.data.id) {
                 navigate(`/campaigns/${response.data.id}`);
             }
-        } catch (err) {
-            console.error('Create campaign error:', err);
-            setError('Failed to create campaign');
+        } catch (err: any) {
+            console.error('Failed to create campaign:', err);
+            setError(err.response?.data?.detail || 'Failed to create campaign');
         }
     };
 
@@ -313,13 +333,13 @@ const CampaignsPage = () => {
                 </Box>
 
                 <Dialog.Root open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-                    <Dialog.Content style={{ maxWidth: 500 }}>
+                    <Dialog.Content style={{ maxWidth: 600, maxHeight: '90vh', overflow: 'auto' }}>
                         <Dialog.Title>Create New Campaign</Dialog.Title>
                         
                         <Flex direction="column" gap="4" mt="4">
                             <Box>
                                 <Text as="label" size="2" mb="1" weight="medium">
-                                    Campaign Name
+                                    Campaign Name *
                                 </Text>
                                 <TextField.Root
                                     value={formData.name}
@@ -330,10 +350,10 @@ const CampaignsPage = () => {
 
                             <Box>
                                 <Text as="label" size="2" mb="1" weight="medium">
-                                    Campaign Owner
+                                    Associate Producer *
                                 </Text>
                                 <Select.Root value={formData.owner} onValueChange={(value) => setFormData({ ...formData, owner: value })}>
-                                    <Select.Trigger placeholder="Select owner" />
+                                    <Select.Trigger placeholder="Select associate producer" />
                                     <Select.Content>
                                         {CAMPAIGN_OWNERS.map(owner => (
                                             <Select.Item key={owner.value} value={owner.value}>
@@ -346,93 +366,13 @@ const CampaignsPage = () => {
 
                             <Box>
                                 <Text as="label" size="2" mb="1" weight="medium">
-                                    Target Cities
-                                </Text>
-                                <TextArea
-                                    value={formData.target_cities}
-                                    onChange={(e) => setFormData({ ...formData, target_cities: e.target.value })}
-                                    placeholder="Enter target cities, one per line"
-                                    rows={3}
-                                />
-                            </Box>
-
-                            <Flex gap="3">
-                                <Box style={{ flex: 1 }}>
-                                    <Text as="label" size="2" mb="1" weight="medium">
-                                        Launch Date
-                                    </Text>
-                                    <TextField.Root
-                                        type="date"
-                                        value={formData.launch_date}
-                                        onChange={(e) => setFormData({ ...formData, launch_date: e.target.value })}
-                                    />
-                                </Box>
-                                <Box style={{ flex: 1 }}>
-                                    <Text as="label" size="2" mb="1" weight="medium">
-                                        Event Date
-                                    </Text>
-                                    <TextField.Root
-                                        type="date"
-                                        value={formData.event_date}
-                                        onChange={(e) => setFormData({ ...formData, event_date: e.target.value })}
-                                    />
-                                </Box>
-                            </Flex>
-
-                            <Box>
-                                <Flex align="center" justify="between" mb="2">
-                                    <Text as="label" size="2" weight="medium">
-                                        Event Times
-                                    </Text>
-                                    <Button 
-                                        size="1" 
-                                        variant="soft"
-                                        onClick={() => setFormData({ ...formData, event_times: [...formData.event_times, ''] })}
-                                    >
-                                        <PlusIcon />
-                                        Add Time
-                                    </Button>
-                                </Flex>
-                                <Flex direction="column" gap="2">
-                                    {formData.event_times.map((time, index) => (
-                                        <Flex key={index} gap="2" align="center">
-                                            <TextField.Root
-                                                type="time"
-                                                value={time}
-                                                onChange={(e) => {
-                                                    const newTimes = [...formData.event_times];
-                                                    newTimes[index] = e.target.value;
-                                                    setFormData({ ...formData, event_times: newTimes });
-                                                }}
-                                                style={{ flex: 1 }}
-                                            />
-                                            {formData.event_times.length > 1 && (
-                                                <Button
-                                                    size="1"
-                                                    variant="soft"
-                                                    color="red"
-                                                    onClick={() => {
-                                                        const newTimes = formData.event_times.filter((_, i) => i !== index);
-                                                        setFormData({ ...formData, event_times: newTimes });
-                                                    }}
-                                                >
-                                                    Remove
-                                                </Button>
-                                            )}
-                                        </Flex>
-                                    ))}
-                                </Flex>
-                            </Box>
-
-                            <Box>
-                                <Text as="label" size="2" mb="1" weight="medium">
-                                    Event Type
+                                    Event Type *
                                 </Text>
                                 <Select.Root 
                                     value={formData.event_type} 
                                     onValueChange={(value: 'virtual' | 'in_person') => setFormData({ ...formData, event_type: value })}
                                 >
-                                    <Select.Trigger />
+                                    <Select.Trigger placeholder="Select event type" />
                                     <Select.Content>
                                         <Select.Item value="in_person">In-Person</Select.Item>
                                         <Select.Item value="virtual">Virtual</Select.Item>
@@ -440,42 +380,213 @@ const CampaignsPage = () => {
                                 </Select.Root>
                             </Box>
 
-                            {formData.event_type === 'in_person' ? (
+                            {/* Only show event details after event type is selected */}
+                            {formData.event_type && (
                                 <>
+                                    <Flex gap="3">
+                                        <Box style={{ flex: 1 }}>
+                                            <Text as="label" size="2" mb="1" weight="medium">
+                                                City
+                                            </Text>
+                                            <TextField.Root
+                                                value={formData.city}
+                                                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                                                placeholder="Los Angeles"
+                                            />
+                                        </Box>
+                                        <Box style={{ flex: 1 }}>
+                                            <Text as="label" size="2" mb="1" weight="medium">
+                                                State
+                                            </Text>
+                                            <TextField.Root
+                                                value={formData.state}
+                                                onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                                                placeholder="CA"
+                                            />
+                                        </Box>
+                                    </Flex>
+
                                     <Box>
-                                        <Text as="label" size="2" mb="1" weight="medium">
-                                            Hotel Name
-                                        </Text>
-                                        <TextField.Root
-                                            value={formData.hotel_name}
-                                            onChange={(e) => setFormData({ ...formData, hotel_name: e.target.value })}
-                                            placeholder="Marriott Downtown"
-                                        />
+                                        <Flex align="center" justify="between" mb="2">
+                                            <Text as="label" size="2" weight="medium">
+                                                Event Dates & Times *
+                                            </Text>
+                                            <Button 
+                                                size="1" 
+                                                variant="soft"
+                                                onClick={() => {
+                                                    const maxSlots = formData.event_type === 'virtual' ? 3 : 2;
+                                                    if (formData.event_slots.length < maxSlots) {
+                                                        setFormData({ 
+                                                            ...formData, 
+                                                            event_slots: [...formData.event_slots, { date: '', time: '', calendly_link: '' }]
+                                                        });
+                                                    }
+                                                }}
+                                                disabled={formData.event_slots.length >= (formData.event_type === 'virtual' ? 3 : 2)}
+                                            >
+                                                <PlusIcon />
+                                                Add Time Slot
+                                            </Button>
+                                        </Flex>
+                                        
+                                        <Flex direction="column" gap="3">
+                                            {formData.event_slots.map((slot, index) => (
+                                                <Box key={index}>
+                                                    <Text size="1" color="gray" mb="1">
+                                                        {index === 0 ? 'Date 1 / Time 1 (Required)' : `Date ${index + 1} / Time ${index + 1} (Optional)`}
+                                                    </Text>
+                                                    <Flex gap="2" align="end">
+                                                        <Box style={{ flex: 1 }}>
+                                                            <TextField.Root
+                                                                type="date"
+                                                                value={slot.date}
+                                                                onChange={(e) => {
+                                                                    const newSlots = [...formData.event_slots];
+                                                                    newSlots[index].date = e.target.value;
+                                                                    setFormData({ ...formData, event_slots: newSlots });
+                                                                }}
+                                                                required={index === 0}
+                                                            />
+                                                        </Box>
+                                                        <Box style={{ flex: 1 }}>
+                                                            <TextField.Root
+                                                                type="time"
+                                                                value={slot.time}
+                                                                onChange={(e) => {
+                                                                    const newSlots = [...formData.event_slots];
+                                                                    newSlots[index].time = e.target.value;
+                                                                    setFormData({ ...formData, event_slots: newSlots });
+                                                                }}
+                                                                required={index === 0}
+                                                            />
+                                                        </Box>
+                                                        {formData.event_type === 'virtual' && (
+                                                            <Box style={{ flex: 2 }}>
+                                                                <TextField.Root
+                                                                    value={slot.calendly_link}
+                                                                    onChange={(e) => {
+                                                                        const newSlots = [...formData.event_slots];
+                                                                        newSlots[index].calendly_link = e.target.value;
+                                                                        setFormData({ ...formData, event_slots: newSlots });
+                                                                    }}
+                                                                    placeholder="Calendly link"
+                                                                />
+                                                            </Box>
+                                                        )}
+                                                        {formData.event_slots.length > 1 && (
+                                                            <IconButton
+                                                                size="2"
+                                                                variant="soft"
+                                                                color="red"
+                                                                onClick={() => {
+                                                                    const newSlots = formData.event_slots.filter((_, i) => i !== index);
+                                                                    setFormData({ ...formData, event_slots: newSlots });
+                                                                }}
+                                                            >
+                                                                <Cross2Icon />
+                                                            </IconButton>
+                                                        )}
+                                                    </Flex>
+                                                </Box>
+                                            ))}
+                                        </Flex>
                                     </Box>
-                                    <Box>
-                                        <Text as="label" size="2" mb="1" weight="medium">
-                                            Hotel Address
-                                        </Text>
-                                        <TextArea
-                                            value={formData.hotel_address}
-                                            onChange={(e) => setFormData({ ...formData, hotel_address: e.target.value })}
-                                            placeholder="123 Main St, City, State ZIP"
-                                            rows={2}
-                                        />
-                                    </Box>
+
+                                    {formData.event_type === 'in_person' && (
+                                        <>
+                                            <Box>
+                                                <Text as="label" size="2" mb="1" weight="medium">
+                                                    Hotel Name
+                                                </Text>
+                                                <TextField.Root
+                                                    value={formData.hotel_name}
+                                                    onChange={(e) => setFormData({ ...formData, hotel_name: e.target.value })}
+                                                    placeholder="Marriott Downtown"
+                                                />
+                                            </Box>
+                                            <Box>
+                                                <Text as="label" size="2" mb="1" weight="medium">
+                                                    Hotel Address
+                                                </Text>
+                                                <TextArea
+                                                    value={formData.hotel_address}
+                                                    onChange={(e) => setFormData({ ...formData, hotel_address: e.target.value })}
+                                                    placeholder="123 Main St, City, State ZIP"
+                                                    rows={2}
+                                                />
+                                            </Box>
+                                            <Box>
+                                                <Text as="label" size="2" mb="1" weight="medium">
+                                                    Calendly Link
+                                                </Text>
+                                                <TextField.Root
+                                                    value={formData.calendly_link}
+                                                    onChange={(e) => setFormData({ ...formData, calendly_link: e.target.value })}
+                                                    placeholder="https://calendly.com/yourname/meeting"
+                                                />
+                                            </Box>
+                                        </>
+                                    )}
                                 </>
-                            ) : (
-                                <Box>
+                            )}
+
+                            <Box>
+                                <Text as="label" size="2" mb="1" weight="medium">
+                                    Launch Date *
+                                </Text>
+                                <TextField.Root
+                                    type="date"
+                                    value={formData.launch_date}
+                                    onChange={(e) => setFormData({ ...formData, launch_date: e.target.value })}
+                                />
+                            </Box>
+
+                            <Box>
+                                <Text as="label" size="2" mb="1" weight="medium">
+                                    Locations To Scrape
+                                </Text>
+                                <TextArea
+                                    value={formData.target_cities}
+                                    onChange={(e) => setFormData({ ...formData, target_cities: e.target.value })}
+                                    placeholder="Enter locations to scrape, one per line"
+                                    rows={3}
+                                />
+                            </Box>
+
+                            <Flex gap="3">
+                                <Box style={{ flex: 1 }}>
                                     <Text as="label" size="2" mb="1" weight="medium">
-                                        Calendly Link
+                                        Associate Phone
                                     </Text>
                                     <TextField.Root
-                                        value={formData.calendly_link}
-                                        onChange={(e) => setFormData({ ...formData, calendly_link: e.target.value })}
-                                        placeholder="https://calendly.com/yourname/meeting"
+                                        value={formData.owner_phone}
+                                        onChange={(e) => setFormData({ ...formData, owner_phone: e.target.value })}
+                                        placeholder="(555) 123-4567"
                                     />
                                 </Box>
-                            )}
+                                <Box style={{ flex: 1 }}>
+                                    <Text as="label" size="2" mb="1" weight="medium">
+                                        Video Link
+                                    </Text>
+                                    <TextField.Root
+                                        value={formData.video_link}
+                                        onChange={(e) => setFormData({ ...formData, video_link: e.target.value })}
+                                        placeholder="https://vimeo.com/..."
+                                    />
+                                </Box>
+                            </Flex>
+
+                            <Box>
+                                <Text as="label" size="2" mb="1" weight="medium">
+                                    Event Link
+                                </Text>
+                                <TextField.Root
+                                    value={formData.event_link}
+                                    onChange={(e) => setFormData({ ...formData, event_link: e.target.value })}
+                                    placeholder="https://example.com/event"
+                                />
+                            </Box>
                         </Flex>
 
                         <Flex gap="3" mt="5" justify="end">
@@ -486,7 +597,9 @@ const CampaignsPage = () => {
                             </Dialog.Close>
                             <Button 
                                 onClick={handleCreateCampaign}
-                                disabled={!formData.name || !formData.owner || !formData.launch_date || !formData.event_date}
+                                disabled={!formData.name || !formData.owner || !formData.launch_date || !formData.event_type || 
+                                         (formData.event_type && formData.event_slots[0].date === '') || 
+                                         (formData.event_type && formData.event_slots[0].time === '')}
                             >
                                 Create Campaign
                             </Button>
