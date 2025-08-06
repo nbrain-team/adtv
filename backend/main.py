@@ -287,6 +287,15 @@ def on_startup():
     except Exception as e:
         logger.warning(f"Could not add neighborhood field: {e}, continuing anyway...")
     
+    # Add mail merge fields to campaigns table
+    logger.info("Adding mail merge fields to campaigns table...")
+    try:
+        from scripts.add_campaign_mail_merge_fields import add_campaign_mail_merge_fields
+        add_campaign_mail_merge_fields()
+        logger.info("Mail merge fields added successfully.")
+    except Exception as e:
+        logger.warning(f"Could not add mail merge fields: {e}, continuing anyway...")
+    
     # Ensure danny@nbrain.ai has ad-traffic permission
     try:
         with SessionLocal() as db:

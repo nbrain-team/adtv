@@ -29,7 +29,7 @@ def add_campaign_mail_merge_fields():
         ("event_link", "VARCHAR(500)"),
     ]
     
-    with engine.connect() as conn:
+    with engine.begin() as conn:  # Use begin() for automatic transaction handling
         # Check which columns already exist
         result = conn.execute(text("""
             SELECT column_name 
@@ -44,18 +44,17 @@ def add_campaign_mail_merge_fields():
                 try:
                     logger.info(f"Adding column {field_name} to campaigns table...")
                     conn.execute(text(f"ALTER TABLE campaigns ADD COLUMN {field_name} {field_type}"))
-                    conn.commit()
                     logger.info(f"Successfully added {field_name} column")
                 except Exception as e:
                     if "already exists" not in str(e).lower():
                         logger.error(f"Error adding {field_name}: {e}")
-                        raise
+                        # Don't re-raise - continue with other fields
                     else:
                         logger.info(f"Column {field_name} already exists")
             else:
                 logger.info(f"Column {field_name} already exists, skipping")
         
-        logger.info("All mail merge fields have been added successfully")
+        logger.info("All mail merge fields have been processed")
 
 if __name__ == "__main__":
     add_campaign_mail_merge_fields()

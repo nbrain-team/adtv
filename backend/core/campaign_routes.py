@@ -54,9 +54,9 @@ class CampaignResponse(BaseModel):
     name: str
     owner_name: str
     owner_email: str
-    owner_phone: Optional[str]
-    video_link: Optional[str]
-    event_link: Optional[str]
+    owner_phone: Optional[str] = None
+    video_link: Optional[str] = None
+    event_link: Optional[str] = None
     launch_date: datetime
     event_type: str
     event_date: datetime
@@ -154,6 +154,34 @@ class SendCommunication(BaseModel):
     contact_ids: Optional[List[str]] = None  # If None, send to all RSVPs
 
 # Campaign CRUD
+def safe_campaign_response(campaign) -> dict:
+    """Safely convert a Campaign object to a response dict, handling missing fields"""
+    return {
+        "id": campaign.id,
+        "name": campaign.name,
+        "owner_name": campaign.owner_name,
+        "owner_email": campaign.owner_email,
+        "owner_phone": getattr(campaign, 'owner_phone', None),
+        "video_link": getattr(campaign, 'video_link', None),
+        "event_link": getattr(campaign, 'event_link', None),
+        "launch_date": campaign.launch_date,
+        "event_type": campaign.event_type,
+        "event_date": campaign.event_date,
+        "event_times": campaign.event_times,
+        "target_cities": campaign.target_cities,
+        "hotel_name": campaign.hotel_name,
+        "hotel_address": campaign.hotel_address,
+        "calendly_link": campaign.calendly_link,
+        "status": campaign.status,
+        "total_contacts": campaign.total_contacts,
+        "enriched_contacts": campaign.enriched_contacts,
+        "failed_enrichments": campaign.failed_enrichments,
+        "emails_generated": campaign.emails_generated,
+        "emails_sent": campaign.emails_sent,
+        "created_at": campaign.created_at,
+        "updated_at": campaign.updated_at
+    }
+
 @router.post("/", response_model=CampaignResponse)
 async def create_campaign(
     campaign_data: CampaignCreate,
@@ -171,7 +199,7 @@ async def create_campaign(
     
     # TODO: Send email notification to campaign owner
     
-    return campaign
+    return safe_campaign_response(campaign)
 
 @router.get("/", response_model=List[CampaignResponse])
 async def get_campaigns(
@@ -185,7 +213,7 @@ async def get_campaigns(
         Campaign.user_id == current_user.id
     ).order_by(desc(Campaign.created_at)).offset(skip).limit(limit).all()
     
-    return campaigns
+    return [safe_campaign_response(campaign) for campaign in campaigns]
 
 @router.get("/all-contacts")
 async def get_all_campaign_contacts(
@@ -340,7 +368,7 @@ async def get_campaign(
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
     
-    return campaign
+    return safe_campaign_response(campaign)
 
 @router.put("/{campaign_id}", response_model=CampaignResponse)
 async def update_campaign(
@@ -358,14 +386,14 @@ async def update_campaign(
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
     
-    for field, value in campaign_data.dict(exclude_unset=True, exclude={'owner_phone'}).items():
+    for field, value in campaign_data.dict(exclude_unset=True).items():
         setattr(campaign, field, value)
     
     campaign.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(campaign)
     
-    return campaign
+    return safe_campaign_response(campaign)
 
 @router.delete("/{campaign_id}")
 async def delete_campaign(
