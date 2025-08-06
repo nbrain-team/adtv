@@ -23,6 +23,8 @@ class CampaignCreate(BaseModel):
     owner_name: str
     owner_email: EmailStr
     owner_phone: Optional[str] = None
+    video_link: Optional[str] = None
+    event_link: Optional[str] = None
     launch_date: datetime
     event_type: str  # 'virtual' or 'in_person'
     event_date: datetime
@@ -34,6 +36,9 @@ class CampaignCreate(BaseModel):
 
 class CampaignUpdate(BaseModel):
     name: Optional[str] = None
+    owner_phone: Optional[str] = None
+    video_link: Optional[str] = None
+    event_link: Optional[str] = None
     launch_date: Optional[datetime] = None
     event_date: Optional[datetime] = None
     event_times: Optional[List[str]] = None
@@ -43,14 +48,15 @@ class CampaignUpdate(BaseModel):
     calendly_link: Optional[str] = None
     email_template: Optional[str] = None
     email_subject: Optional[str] = None
-    owner_phone: Optional[str] = None
 
 class CampaignResponse(BaseModel):
     id: str
     name: str
     owner_name: str
     owner_email: str
-    # owner_phone: Optional[str]  # TEMPORARILY DISABLED UNTIL MIGRATION RUNS
+    owner_phone: Optional[str]
+    video_link: Optional[str]
+    event_link: Optional[str]
     launch_date: datetime
     event_type: str
     event_date: datetime
@@ -157,7 +163,7 @@ async def create_campaign(
     """Create a new campaign"""
     campaign = Campaign(
         user_id=current_user.id,
-        **campaign_data.dict(exclude={'owner_phone'})  # Exclude owner_phone until migration runs
+        **campaign_data.dict()
     )
     db.add(campaign)
     db.commit()
@@ -1508,9 +1514,8 @@ async def enrich_contacts_concurrently(contacts, campaign_id, enricher, db, Sess
     return enriched_count, failed_count
 
 def generate_campaign_emails(campaign_id: str, user_id: str):
-    """Background task to generate personalized emails"""
+    """Background task to generate emails using mail merge only (no AI personalization)"""
     from sqlalchemy.orm import sessionmaker
-    import asyncio
     SessionLocal = sessionmaker(bind=engine)
     db = SessionLocal()
     
@@ -1520,7 +1525,7 @@ def generate_campaign_emails(campaign_id: str, user_id: str):
             return
         
         # Record start time
-        analytics = None  # Initialize analytics variable
+        analytics = None
         try:
             analytics = db.query(CampaignAnalytics).filter(
                 CampaignAnalytics.campaign_id == campaign_id
@@ -1535,11 +1540,10 @@ def generate_campaign_emails(campaign_id: str, user_id: str):
                     db.rollback()
         except Exception as e:
             logger.warning(f"Could not query analytics (likely missing columns): {e}")
-            db.rollback()  # Clear the failed transaction
-            # Continue without analytics - don't let this stop email generation
+            db.rollback()
         
         # Ensure we have a clean session state
-        db.commit()  # Commit any pending changes
+        db.commit()
         
         # Get contacts to generate emails for
         contacts = db.query(CampaignContact).filter(
@@ -1549,141 +1553,104 @@ def generate_campaign_emails(campaign_id: str, user_id: str):
             CampaignContact.email_status == 'pending'
         ).all()
         
-        # Create event loop for async operations
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        
         generated_count = 0
         
         for contact in contacts:
             try:
-                # Generate personalized email
-                # Build the personalization context
-                event_time = campaign.event_times[0] if campaign.event_times else ''
+                # Simple mail merge - no AI personalization
+                email_body = campaign.email_template or ''
+                email_subject = campaign.email_subject or ''
                 
-                # Map owner names to phone numbers
-                owner_phones = {
-                    'Kalena Conley': '(619) 374-7405',
-                    'Evan Jones': '(619) 374-2561',
-                    'Sigrid Smith': '(619) 292-8580',
-                    'Amy Dodsworth': '(619) 259-0014',
-                    'Bailey Jacobs': '(619) 333-0342'
-                }
+                # Parse event times into Date1/Time1, Date2/Time2, Date3/Time3
+                date1 = date2 = date3 = ""
+                time1 = time2 = time3 = ""
                 
-                # Get owner phone based on name
-                owner_phone = owner_phones.get(campaign.owner_name, '(619) 374-7405')  # Default to Kalena's
+                if campaign.event_times and len(campaign.event_times) > 0:
+                    date1 = campaign.event_date.strftime('%A, %B %d')
+                    time1 = campaign.event_times[0] if campaign.event_times[0] else ''
+                if campaign.event_times and len(campaign.event_times) > 1:
+                    date2 = campaign.event_date.strftime('%A, %B %d')
+                    time2 = campaign.event_times[1]
+                if campaign.event_times and len(campaign.event_times) > 2:
+                    date3 = campaign.event_date.strftime('%A, %B %d')
+                    time3 = campaign.event_times[2]
                 
-                # Build template with all variables replaced
-                template_with_vars = campaign.email_template or 'Create a professional invitation email'
-                subject_with_vars = campaign.email_subject or f'Invitation: {campaign.name}'
+                # Extract city and state from target_cities
+                city = ''
+                state = ''
+                if campaign.target_cities:
+                    # Assuming format like "Chicago, Illinois" or just "Chicago"
+                    parts = campaign.target_cities.split(',')
+                    city = parts[0].strip() if parts else ''
+                    state = parts[1].strip() if len(parts) > 1 else ''
                 
-                # Replace campaign-level variables
-                replacements = {
-                    # Single curly brace replacements (for backward compatibility)
-                    '{event_date}': campaign.event_date.strftime('%B %d, %Y'),
-                    '{event_time}': event_time,
-                    '{hotel_name}': campaign.hotel_name or '',
-                    '{hotel_address}': campaign.hotel_address or '',
-                    '{calendly_link}': campaign.calendly_link or '',
-                    '{owner_name}': campaign.owner_name,
-                    '{campaign_name}': campaign.name,
-                    '{target_cities}': campaign.target_cities or '',
-                    '{first_name}': contact.first_name,
-                    '{last_name}': contact.last_name,
-                    '{company}': contact.enriched_company or contact.company or '',
-                    '{title}': contact.enriched_title or contact.title or '',
-                    # Double curly brace replacements (ADTV templates)
-                    '{{FirstName}}': contact.first_name,
-                    '{{City}}': campaign.target_cities.split('\n')[0] if campaign.target_cities else '',
-                    '{{Market}}': contact.neighborhood or '',
-                    '{{Markets}}': contact.neighborhood or '',
-                    # Square bracket replacements (ADTV templates)
-                    '[[Date1]]': f"{campaign.event_date.strftime('%A, %B %d')} at {campaign.event_times[0] if campaign.event_times else ''}",
-                    '[[Date2]]': f"{campaign.event_date.strftime('%A, %B %d')} at {campaign.event_times[1] if campaign.event_times and len(campaign.event_times) > 1 else campaign.event_times[0] if campaign.event_times else ''}",
-                    '[[HotelName]]': campaign.calendly_link if campaign.event_type == 'virtual' else (campaign.hotel_name or ''),
-                    '[[HotelAddress]]': '' if campaign.event_type == 'virtual' else (campaign.hotel_address or ''),
+                # Campaign-level replacements (double square brackets)
+                campaign_replacements = {
+                    '[[VIDEO-LINK]]': getattr(campaign, 'video_link', 'https://vimeo.com/adtv-intro'),
+                    '[[City]]': city,
+                    '[[State]]': state,
+                    '[[Event-Link]]': getattr(campaign, 'event_link', campaign.calendly_link or ''),
+                    '[[Date1]]': date1,
+                    '[[Time1]]': time1,
+                    '[[Date2]]': date2,
+                    '[[Time2]]': time2,
+                    '[[Date3]]': date3,
+                    '[[Time3]]': time3,
+                    '[[Hotel Name]]': campaign.hotel_name or '',
+                    '[[Hotel Address]]': campaign.hotel_address or '',
+                    '[[Associate Name]]': campaign.owner_name,
+                    '[[Associate email]]': campaign.owner_email,
+                    '[[Associate Phone]]': getattr(campaign, 'owner_phone', ''),
+                    '[[Calendly Link]]': campaign.calendly_link or '',
+                    # Legacy field names for backward compatibility
+                    '[[HotelName]]': campaign.hotel_name or '',
+                    '[[HotelAddress]]': campaign.hotel_address or '',
                     '[[AssociateName]]': campaign.owner_name,
-                    '[[Campaign Owner Name]]': campaign.owner_name,
-                    '[[Campaign Owner Email]]': campaign.owner_email,
-                    '[[Campaign Owner Phone]]': owner_phone,
-                    '[[VideoLink]]': 'https://vimeo.com/adtv-intro', # Default video link
-                    '[[InfoLink]]': 'https://adtv.com/info', # Default info link
-                    '[[ContactInfo]]': campaign.owner_email,
-                    '[[AssociatePhone]]': owner_phone
+                    '[[AssociatePhone]]': getattr(campaign, 'owner_phone', ''),
                 }
                 
-                # Apply replacements
-                for key, value in replacements.items():
-                    template_with_vars = template_with_vars.replace(key, value)
-                    subject_with_vars = subject_with_vars.replace(key, value)
+                # Contact-level replacements (double curly braces)
+                contact_replacements = {
+                    '{{FirstName}}': contact.first_name or '',
+                    '{{LastName}}': contact.last_name or '',
+                    '{{Neighborhood_1}}': contact.neighborhood or '',
+                    '{{Email}}': contact.email or '',
+                    '{{Company}}': contact.enriched_company or contact.company or '',
+                    '{{Title}}': contact.enriched_title or contact.title or '',
+                    '{{Phone}}': contact.enriched_phone or contact.phone or '',
+                    # Legacy field names for backward compatibility
+                    '{{first_name}}': contact.first_name or '',
+                    '{{last_name}}': contact.last_name or '',
+                    '{{neighborhood}}': contact.neighborhood or '',
+                    '{{email}}': contact.email or '',
+                    '{{company}}': contact.enriched_company or contact.company or '',
+                    '{{title}}': contact.enriched_title or contact.title or '',
+                    '{{phone}}': contact.enriched_phone or contact.phone or '',
+                }
                 
-                # Remove "Warm regards," if it exists (to match requested footer format)
-                template_with_vars = template_with_vars.replace('Warm regards,\n', '')
-                template_with_vars = template_with_vars.replace('Warm regards,', '')
+                # Apply all replacements
+                for key, value in campaign_replacements.items():
+                    email_body = email_body.replace(key, value)
+                    email_subject = email_subject.replace(key, value)
                 
-                prompt = f"""
-                You are writing a personalized email for a real estate TV show opportunity using the provided template.
+                for key, value in contact_replacements.items():
+                    email_body = email_body.replace(key, value)
+                    email_subject = email_subject.replace(key, value)
                 
-                Recipient Information:
-                - First Name: {contact.first_name}
-                - Company: {contact.enriched_company or contact.company}
-                - Neighborhood/Market: {contact.neighborhood or contact.enriched_location or ''}
-                
-                Campaign Details:
-                - Event Type: {campaign.event_type}
-                - Event Date: {campaign.event_date.strftime('%B %d, %Y')}
-                - Event Time: {event_time}
-                {'- Hotel: ' + campaign.hotel_name if campaign.hotel_name and campaign.event_type == 'in_person' else ''}
-                {'- Address: ' + campaign.hotel_address if campaign.hotel_address and campaign.event_type == 'in_person' else ''}
-                {'- Meeting Link: ' + campaign.calendly_link if campaign.calendly_link and campaign.event_type == 'virtual' else ''}
-                - Host/Owner: {campaign.owner_name}
-                
-                Email Template:
-                {template_with_vars}
-                
-                CRITICAL Instructions:
-                1. Use ONLY the recipient's first name (not full name) when addressing them
-                2. Focus on the uniqueness and importance of their specific neighborhood/market
-                3. Highlight what makes their neighborhood special and why they're the expert there
-                4. DO NOT mention any sales numbers or statistics
-                5. Replace ALL placeholders in {{}} or [[]] with actual values
-                6. REMOVE any instructional text in square brackets like [mention specific aspect] - these are instructions for you, not content for the email
-                7. When you see [the real estate TV show], replace it with "Selling {campaign.target_cities.split()[0] if campaign.target_cities else 'your city'} on HGTV"
-                8. Make it personal by referencing specific aspects of their neighborhood
-                9. Keep the tone conversational and authentic
-                10. Ensure the email flows naturally without any template markers or instructional brackets
-                11. For virtual events, the meeting location should be the Calendly link
-                12. Emphasize their expertise and reputation in their specific market area
-                13. The email MUST end with this EXACT footer format (no "Warm regards," or other closing - just the signature):
-                
-                {campaign.owner_name}
-                Associate Producer
-                {campaign.owner_email}
-                {owner_phone}
-                
-                The email should feel like it was written specifically for this person and their unique market expertise.
-                Return only the final email body text with all placeholders replaced and NO bracketed instructions.
-                """
-                
-                # Generate email using async function
-                email_content = loop.run_until_complete(generate_text(prompt))
-                
-                contact.personalized_email = email_content
-                contact.personalized_subject = subject_with_vars
+                # Store the mail-merged email
+                contact.personalized_email = email_body
+                contact.personalized_subject = email_subject
                 contact.email_status = 'generated'
                 generated_count += 1
                 
             except Exception as e:
                 contact.email_status = 'failed'
-                print(f"Error generating email for contact {contact.id}: {e}")
+                logger.error(f"Error generating email for contact {contact.id}: {e}")
             
             contact.updated_at = datetime.utcnow()
             db.commit()
         
-        # Close the event loop
-        loop.close()
-        
-        # Update campaign stats and commit
+        # Update campaign stats
         try:
             campaign.emails_generated = generated_count
             campaign.status = 'ready_to_send'
@@ -1695,25 +1662,20 @@ def generate_campaign_emails(campaign_id: str, user_id: str):
         
         # Record end time
         try:
-            if 'analytics' in locals() and analytics:
-                try:
-                    analytics.email_generation_end_time = datetime.utcnow()
-                    analytics.emails_generated = generated_count
-                    db.commit()
-                except Exception as e:
-                    logger.warning(f"Could not update analytics end time: {e}")
-                    db.rollback()
+            if analytics:
+                analytics.email_generation_end_time = datetime.utcnow()
+                analytics.emails_generated = generated_count
+                db.commit()
         except Exception as e:
-            logger.warning(f"Error updating analytics: {e}")
-        
-        # TODO: Send notification email to campaign owner
+            logger.warning(f"Could not update analytics end time: {e}")
+            db.rollback()
         
     except Exception as e:
         logger.error(f"Error generating emails: {e}")
         import traceback
         logger.error(f"Traceback: {traceback.format_exc()}")
     finally:
-        db.close() 
+        db.close()
 
 # Email Template Management Endpoints
 @router.get("/{campaign_id}/email-templates")

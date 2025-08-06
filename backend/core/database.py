@@ -168,7 +168,9 @@ class Campaign(Base):
     name = Column(String, nullable=False)
     owner_name = Column(String, nullable=False)  # Selected from dropdown
     owner_email = Column(String, nullable=False)
-    # owner_phone = Column(String, nullable=True)  # Phone number for the owner - TEMPORARILY DISABLED UNTIL MIGRATION RUNS
+    owner_phone = Column(String, nullable=True)  # Phone number for the owner
+    video_link = Column(String, nullable=True)  # Video link for email template
+    event_link = Column(String, nullable=True)  # Event information link
     launch_date = Column(DateTime, nullable=False)
     event_type = Column(String, nullable=False)  # 'virtual' or 'in_person'
     event_date = Column(DateTime, nullable=False)
