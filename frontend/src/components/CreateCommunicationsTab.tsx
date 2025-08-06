@@ -154,14 +154,16 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
         if (!editingTemplate) return;
         
         try {
-            // Map frontend fields to backend expected fields
+            // Use the campaign-specific endpoint for updating templates
+            // The backend campaign endpoint expects the actual field names
             const updateData = {
                 name: templateForm.name,
-                content: templateForm.body,  // Backend expects 'content' not 'body'
-                goal: templateForm.subject    // Backend expects 'goal' not 'subject'
+                subject: templateForm.subject,  // Campaign templates use 'subject'
+                body: templateForm.body,         // Campaign templates use 'body'
+                template_type: templateForm.template_type
             };
             
-            await api.put(`/api/email-templates/${editingTemplate.id}`, updateData);
+            await api.put(`/api/campaigns/${campaignId}/email-templates/${editingTemplate.id}`, updateData);
             await fetchTemplates();
             setShowEditModal(false);
             setEditingTemplate(null);
