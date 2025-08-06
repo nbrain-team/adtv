@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { 
-    Box, Button, Card, Flex, Heading, Text, Badge, Callout, 
-    Select, Checkbox, ScrollArea, Table, Dialog, IconButton, TextField, TextArea
+    Box, Flex, Text, Card, Button, Badge, ScrollArea, 
+    Checkbox, TextField, TextArea, Callout, IconButton, Dialog,
+    Separator, Tabs, Heading
 } from '@radix-ui/themes';
 import { 
-    PersonIcon, CheckCircledIcon, FileTextIcon, 
-    DownloadIcon, InfoCircledIcon, Cross2Icon, ExternalLinkIcon, Pencil1Icon
+    InfoCircledIcon, ExternalLinkIcon, Cross2Icon, Pencil1Icon,
+    FileIcon, ImageIcon, UploadIcon, PersonIcon, CheckCircledIcon
 } from '@radix-ui/react-icons';
-import api from '../services/api';
+import api from '../api';
 
 interface Contact {
     id: string;
@@ -89,6 +90,11 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
         body: '',
         template_type: 'general'
     });
+    
+    // Image upload states
+    const [uploadedImages, setUploadedImages] = useState<{url: string, name: string}[]>([]);
+    const [isUploadingImage, setIsUploadingImage] = useState(false);
+    const imageInputRef = React.useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         fetchTemplates();
@@ -157,6 +163,46 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
             console.error('Failed to update template:', err);
             alert('Failed to update template');
         }
+    };
+
+    const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        setIsUploadingImage(true);
+        
+        try {
+            // For now, we'll use a data URL for the image
+            // In production, you'd upload to a server or cloud storage
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                const imageUrl = reader.result as string;
+                const newImage = { url: imageUrl, name: file.name };
+                setUploadedImages(prev => [...prev, newImage]);
+                
+                // Insert image reference at cursor position in the template body
+                const imageTag = `<img src="${imageUrl}" alt="${file.name}" style="max-width: 100%; height: auto;" />`;
+                setTemplateForm(prev => ({
+                    ...prev,
+                    body: prev.body + '\n' + imageTag + '\n'
+                }));
+                
+                setIsUploadingImage(false);
+            };
+            reader.readAsDataURL(file);
+        } catch (error) {
+            console.error('Error uploading image:', error);
+            alert('Failed to upload image');
+            setIsUploadingImage(false);
+        }
+    };
+
+    const insertImageReference = (imageUrl: string, imageName: string) => {
+        const imageTag = `<img src="${imageUrl}" alt="${imageName}" style="max-width: 100%; height: auto;" />`;
+        setTemplateForm(prev => ({
+            ...prev,
+            body: prev.body + '\n' + imageTag + '\n'
+        }));
     };
 
     const applyMailMerge = (template: EmailTemplate, contact: Contact): { subject: string; body: string } => {
@@ -314,7 +360,7 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
                         `"${row.neighborhood.replace(/"/g, '""')}"`,
                         ...templates.flatMap(t => [
                             `"${(row[`${t.name}_subject`] || '').replace(/"/g, '""')}"`,
-                            `"${(row[`${t.name}_body`] || '').replace(/"/g, '""').replace(/\n/g, ' ')}"`,
+                            `"${(row[`${t.name}_body`] || '').replace(/"/g, '""')}"`,
                         ])
                     ];
                     return values.join(',');
@@ -381,7 +427,15 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
             // Parse CSV line (handling quoted fields)
             const regex = /("([^"]*)"|[^,]+|(?<=,)(?=,)|^(?=,)|(?<=,)$)/g;
             const matches = line.match(regex) || [];
-            return matches.map(field => field.replace(/^"|"$/g, '').replace(/""/g, '"'));
+            return matches.map(field => {
+                // Remove quotes and unescape double quotes
+                let cleanField = field.replace(/^"|"$/g, '').replace(/""/g, '"');
+                // Convert newlines to HTML breaks for display
+                cleanField = cleanField.replace(/\n/g, '<br>');
+                // Ensure images are properly formatted
+                cleanField = cleanField.replace(/<img/g, '<img style="max-width: 200px; height: auto;"');
+                return cleanField;
+            });
         });
 
         // Create HTML table for easy copy-paste to Google Sheets
@@ -394,9 +448,17 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
                 <style>
                     body { font-family: Arial, sans-serif; margin: 20px; }
                     table { border-collapse: collapse; width: 100%; margin-top: 20px; }
-                    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                    th, td { 
+                        border: 1px solid #ddd; 
+                        padding: 8px; 
+                        text-align: left; 
+                        vertical-align: top;
+                        white-space: pre-wrap;
+                        word-wrap: break-word;
+                    }
                     th { background-color: #4CAF50; color: white; position: sticky; top: 0; }
                     tr:nth-child(even) { background-color: #f2f2f2; }
+                    td img { max-width: 200px; height: auto; display: block; margin: 5px 0; }
                     .instructions { 
                         background: #e3f2fd; 
                         padding: 20px; 
@@ -428,6 +490,14 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
                         margin: 10px 0;
                     }
                     .copy-button:hover { background: #45a049; }
+                    .format-note {
+                        background: #fff3cd;
+                        border: 1px solid #ffc107;
+                        padding: 10px;
+                        margin: 10px 0;
+                        border-radius: 5px;
+                        color: #856404;
+                    }
                 </style>
                 <script>
                     function selectAllData() {
@@ -455,6 +525,10 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
                         <li>Paste the data (Ctrl+V or Cmd+V)</li>
                         <li>The data will automatically format into columns</li>
                     </ol>
+                    <div class="format-note">
+                        <strong>Note:</strong> Line breaks and formatting are preserved. Images will be displayed as HTML tags.
+                        For best results in Google Sheets, you may need to adjust row heights after pasting.
+                    </div>
                 </div>
                 <table id="dataTable">
                     <thead>
@@ -658,7 +732,7 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
 
             {/* Edit Template Modal */}
             <Dialog.Root open={showEditModal} onOpenChange={setShowEditModal}>
-                <Dialog.Content style={{ maxWidth: 600 }}>
+                <Dialog.Content style={{ maxWidth: 700, maxHeight: '90vh', overflowY: 'auto' }}>
                     <Dialog.Title>Edit Email Template</Dialog.Title>
                     <Dialog.Description>
                         Update the template content below
@@ -685,6 +759,75 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
                             />
                         </Box>
                         
+                        {/* Image Upload Section */}
+                        <Box>
+                            <Text as="label" size="2" mb="1" weight="medium">
+                                Images
+                            </Text>
+                            <Card style={{ padding: '12px', backgroundColor: 'var(--gray-1)' }}>
+                                <input
+                                    ref={imageInputRef}
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={handleImageUpload}
+                                    style={{ display: 'none' }}
+                                />
+                                <Button
+                                    variant="soft"
+                                    size="2"
+                                    onClick={() => imageInputRef.current?.click()}
+                                    disabled={isUploadingImage}
+                                >
+                                    <UploadIcon />
+                                    {isUploadingImage ? 'Uploading...' : 'Upload Image'}
+                                </Button>
+                                
+                                {uploadedImages.length > 0 && (
+                                    <Box mt="3">
+                                        <Text size="1" weight="medium" mb="2">Uploaded Images (click to insert):</Text>
+                                        <Flex gap="2" wrap="wrap">
+                                            {uploadedImages.map((img, index) => (
+                                                <Card 
+                                                    key={index}
+                                                    style={{ 
+                                                        padding: '4px', 
+                                                        cursor: 'pointer',
+                                                        border: '1px solid var(--gray-5)'
+                                                    }}
+                                                    onClick={() => insertImageReference(img.url, img.name)}
+                                                >
+                                                    <Flex direction="column" align="center" gap="1">
+                                                        <img 
+                                                            src={img.url} 
+                                                            alt={img.name}
+                                                            style={{ 
+                                                                width: '80px', 
+                                                                height: '80px', 
+                                                                objectFit: 'cover',
+                                                                borderRadius: '4px'
+                                                            }}
+                                                        />
+                                                        <Text size="1" style={{ 
+                                                            maxWidth: '80px', 
+                                                            overflow: 'hidden', 
+                                                            textOverflow: 'ellipsis',
+                                                            whiteSpace: 'nowrap'
+                                                        }}>
+                                                            {img.name}
+                                                        </Text>
+                                                    </Flex>
+                                                </Card>
+                                            ))}
+                                        </Flex>
+                                    </Box>
+                                )}
+                                
+                                <Text size="1" color="gray" mt="2">
+                                    Images will be embedded in the email template. Click on an uploaded image to insert it at the current cursor position.
+                                </Text>
+                            </Card>
+                        </Box>
+                        
                         <Box>
                             <Text as="label" size="2" mb="1" weight="medium">
                                 Email Body
@@ -693,10 +836,15 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
                                 value={templateForm.body}
                                 onChange={(e) => setTemplateForm({ ...templateForm, body: e.target.value })}
                                 rows={15}
-                                style={{ fontFamily: 'monospace', fontSize: '12px' }}
+                                style={{ 
+                                    fontFamily: 'monospace', 
+                                    fontSize: '12px',
+                                    whiteSpace: 'pre-wrap'
+                                }}
                             />
                             <Text size="1" color="gray" mt="1">
-                                Use {'{{FirstName}}'}, {'{{Company}}'}, [[City]], [[State]], etc. for mail merge
+                                Use {'{{FirstName}}'}, {'{{Company}}'}, [[City]], [[State]], etc. for mail merge.
+                                Line breaks and formatting will be preserved.
                             </Text>
                         </Box>
                         
