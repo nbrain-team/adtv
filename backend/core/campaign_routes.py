@@ -566,6 +566,7 @@ async def upload_contacts(
 async def export_incomplete_contacts(
     campaign_id: str,
     missing_fields: str = "email,phone",  # Comma-separated list of fields to check
+    logic: str = "or",  # "or" = missing any field, "and" = missing all fields
     current_user: User = Depends(auth.get_current_active_user),
     db: Session = Depends(get_db)
 ):
@@ -589,42 +590,55 @@ async def export_incomplete_contacts(
     # Filter contacts with missing fields
     incomplete_contacts = []
     for contact in contacts:
-        is_incomplete = False
+        missing_conditions = []
         
-        if 'email' in fields_to_check and (not contact.email or contact.email.strip() == ''):
-            is_incomplete = True
+        if 'email' in fields_to_check:
+            # Check if email is missing
+            is_missing_email = not contact.email or contact.email.strip() == ''
+            missing_conditions.append(is_missing_email)
+            
         if 'phone' in fields_to_check:
             # Check both phone and enriched_phone fields
             has_original_phone = contact.phone and contact.phone.strip() != ''
             has_enriched_phone = contact.enriched_phone and contact.enriched_phone.strip() != ''
-            if not has_original_phone and not has_enriched_phone:
-                is_incomplete = True
+            is_missing_phone = not has_original_phone and not has_enriched_phone
+            missing_conditions.append(is_missing_phone)
         
-        if is_incomplete:
-            incomplete_contacts.append(contact)
+        # Apply logic (OR vs AND)
+        if logic == "and":
+            # Include only if ALL specified fields are missing
+            if all(missing_conditions):
+                incomplete_contacts.append(contact)
+        else:  # default "or" logic
+            # Include if ANY specified field is missing
+            if any(missing_conditions):
+                incomplete_contacts.append(contact)
     
     # Create CSV
     output = io.StringIO()
     writer = csv.writer(output)
     
-    # Write headers - include enriched_phone
+    # Write headers - include both original and enriched fields
     headers = [
         'id', 'first_name', 'last_name', 'email', 'phone', 'enriched_phone',
-        'company', 'title', 'neighborhood', 'state', 'geocoded_address'
+        'company', 'enriched_company', 'title', 'enriched_title', 
+        'neighborhood', 'state', 'geocoded_address'
     ]
     writer.writerow(headers)
     
-    # Write data
+    # Write data - ensure we export all available data
     for contact in incomplete_contacts:
         writer.writerow([
             contact.id,
             contact.first_name or '',
             contact.last_name or '',
-            contact.email or '',
+            contact.email or '',  # This should export the email if it exists
             contact.phone or '',
-            contact.enriched_phone or '',  # Include enriched_phone in export
+            contact.enriched_phone or '',
             contact.company or '',
+            contact.enriched_company or '',  # Also include enriched company
             contact.title or '',
+            contact.enriched_title or '',  # Also include enriched title
             contact.neighborhood or '',
             contact.state or '',
             contact.geocoded_address or ''
@@ -884,6 +898,77 @@ async def get_contact_stats(
         "contacts_missing_phone": contacts_missing_phone,
         "email_coverage_percentage": round((contacts_with_email / total_contacts * 100) if total_contacts > 0 else 0, 1),
         "phone_coverage_percentage": round((contacts_with_phone / total_contacts * 100) if total_contacts > 0 else 0, 1)
+    }
+
+@router.get("/{campaign_id}/contacts/diagnostic")
+async def get_contact_diagnostic(
+    campaign_id: str,
+    current_user: User = Depends(auth.get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get detailed diagnostic information about contacts"""
+    campaign = db.query(Campaign).filter(
+        Campaign.id == campaign_id,
+        Campaign.user_id == current_user.id
+    ).first()
+    
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    # Get all contacts
+    contacts = db.query(CampaignContact).filter(
+        CampaignContact.campaign_id == campaign_id
+    ).all()
+    
+    # Analyze each contact
+    diagnostic_data = []
+    for contact in contacts[:10]:  # Sample first 10 for diagnostics
+        has_email = bool(contact.email and contact.email.strip())
+        has_phone = bool(contact.phone and contact.phone.strip())
+        has_enriched_phone = bool(contact.enriched_phone and contact.enriched_phone.strip())
+        
+        diagnostic_data.append({
+            "id": contact.id,
+            "first_name": contact.first_name,
+            "last_name": contact.last_name,
+            "email": contact.email,
+            "has_email": has_email,
+            "phone": contact.phone,
+            "has_phone": has_phone,
+            "enriched_phone": contact.enriched_phone,
+            "has_enriched_phone": has_enriched_phone,
+            "has_any_phone": has_phone or has_enriched_phone,
+            "missing_email": not has_email,
+            "missing_any_phone": not (has_phone or has_enriched_phone),
+            "missing_both": not has_email and not (has_phone or has_enriched_phone)
+        })
+    
+    # Count statistics
+    total = len(contacts)
+    with_email = sum(1 for c in contacts if c.email and c.email.strip())
+    with_original_phone = sum(1 for c in contacts if c.phone and c.phone.strip())
+    with_enriched_phone = sum(1 for c in contacts if c.enriched_phone and c.enriched_phone.strip())
+    with_any_phone = sum(1 for c in contacts if (c.phone and c.phone.strip()) or (c.enriched_phone and c.enriched_phone.strip()))
+    missing_email = total - with_email
+    missing_any_phone = total - with_any_phone
+    missing_both = sum(1 for c in contacts if not (c.email and c.email.strip()) and not ((c.phone and c.phone.strip()) or (c.enriched_phone and c.enriched_phone.strip())))
+    missing_either = sum(1 for c in contacts if not (c.email and c.email.strip()) or not ((c.phone and c.phone.strip()) or (c.enriched_phone and c.enriched_phone.strip())))
+    
+    return {
+        "summary": {
+            "total_contacts": total,
+            "with_email": with_email,
+            "with_original_phone": with_original_phone,
+            "with_enriched_phone": with_enriched_phone,
+            "with_any_phone": with_any_phone,
+            "missing_email": missing_email,
+            "missing_any_phone": missing_any_phone,
+            "missing_both_email_and_phone": missing_both,
+            "missing_either_email_or_phone": missing_either,
+            "email_coverage_percentage": round((with_email / total * 100) if total > 0 else 0, 1),
+            "phone_coverage_percentage": round((with_any_phone / total * 100) if total > 0 else 0, 1)
+        },
+        "sample_contacts": diagnostic_data
     }
 
 @router.get("/{campaign_id}/contacts", response_model=List[ContactResponse])
