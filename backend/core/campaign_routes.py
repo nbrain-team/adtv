@@ -593,8 +593,12 @@ async def export_incomplete_contacts(
         
         if 'email' in fields_to_check and (not contact.email or contact.email.strip() == ''):
             is_incomplete = True
-        if 'phone' in fields_to_check and (not contact.phone or contact.phone.strip() == ''):
-            is_incomplete = True
+        if 'phone' in fields_to_check:
+            # Check both phone and enriched_phone fields
+            has_original_phone = contact.phone and contact.phone.strip() != ''
+            has_enriched_phone = contact.enriched_phone and contact.enriched_phone.strip() != ''
+            if not has_original_phone and not has_enriched_phone:
+                is_incomplete = True
         
         if is_incomplete:
             incomplete_contacts.append(contact)
@@ -603,9 +607,9 @@ async def export_incomplete_contacts(
     output = io.StringIO()
     writer = csv.writer(output)
     
-    # Write headers
+    # Write headers - include enriched_phone
     headers = [
-        'id', 'first_name', 'last_name', 'email', 'phone', 
+        'id', 'first_name', 'last_name', 'email', 'phone', 'enriched_phone',
         'company', 'title', 'neighborhood', 'state', 'geocoded_address'
     ]
     writer.writerow(headers)
@@ -618,6 +622,7 @@ async def export_incomplete_contacts(
             contact.last_name or '',
             contact.email or '',
             contact.phone or '',
+            contact.enriched_phone or '',  # Include enriched_phone in export
             contact.company or '',
             contact.title or '',
             contact.neighborhood or '',
@@ -848,14 +853,15 @@ async def get_contact_stats(
     
     contacts_with_phone = db.query(func.count(CampaignContact.id)).filter(
         CampaignContact.campaign_id == campaign_id,
-        CampaignContact.phone != None,
-        CampaignContact.phone != ''
+        ((CampaignContact.phone != None) & (CampaignContact.phone != '')) |
+        ((CampaignContact.enriched_phone != None) & (CampaignContact.enriched_phone != ''))
     ).scalar()
     
     contacts_missing_both = db.query(func.count(CampaignContact.id)).filter(
         CampaignContact.campaign_id == campaign_id,
         (CampaignContact.email == None) | (CampaignContact.email == ''),
-        (CampaignContact.phone == None) | (CampaignContact.phone == '')
+        ((CampaignContact.phone == None) | (CampaignContact.phone == '')) &
+        ((CampaignContact.enriched_phone == None) | (CampaignContact.enriched_phone == ''))
     ).scalar()
     
     contacts_missing_email = db.query(func.count(CampaignContact.id)).filter(
@@ -865,7 +871,8 @@ async def get_contact_stats(
     
     contacts_missing_phone = db.query(func.count(CampaignContact.id)).filter(
         CampaignContact.campaign_id == campaign_id,
-        (CampaignContact.phone == None) | (CampaignContact.phone == '')
+        ((CampaignContact.phone == None) | (CampaignContact.phone == '')) &
+        ((CampaignContact.enriched_phone == None) | (CampaignContact.enriched_phone == ''))
     ).scalar()
     
     return {
