@@ -166,19 +166,22 @@ class Campaign(Base):
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(String, ForeignKey("users.id"))
     name = Column(String, nullable=False)
-    owner_name = Column(String, nullable=False)  # Selected from dropdown
+    owner_name = Column(String, nullable=False)  # Associate Producer name
     owner_email = Column(String, nullable=False)
     owner_phone = Column(String, nullable=True)  # Phone number for the owner
     video_link = Column(String, nullable=True)  # Video link for email template
     event_link = Column(String, nullable=True)  # Event information link
+    city = Column(String, nullable=True)  # City for [[City]] merge field
+    state = Column(String, nullable=True)  # State for [[State]] merge field
     launch_date = Column(DateTime, nullable=False)
     event_type = Column(String, nullable=False)  # 'virtual' or 'in_person'
-    event_date = Column(DateTime, nullable=False)
-    event_times = Column(JSON, default=[])  # Array of time strings
-    target_cities = Column(Text)  # Multi-line text for cities
+    event_date = Column(DateTime, nullable=False)  # Keep for backward compatibility
+    event_times = Column(JSON, default=[])  # Keep for backward compatibility
+    event_slots = Column(JSON, default=[])  # New: Array of {date, time, calendly_link} objects
+    target_cities = Column(Text)  # Multi-line text for locations to scrape
     hotel_name = Column(String)
     hotel_address = Column(String)
-    calendly_link = Column(String)
+    calendly_link = Column(String)  # Main calendly link for in-person events
     status = Column(String, default='draft')  # draft, enriching, ready_for_personalization, emails_generated, ready_to_send, sending, sent
     
     # Analytics

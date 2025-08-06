@@ -296,6 +296,15 @@ def on_startup():
     except Exception as e:
         logger.warning(f"Could not add mail merge fields: {e}, continuing anyway...")
     
+    # Add campaign event fields (city, state, event_slots)
+    logger.info("Adding campaign event fields...")
+    try:
+        from scripts.add_campaign_event_fields import add_campaign_event_fields
+        add_campaign_event_fields()
+        logger.info("Campaign event fields added successfully.")
+    except Exception as e:
+        logger.warning(f"Could not add campaign event fields: {e}, continuing anyway...")
+    
     # Ensure danny@nbrain.ai has ad-traffic permission
     try:
         with SessionLocal() as db:

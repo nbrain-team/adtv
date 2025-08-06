@@ -18,30 +18,41 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 # Pydantic models
+class EventSlot(BaseModel):
+    date: str  # Date string
+    time: str  # Time string
+    calendly_link: Optional[str] = None  # Optional calendly link for virtual events
+
 class CampaignCreate(BaseModel):
     name: str
-    owner_name: str
+    owner_name: str  # Associate Producer name
     owner_email: EmailStr
     owner_phone: Optional[str] = None
     video_link: Optional[str] = None
     event_link: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
     launch_date: datetime
     event_type: str  # 'virtual' or 'in_person'
-    event_date: datetime
-    event_times: Optional[List[str]] = []
-    target_cities: Optional[str] = None
+    event_date: datetime  # Keep for backward compatibility
+    event_times: Optional[List[str]] = []  # Keep for backward compatibility
+    event_slots: Optional[List[EventSlot]] = []  # New structure
+    target_cities: Optional[str] = None  # Locations to scrape
     hotel_name: Optional[str] = None
     hotel_address: Optional[str] = None
-    calendly_link: Optional[str] = None
+    calendly_link: Optional[str] = None  # For in-person events
 
 class CampaignUpdate(BaseModel):
     name: Optional[str] = None
     owner_phone: Optional[str] = None
     video_link: Optional[str] = None
     event_link: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
     launch_date: Optional[datetime] = None
     event_date: Optional[datetime] = None
     event_times: Optional[List[str]] = None
+    event_slots: Optional[List[EventSlot]] = None
     target_cities: Optional[str] = None
     hotel_name: Optional[str] = None
     hotel_address: Optional[str] = None
@@ -52,16 +63,19 @@ class CampaignUpdate(BaseModel):
 class CampaignResponse(BaseModel):
     id: str
     name: str
-    owner_name: str
+    owner_name: str  # Associate Producer name
     owner_email: str
     owner_phone: Optional[str] = None
     video_link: Optional[str] = None
     event_link: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
     launch_date: datetime
     event_type: str
     event_date: datetime
     event_times: Optional[List[str]]
-    target_cities: Optional[str]
+    event_slots: Optional[List[dict]] = []  # Return as dict for flexibility
+    target_cities: Optional[str]  # Locations to scrape
     hotel_name: Optional[str]
     hotel_address: Optional[str]
     calendly_link: Optional[str]
@@ -156,6 +170,17 @@ class SendCommunication(BaseModel):
 # Campaign CRUD
 def safe_campaign_response(campaign) -> dict:
     """Safely convert a Campaign object to a response dict, handling missing fields"""
+    # Convert event_slots from JSON if it exists
+    event_slots = getattr(campaign, 'event_slots', [])
+    if event_slots and isinstance(event_slots, str):
+        import json
+        try:
+            event_slots = json.loads(event_slots)
+        except:
+            event_slots = []
+    elif not event_slots:
+        event_slots = []
+    
     return {
         "id": campaign.id,
         "name": campaign.name,
@@ -164,10 +189,13 @@ def safe_campaign_response(campaign) -> dict:
         "owner_phone": getattr(campaign, 'owner_phone', None),
         "video_link": getattr(campaign, 'video_link', None),
         "event_link": getattr(campaign, 'event_link', None),
+        "city": getattr(campaign, 'city', None),
+        "state": getattr(campaign, 'state', None),
         "launch_date": campaign.launch_date,
         "event_type": campaign.event_type,
         "event_date": campaign.event_date,
         "event_times": campaign.event_times,
+        "event_slots": event_slots,
         "target_cities": campaign.target_cities,
         "hotel_name": campaign.hotel_name,
         "hotel_address": campaign.hotel_address,
@@ -189,9 +217,14 @@ async def create_campaign(
     db: Session = Depends(get_db)
 ):
     """Create a new campaign"""
+    # Convert event_slots to dict format for JSON storage
+    campaign_dict = campaign_data.dict()
+    if 'event_slots' in campaign_dict and campaign_dict['event_slots']:
+        campaign_dict['event_slots'] = [slot.dict() if hasattr(slot, 'dict') else slot for slot in campaign_dict['event_slots']]
+    
     campaign = Campaign(
         user_id=current_user.id,
-        **campaign_data.dict()
+        **campaign_dict
     )
     db.add(campaign)
     db.commit()
@@ -1589,25 +1622,44 @@ def generate_campaign_emails(campaign_id: str, user_id: str):
                 email_body = campaign.email_template or ''
                 email_subject = campaign.email_subject or ''
                 
-                # Parse event times into Date1/Time1, Date2/Time2, Date3/Time3
+                # Parse event slots into Date1/Time1, Date2/Time2, Date3/Time3
                 date1 = date2 = date3 = ""
                 time1 = time2 = time3 = ""
+                calendly1 = calendly2 = calendly3 = ""
                 
-                if campaign.event_times and len(campaign.event_times) > 0:
-                    date1 = campaign.event_date.strftime('%A, %B %d')
-                    time1 = campaign.event_times[0] if campaign.event_times[0] else ''
-                if campaign.event_times and len(campaign.event_times) > 1:
-                    date2 = campaign.event_date.strftime('%A, %B %d')
-                    time2 = campaign.event_times[1]
-                if campaign.event_times and len(campaign.event_times) > 2:
-                    date3 = campaign.event_date.strftime('%A, %B %d')
-                    time3 = campaign.event_times[2]
+                # Use event_slots if available, otherwise fall back to old structure
+                event_slots = getattr(campaign, 'event_slots', []) or []
+                if event_slots:
+                    if len(event_slots) > 0:
+                        date1 = event_slots[0].get('date', '')
+                        time1 = event_slots[0].get('time', '')
+                        calendly1 = event_slots[0].get('calendly_link', '')
+                    if len(event_slots) > 1:
+                        date2 = event_slots[1].get('date', '')
+                        time2 = event_slots[1].get('time', '')
+                        calendly2 = event_slots[1].get('calendly_link', '')
+                    if len(event_slots) > 2:
+                        date3 = event_slots[2].get('date', '')
+                        time3 = event_slots[2].get('time', '')
+                        calendly3 = event_slots[2].get('calendly_link', '')
+                else:
+                    # Fall back to old structure
+                    if campaign.event_times and len(campaign.event_times) > 0:
+                        date1 = campaign.event_date.strftime('%A, %B %d')
+                        time1 = campaign.event_times[0] if campaign.event_times[0] else ''
+                    if campaign.event_times and len(campaign.event_times) > 1:
+                        date2 = campaign.event_date.strftime('%A, %B %d')
+                        time2 = campaign.event_times[1]
+                    if campaign.event_times and len(campaign.event_times) > 2:
+                        date3 = campaign.event_date.strftime('%A, %B %d')
+                        time3 = campaign.event_times[2]
                 
-                # Extract city and state from target_cities
-                city = ''
-                state = ''
-                if campaign.target_cities:
-                    # Assuming format like "Chicago, Illinois" or just "Chicago"
+                # Use city and state fields directly if available
+                city = getattr(campaign, 'city', '')
+                state = getattr(campaign, 'state', '')
+                
+                # Fall back to extracting from target_cities if city/state not set
+                if not city and not state and campaign.target_cities:
                     parts = campaign.target_cities.split(',')
                     city = parts[0].strip() if parts else ''
                     state = parts[1].strip() if len(parts) > 1 else ''
@@ -1630,6 +1682,9 @@ def generate_campaign_emails(campaign_id: str, user_id: str):
                     '[[Associate email]]': campaign.owner_email,
                     '[[Associate Phone]]': getattr(campaign, 'owner_phone', ''),
                     '[[Calendly Link]]': campaign.calendly_link or '',
+                    '[[Calendly Link 1]]': calendly1,
+                    '[[Calendly Link 2]]': calendly2,
+                    '[[Calendly Link 3]]': calendly3,
                     # Legacy field names for backward compatibility
                     '[[HotelName]]': campaign.hotel_name or '',
                     '[[HotelAddress]]': campaign.hotel_address or '',
