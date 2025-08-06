@@ -147,6 +147,20 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
             body: template.body,
             template_type: template.template_type || 'general'
         });
+        
+        // Extract existing images from the template body
+        const imageRegex = /<img[^>]+src="([^"]+)"[^>]*>/g;
+        const existingImages: {url: string, name: string}[] = [];
+        let match;
+        
+        while ((match = imageRegex.exec(template.body)) !== null) {
+            const url = match[1];
+            // Extract filename from URL if possible
+            const filename = url.split('/').pop() || 'image';
+            existingImages.push({ url, name: filename });
+        }
+        
+        setUploadedImages(existingImages);
         setShowEditModal(true);
     };
 
@@ -154,8 +168,7 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
         if (!editingTemplate) return;
         
         try {
-            // Use the campaign-specific endpoint for updating templates
-            // The backend campaign endpoint expects the actual field names
+            // Map frontend fields to backend expected fields
             const updateData = {
                 name: templateForm.name,
                 subject: templateForm.subject,  // Campaign templates use 'subject'
@@ -164,9 +177,20 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
             };
             
             await api.put(`/api/campaigns/${campaignId}/email-templates/${editingTemplate.id}`, updateData);
+            
+            // Immediately update the local state with the new template data
+            setAvailableTemplates(prev => prev.map(t => 
+                t.id === editingTemplate.id 
+                    ? { ...t, ...templateForm }
+                    : t
+            ));
+            
+            // Then fetch fresh data from server to ensure sync
             await fetchTemplates();
+            
             setShowEditModal(false);
             setEditingTemplate(null);
+            setUploadedImages([]); // Clear uploaded images after save
             alert('Template updated successfully');
         } catch (err) {
             console.error('Failed to update template:', err);
@@ -181,27 +205,39 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
         setIsUploadingImage(true);
         
         try {
-            // Create a data URL for the image
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                const imageUrl = reader.result as string;
-                const newImage = { url: imageUrl, name: file.name };
-                setUploadedImages(prev => [...prev, newImage]);
-                setIsUploadingImage(false);
-                
-                // Don't auto-insert, let user copy HTML instead
-                alert(`Image "${file.name}" uploaded! Click on the image below to copy its HTML code, then paste it where you want it in the template.`);
+            // Upload image to server instead of using base64
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            // Upload to the backend endpoint
+            const response = await api.post(`/api/campaigns/${campaignId}/upload-image`, formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                }
+            });
+            
+            // Server returns a URL instead of base64
+            const imageData = response.data;
+            const newImage = { 
+                url: imageData.url, 
+                name: file.name 
             };
-            reader.readAsDataURL(file);
+            
+            setUploadedImages(prev => [...prev, newImage]);
+            setIsUploadingImage(false);
+            
+            alert(`Image "${file.name}" uploaded! Click on the image below to copy its HTML code.`);
         } catch (error) {
             console.error('Error uploading image:', error);
-            alert('Failed to upload image');
+            alert('Failed to upload image. Please try again.');
             setIsUploadingImage(false);
         }
     };
 
     const copyImageHTML = (imageUrl: string, imageName: string) => {
-        const imageTag = `<img src="${imageUrl}" alt="${imageName}" style="max-width: 100%; height: auto;" />`;
+        // Create a properly formatted image tag with the server URL
+        const fullUrl = imageUrl.startsWith('http') ? imageUrl : `${window.location.origin}${imageUrl}`;
+        const imageTag = `<img src="${fullUrl}" alt="${imageName}" style="max-width: 100%; height: auto;" />`;
         
         // Copy to clipboard
         navigator.clipboard.writeText(imageTag).then(() => {
@@ -842,7 +878,9 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
                                                 >
                                                     <Flex direction="column" align="center" gap="1">
                                                         <img 
-                                                            src={img.url} 
+                                                            src={img.url.startsWith('http') || img.url.startsWith('data:') 
+                                                                ? img.url 
+                                                                : `${window.location.origin}${img.url}`} 
                                                             alt={img.name}
                                                             style={{ 
                                                                 width: '80px', 

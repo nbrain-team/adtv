@@ -8,6 +8,8 @@ import csv
 import io
 import json
 import logging
+import os
+import uuid
 
 from . import auth
 from .database import get_db, User, Campaign, CampaignContact, CampaignTemplate, CampaignAnalytics, CampaignEmailTemplate, engine
@@ -1887,6 +1889,49 @@ def delete_campaign_email_template(
     db.commit()
     
     return {"message": "Template deleted successfully"}
+
+# Image upload endpoint for email templates
+@router.post("/{campaign_id}/upload-image")
+async def upload_template_image(
+    campaign_id: str,
+    file: UploadFile = File(...),
+    current_user: User = Depends(auth.get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Upload an image for email templates and return a URL"""
+    # Validate file type
+    allowed_extensions = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+    file_extension = file.filename.split('.')[-1].lower()
+    
+    if file_extension not in allowed_extensions:
+        raise HTTPException(status_code=400, detail=f"File type not allowed. Allowed types: {', '.join(allowed_extensions)}")
+    
+    # Generate unique filename
+    unique_filename = f"{uuid.uuid4()}.{file_extension}"
+    
+    # Create uploads directory if it doesn't exist
+    upload_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads", "email-images", campaign_id)
+    os.makedirs(upload_dir, exist_ok=True)
+    
+    # Save file
+    file_path = os.path.join(upload_dir, unique_filename)
+    
+    try:
+        contents = await file.read()
+        with open(file_path, 'wb') as f:
+            f.write(contents)
+        
+        # Return the URL for the uploaded image
+        # In production, this would be a CDN URL or proper static file serving URL
+        image_url = f"/uploads/email-images/{campaign_id}/{unique_filename}"
+        
+        return {
+            "url": image_url,
+            "filename": file.filename,
+            "size": len(contents)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to upload image: {str(e)}")
 
 # RSVP Management Endpoints
 @router.post("/{campaign_id}/contacts/rsvp")
