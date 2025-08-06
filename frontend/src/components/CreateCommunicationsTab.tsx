@@ -526,8 +526,9 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
                         <li>The data will automatically format into columns</li>
                     </ol>
                     <div class="format-note">
-                        <strong>Note:</strong> Line breaks and formatting are preserved. Images will be displayed as HTML tags.
+                        <strong>Note:</strong> Line breaks and formatting are preserved. HTML links are clickable.
                         For best results in Google Sheets, you may need to adjust row heights after pasting.
+                        Hyperlinks with merge fields (e.g., <code>&lt;a href="[[VIDEO-LINK]]"&gt;Click here&lt;/a&gt;</code>) will be rendered as clickable links.
                     </div>
                 </div>
                 <table id="dataTable">
@@ -871,10 +872,78 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
                                     whiteSpace: 'pre-wrap'
                                 }}
                             />
-                            <Text size="1" color="gray" mt="1">
-                                Use {'{{FirstName}}'}, {'{{Company}}'}, [[City]], [[State]], etc. for mail merge.
-                                Line breaks and formatting will be preserved.
-                            </Text>
+                            <Flex direction="column" gap="1" mt="1">
+                                <Text size="1" color="gray">
+                                    Use {'{{FirstName}}'}, {'{{Company}}'}, [[City]], [[State]], etc. for mail merge.
+                                </Text>
+                                <Text size="1" color="gray">
+                                    For hyperlinks: {'<a href="[[VIDEO-LINK]]">Click here to watch</a>'}
+                                </Text>
+                                <Text size="1" color="gray">
+                                    Line breaks and formatting will be preserved.
+                                </Text>
+                            </Flex>
+                            
+                            {/* Quick Insert Buttons */}
+                            <Flex gap="2" mt="2" wrap="wrap">
+                                <Text size="1" weight="medium">Quick Insert:</Text>
+                                <Button
+                                    size="1"
+                                    variant="soft"
+                                    type="button"
+                                    onClick={() => {
+                                        const linkHtml = '<a href="[[VIDEO-LINK]]">Watch our video</a>';
+                                        setTemplateForm({ 
+                                            ...templateForm, 
+                                            body: templateForm.body + '\n' + linkHtml 
+                                        });
+                                    }}
+                                >
+                                    + Video Link
+                                </Button>
+                                <Button
+                                    size="1"
+                                    variant="soft"
+                                    type="button"
+                                    onClick={() => {
+                                        const linkHtml = '<a href="[[Event-Link]]">Event details</a>';
+                                        setTemplateForm({ 
+                                            ...templateForm, 
+                                            body: templateForm.body + '\n' + linkHtml 
+                                        });
+                                    }}
+                                >
+                                    + Event Link
+                                </Button>
+                                <Button
+                                    size="1"
+                                    variant="soft"
+                                    type="button"
+                                    onClick={() => {
+                                        const linkHtml = '<a href="[[Calendly Link]]">Schedule a meeting</a>';
+                                        setTemplateForm({ 
+                                            ...templateForm, 
+                                            body: templateForm.body + '\n' + linkHtml 
+                                        });
+                                    }}
+                                >
+                                    + Calendly Link
+                                </Button>
+                                <Button
+                                    size="1"
+                                    variant="soft"
+                                    type="button"
+                                    onClick={() => {
+                                        const linkHtml = '<a href="mailto:[[Associate email]]">Email me</a>';
+                                        setTemplateForm({ 
+                                            ...templateForm, 
+                                            body: templateForm.body + '\n' + linkHtml 
+                                        });
+                                    }}
+                                >
+                                    + Email Link
+                                </Button>
+                            </Flex>
                         </Box>
                         
                         <Flex gap="3" justify="end">
