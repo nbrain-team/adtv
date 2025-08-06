@@ -408,18 +408,27 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
             const csvContent = [
                 headers.join(','),
                 ...data.map(row => {
+                    // Helper function to escape CSV values and preserve formatting
+                    const escapeCSV = (value: string) => {
+                        // Keep newlines but ensure they're properly quoted
+                        // Escape double quotes
+                        const escaped = value.replace(/"/g, '""');
+                        // Always quote fields that contain newlines, commas, or quotes
+                        return `"${escaped}"`;
+                    };
+                    
                     const values = [
                         row.id,
-                        `"${row.first_name.replace(/"/g, '""')}"`,
-                        `"${row.last_name.replace(/"/g, '""')}"`,
-                        `"${row.email.replace(/"/g, '""')}"`,
-                        `"${row.phone.replace(/"/g, '""')}"`,
-                        `"${row.company.replace(/"/g, '""')}"`,
-                        `"${row.title.replace(/"/g, '""')}"`,
-                        `"${row.neighborhood.replace(/"/g, '""')}"`,
+                        escapeCSV(row.first_name),
+                        escapeCSV(row.last_name),
+                        escapeCSV(row.email),
+                        escapeCSV(row.phone),
+                        escapeCSV(row.company),
+                        escapeCSV(row.title),
+                        escapeCSV(row.neighborhood),
                         ...templates.flatMap(t => [
-                            `"${(row[`${t.name}_subject`] || '').replace(/"/g, '""')}"`,
-                            `"${(row[`${t.name}_body`] || '').replace(/"/g, '""')}"`,
+                            escapeCSV(row[`${t.name}_subject`] || ''),
+                            escapeCSV(row[`${t.name}_body`] || ''),
                         ])
                     ];
                     return values.join(',');
@@ -479,18 +488,73 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
             return;
         }
 
-        // Parse CSV data
-        const lines = csvData.split('\n');
-        const headers = lines[0].split(',').map(h => h.replace(/"/g, ''));
-        const rows = lines.slice(1).map(line => {
-            // Parse CSV line (handling quoted fields)
-            const regex = /("([^"]*)"|[^,]+|(?<=,)(?=,)|^(?=,)|(?<=,)$)/g;
-            const matches = line.match(regex) || [];
-            return matches.map(field => {
-                // Remove quotes and unescape double quotes
-                let cleanField = field.replace(/^"|"$/g, '').replace(/""/g, '"');
+        // Parse CSV data with proper handling of quoted fields containing newlines
+        const parseCSV = (text: string) => {
+            const rows: string[][] = [];
+            let currentRow: string[] = [];
+            let currentField = '';
+            let inQuotes = false;
+            
+            for (let i = 0; i < text.length; i++) {
+                const char = text[i];
+                const nextChar = text[i + 1];
+                
+                if (inQuotes) {
+                    if (char === '"' && nextChar === '"') {
+                        // Escaped quote
+                        currentField += '"';
+                        i++; // Skip next quote
+                    } else if (char === '"') {
+                        // End of quoted field
+                        inQuotes = false;
+                    } else {
+                        // Regular character in quoted field (including newlines)
+                        currentField += char;
+                    }
+                } else {
+                    if (char === '"') {
+                        // Start of quoted field
+                        inQuotes = true;
+                    } else if (char === ',') {
+                        // End of field
+                        currentRow.push(currentField);
+                        currentField = '';
+                    } else if (char === '\n' || (char === '\r' && nextChar === '\n')) {
+                        // End of row
+                        currentRow.push(currentField);
+                        if (currentRow.length > 0 || rows.length > 0) {
+                            rows.push(currentRow);
+                        }
+                        currentRow = [];
+                        currentField = '';
+                        if (char === '\r' && nextChar === '\n') {
+                            i++; // Skip \n in \r\n
+                        }
+                    } else if (char !== '\r') {
+                        // Regular character
+                        currentField += char;
+                    }
+                }
+            }
+            
+            // Add last field and row if needed
+            if (currentField || currentRow.length > 0) {
+                currentRow.push(currentField);
+            }
+            if (currentRow.length > 0) {
+                rows.push(currentRow);
+            }
+            
+            return rows;
+        };
+        
+        const parsedData = parseCSV(csvData);
+        const headers = parsedData[0] || [];
+        const rows = parsedData.slice(1).map(row => {
+            return row.map(field => {
                 // Convert newlines to HTML breaks for display
-                cleanField = cleanField.replace(/\n/g, '<br>');
+                let cleanField = field.replace(/\n/g, '<br>');
+                cleanField = cleanField.replace(/\r/g, '');
                 // Ensure images are properly formatted
                 cleanField = cleanField.replace(/<img/g, '<img style="max-width: 200px; height: auto;"');
                 return cleanField;
@@ -506,7 +570,7 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
                 <meta charset="UTF-8">
                 <style>
                     body { font-family: Arial, sans-serif; margin: 20px; }
-                    table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+                    table { border-collapse: collapse; width: 100%; margin-top: 20px; table-layout: fixed; }
                     th, td { 
                         border: 1px solid #ddd; 
                         padding: 8px; 
@@ -514,10 +578,18 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
                         vertical-align: top;
                         white-space: pre-wrap;
                         word-wrap: break-word;
+                        max-width: 500px;
+                        overflow: hidden;
                     }
-                    th { background-color: #4CAF50; color: white; position: sticky; top: 0; }
+                    th { background-color: #4CAF50; color: white; position: sticky; top: 0; z-index: 10; }
                     tr:nth-child(even) { background-color: #f2f2f2; }
                     td img { max-width: 200px; height: auto; display: block; margin: 5px 0; }
+                    .email-cell { 
+                        max-height: 300px; 
+                        overflow-y: auto; 
+                        font-size: 12px;
+                        line-height: 1.4;
+                    }
                     .instructions { 
                         background: #e3f2fd; 
                         padding: 20px; 
@@ -585,9 +657,8 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
                         <li>The data will automatically format into columns</li>
                     </ol>
                     <div class="format-note">
-                        <strong>Note:</strong> Line breaks and formatting are preserved. HTML links are clickable.
+                        <strong>Note:</strong> Email templates are contained in single cells with line breaks preserved.
                         For best results in Google Sheets, you may need to adjust row heights after pasting.
-                        Hyperlinks with merge fields (e.g., <code>&lt;a href="[[VIDEO-LINK]]"&gt;Click here&lt;/a&gt;</code>) will be rendered as clickable links.
                     </div>
                 </div>
                 <table id="dataTable">
@@ -595,7 +666,14 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
                         <tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>
                     </thead>
                     <tbody>
-                        ${rows.map(row => `<tr>${row.map(cell => `<td>${cell || ''}</td>`).join('')}</tr>`).join('')}
+                        ${rows.map(row => {
+                            return `<tr>${row.map((cell, index) => {
+                                // Check if this is an email body column (contains template content)
+                                const isEmailContent = headers[index]?.toLowerCase().includes('body');
+                                const cellClass = isEmailContent ? 'email-cell' : '';
+                                return `<td class="${cellClass}">${cell || ''}</td>`;
+                            }).join('')}</tr>`;
+                        }).join('')}
                     </tbody>
                 </table>
             </body>
