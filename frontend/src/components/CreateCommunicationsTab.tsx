@@ -148,7 +148,7 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
         if (!editingTemplate) return;
         
         try {
-            await api.put(`/api/campaigns/${campaignId}/email-templates/${editingTemplate.id}`, templateForm);
+            await api.put(`/api/email-templates/${editingTemplate.id}`, templateForm);
             await fetchTemplates();
             setShowEditModal(false);
             setEditingTemplate(null);
@@ -370,7 +370,7 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
         // Get the CSV data from localStorage
         const csvData = localStorage.getItem(`file_${file.id}_data`);
         if (!csvData) {
-            alert('File data not found');
+            alert('File data not found. Please regenerate the file.');
             return;
         }
 
@@ -386,52 +386,108 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
 
         // Create HTML table for easy copy-paste to Google Sheets
         const tableHTML = `
+            <!DOCTYPE html>
             <html>
             <head>
+                <title>${file.name} - Google Sheets Export</title>
+                <meta charset="UTF-8">
                 <style>
-                    table { border-collapse: collapse; width: 100%; }
+                    body { font-family: Arial, sans-serif; margin: 20px; }
+                    table { border-collapse: collapse; width: 100%; margin-top: 20px; }
                     th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-                    th { background-color: #4CAF50; color: white; }
+                    th { background-color: #4CAF50; color: white; position: sticky; top: 0; }
                     tr:nth-child(even) { background-color: #f2f2f2; }
                     .instructions { 
                         background: #e3f2fd; 
-                        padding: 15px; 
+                        padding: 20px; 
                         margin: 20px 0; 
-                        border-radius: 5px;
+                        border-radius: 8px;
                         border-left: 4px solid #2196F3;
                     }
+                    .instructions h2 { margin-top: 0; color: #1976D2; }
+                    .instructions ol { margin: 10px 0; padding-left: 25px; }
+                    .instructions li { margin: 8px 0; }
+                    .instructions a { 
+                        color: #1976D2; 
+                        text-decoration: none; 
+                        font-weight: bold;
+                        background: #fff;
+                        padding: 4px 8px;
+                        border-radius: 4px;
+                        border: 1px solid #1976D2;
+                    }
+                    .instructions a:hover { background: #1976D2; color: white; }
+                    .copy-button {
+                        background: #4CAF50;
+                        color: white;
+                        border: none;
+                        padding: 10px 20px;
+                        border-radius: 5px;
+                        cursor: pointer;
+                        font-size: 16px;
+                        margin: 10px 0;
+                    }
+                    .copy-button:hover { background: #45a049; }
                 </style>
+                <script>
+                    function selectAllData() {
+                        const range = document.createRange();
+                        range.selectNode(document.getElementById('dataTable'));
+                        window.getSelection().removeAllRanges();
+                        window.getSelection().addRange(range);
+                        try {
+                            document.execCommand('copy');
+                            alert('Data copied to clipboard! Now paste it into Google Sheets.');
+                        } catch (err) {
+                            alert('Please manually select and copy the table.');
+                        }
+                    }
+                </script>
             </head>
             <body>
                 <div class="instructions">
-                    <h2>Instructions to Import to Google Sheets:</h2>
+                    <h2>Export to Google Sheets</h2>
+                    <button class="copy-button" onclick="selectAllData()">📋 Copy All Data</button>
                     <ol>
-                        <li>Select all data below (Ctrl+A or Cmd+A)</li>
-                        <li>Copy the selection (Ctrl+C or Cmd+C)</li>
-                        <li>Open a new Google Sheet: <a href="https://sheets.new" target="_blank">sheets.new</a></li>
-                        <li>Click on cell A1</li>
+                        <li>Click the "Copy All Data" button above, or select all data manually (Ctrl+A or Cmd+A)</li>
+                        <li>Open Google Sheets: <a href="https://sheets.new" target="_blank">Create New Sheet →</a></li>
+                        <li>Click on cell A1 in the new sheet</li>
                         <li>Paste the data (Ctrl+V or Cmd+V)</li>
+                        <li>The data will automatically format into columns</li>
                     </ol>
                 </div>
-                <table>
+                <table id="dataTable">
                     <thead>
                         <tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>
                     </thead>
                     <tbody>
-                        ${rows.map(row => `<tr>${row.map(cell => `<td>${cell}</td>`).join('')}</tr>`).join('')}
+                        ${rows.map(row => `<tr>${row.map(cell => `<td>${cell || ''}</td>`).join('')}</tr>`).join('')}
                     </tbody>
                 </table>
             </body>
             </html>
         `;
 
-        // Open in new window
+        // Try to open in new window/tab
         const newWindow = window.open('', '_blank');
         if (newWindow) {
             newWindow.document.write(tableHTML);
             newWindow.document.close();
+            newWindow.document.title = `${file.name} - Google Sheets Export`;
         } else {
-            alert('Please allow pop-ups to open the Google Sheets data');
+            // Fallback: Create a blob and open it
+            const blob = new Blob([tableHTML], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.target = '_blank';
+            link.click();
+            
+            // Clean up
+            setTimeout(() => URL.revokeObjectURL(url), 100);
+            
+            // Alert user about popup blocker
+            alert('A popup blocker may have prevented opening the data. The file has been opened in a new tab. If it doesn\'t appear, please check your popup blocker settings.');
         }
     };
 
