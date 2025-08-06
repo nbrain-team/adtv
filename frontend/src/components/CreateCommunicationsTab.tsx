@@ -6,7 +6,7 @@ import {
 } from '@radix-ui/themes';
 import { 
     InfoCircledIcon, ExternalLinkIcon, Cross2Icon, Pencil1Icon,
-    FileIcon, ImageIcon, UploadIcon, PersonIcon, CheckCircledIcon
+    FileIcon, ImageIcon, UploadIcon, PersonIcon, CheckCircledIcon, DownloadIcon
 } from '@radix-ui/react-icons';
 import api from '../api';
 
@@ -385,18 +385,18 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
             }
             saveGeneratedFile(file);
 
-            // Download CSV
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
-            const url = URL.createObjectURL(blob);
-            link.setAttribute('href', url);
-            link.setAttribute('download', `${fileName}.csv`);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
+            // Don't download CSV automatically - user will click "Create Google Sheet" button
+            // const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            // const link = document.createElement('a');
+            // const url = URL.createObjectURL(blob);
+            // link.setAttribute('href', url);
+            // link.setAttribute('download', `${fileName}.csv`);
+            // document.body.appendChild(link);
+            // link.click();
+            // document.body.removeChild(link);
+            // URL.revokeObjectURL(url);
 
-            alert(`Successfully generated communications for ${selectedContacts.length} contacts with ${templates.length} templates!`);
+            alert(`Successfully generated communications for ${selectedContacts.length} contacts with ${templates.length} templates! Click "Create Google Sheet" to open the data.`);
             
             // Reset selection
             setSelectedContactType(null);
@@ -566,10 +566,30 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
     };
 
     const deleteFile = (fileId: string) => {
-        const updated = generatedFiles.filter(f => f.id !== fileId);
-        setGeneratedFiles(updated);
-        localStorage.setItem(`campaign_${campaignId}_files`, JSON.stringify(updated));
+        const updatedFiles = generatedFiles.filter(f => f.id !== fileId);
+        setGeneratedFiles(updatedFiles);
+        localStorage.setItem(`campaign_${campaignId}_files`, JSON.stringify(updatedFiles));
         localStorage.removeItem(`file_${fileId}_data`);
+    };
+
+    const downloadCSV = (file: GeneratedFile) => {
+        // Get the CSV data from localStorage
+        const csvData = localStorage.getItem(`file_${file.id}_data`);
+        if (!csvData) {
+            alert('File data not found. Please regenerate the file.');
+            return;
+        }
+
+        // Create and download CSV
+        const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `${file.name}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
     };
 
     return (
@@ -712,6 +732,15 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
                                             >
                                                 <ExternalLinkIcon />
                                                 Create Google Sheet
+                                            </Button>
+                                            <Button
+                                                variant="soft"
+                                                size="2"
+                                                color="blue"
+                                                onClick={() => downloadCSV(file)}
+                                            >
+                                                <DownloadIcon />
+                                                Download CSV
                                             </Button>
                                             <IconButton
                                                 variant="soft"
