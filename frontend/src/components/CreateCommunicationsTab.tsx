@@ -80,6 +80,7 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
     const [generatedFiles, setGeneratedFiles] = useState<GeneratedFile[]>([]);
     const [showPreview, setShowPreview] = useState(false);
     const [previewData, setPreviewData] = useState<any[]>([]);
+    const [generationProgress, setGenerationProgress] = useState(0);
 
     useEffect(() => {
         fetchTemplates();
@@ -198,6 +199,7 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
         }
 
         setIsGenerating(true);
+        setGenerationProgress(0);
 
         try {
             // Filter contacts based on selection
@@ -208,28 +210,55 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
             // Get selected template objects
             const templates = availableTemplates.filter(t => selectedTemplates.has(t.id));
 
-            // Generate data with mail-merged templates
-            const data = selectedContacts.map(contact => {
-                const row: any = {
-                    id: contact.id,
-                    first_name: contact.first_name || '',
-                    last_name: contact.last_name || '',
-                    email: contact.email || '',
-                    phone: contact.enriched_phone || contact.phone || '',
-                    company: contact.enriched_company || contact.company || '',
-                    title: contact.enriched_title || contact.title || '',
-                    neighborhood: contact.neighborhood || '',
-                };
+            // Show warning for large datasets
+            if (selectedContacts.length > 1000) {
+                const proceed = window.confirm(
+                    `You're about to generate communications for ${selectedContacts.length} contacts. ` +
+                    `This may take a few moments. Continue?`
+                );
+                if (!proceed) {
+                    setIsGenerating(false);
+                    return;
+                }
+            }
 
-                // Add mail-merged content for each selected template
-                templates.forEach(template => {
-                    const merged = applyMailMerge(template, contact);
-                    row[`${template.name}_subject`] = merged.subject;
-                    row[`${template.name}_body`] = merged.body;
+            // Generate data with mail-merged templates in batches for better performance
+            const batchSize = 100;
+            const data: any[] = [];
+            
+            for (let i = 0; i < selectedContacts.length; i += batchSize) {
+                const batch = selectedContacts.slice(i, i + batchSize);
+                const batchData = batch.map(contact => {
+                    const row: any = {
+                        id: contact.id,
+                        first_name: contact.first_name || '',
+                        last_name: contact.last_name || '',
+                        email: contact.email || '',
+                        phone: contact.enriched_phone || contact.phone || '',
+                        company: contact.enriched_company || contact.company || '',
+                        title: contact.enriched_title || contact.title || '',
+                        neighborhood: contact.neighborhood || '',
+                    };
+
+                    // Add mail-merged content for each selected template
+                    templates.forEach(template => {
+                        const merged = applyMailMerge(template, contact);
+                        row[`${template.name}_subject`] = merged.subject;
+                        row[`${template.name}_body`] = merged.body;
+                    });
+
+                    return row;
                 });
-
-                return row;
-            });
+                
+                data.push(...batchData);
+                
+                // Update progress
+                const progress = Math.round((i + batch.length) / selectedContacts.length * 100);
+                setGenerationProgress(progress);
+                
+                // Allow UI to update
+                await new Promise(resolve => setTimeout(resolve, 10));
+            }
 
             // Create CSV content
             const headers = [
@@ -270,8 +299,10 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
                 googleSheetUrl: `https://docs.google.com/spreadsheets/d/${fileId}/edit` // Placeholder URL
             };
 
-            // Save to localStorage
-            localStorage.setItem(`file_${fileId}_data`, csvContent);
+            // Save to localStorage (consider using IndexedDB for large files)
+            if (csvContent.length < 5000000) { // Only store if less than 5MB
+                localStorage.setItem(`file_${fileId}_data`, csvContent);
+            }
             saveGeneratedFile(file);
 
             // Download CSV
@@ -290,12 +321,14 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
             // Reset selection
             setSelectedContactType(null);
             setSelectedTemplates(new Set());
+            setGenerationProgress(0);
 
         } catch (error) {
             console.error('Error generating communications:', error);
             alert('Failed to generate communications. Please try again.');
         } finally {
             setIsGenerating(false);
+            setGenerationProgress(0);
         }
     };
 
@@ -427,7 +460,7 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
                             onClick={generateCommunications}
                             disabled={isGenerating}
                         >
-                            {isGenerating ? 'Generating...' : 'Generate Communications'}
+                            {isGenerating ? `Generating... ${generationProgress}%` : 'Generate Communications'}
                         </Button>
                     </Box>
                 )}
