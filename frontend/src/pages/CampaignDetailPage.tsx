@@ -20,6 +20,7 @@ import L from 'leaflet';
 import React from 'react'; // Added for React.Fragment
 import { GeneratorWorkflow } from '../components/GeneratorWorkflow';
 import { ContactDataManager } from '../components/ContactDataManager';
+import { EmailCampaignTab } from '../components/EmailCampaignTab';
 
 // Fix for default markers in react-leaflet
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -53,9 +54,20 @@ interface Campaign {
     owner_name: string;
     owner_email: string;
     owner_phone?: string;
+    video_link?: string;
+    event_link?: string;
+    city?: string;
+    state?: string;
     launch_date: string;
     event_type: 'virtual' | 'in_person';
     event_date: string;
+    event_times?: string[];
+    event_slots?: Array<{
+        date: string;
+        time: string;
+        calendly_link?: string;
+    }>;
+    target_cities?: string;
     hotel_name?: string;
     hotel_address?: string;
     calendly_link?: string;
@@ -69,8 +81,6 @@ interface Campaign {
     email_subject?: string;
     created_at: string;
     updated_at: string;
-    event_times?: string[];
-    target_cities?: string;
 }
 
 interface Contact {
@@ -271,6 +281,7 @@ const CampaignDetailPage = () => {
     const [showBulkEditModal, setShowBulkEditModal] = useState(false);
     const [bulkEditField, setBulkEditField] = useState<string>('');
     const [bulkEditValue, setBulkEditValue] = useState<string>('');
+    const [selectedForEmail, setSelectedForEmail] = useState<Contact[]>([]);  // Add this state
     
     // Email Template Management
     const [emailTemplates, setEmailTemplates] = useState<any[]>([]);
@@ -936,8 +947,9 @@ const CampaignDetailPage = () => {
                             <Tabs.Trigger value="overview">Overview</Tabs.Trigger>
                             <Tabs.Trigger value="contacts">Contacts ({campaign.total_contacts})</Tabs.Trigger>
                             <Tabs.Trigger value="rsvp">RSVPs ({contacts.filter(c => c.is_rsvp).length})</Tabs.Trigger>
-                            <Tabs.Trigger value="email-templates">Email Templates</Tabs.Trigger>
-                            <Tabs.Trigger value="emails">Generate Emails</Tabs.Trigger>
+                            <Tabs.Trigger value="email-campaign">
+                                Email Campaign {selectedForEmail.length > 0 && `(${selectedForEmail.length})`}
+                            </Tabs.Trigger>
                             <Tabs.Trigger value="analytics">Analytics</Tabs.Trigger>
                             <Tabs.Trigger value="map">Map View</Tabs.Trigger>
                         </Tabs.List>
@@ -1426,12 +1438,8 @@ const CampaignDetailPage = () => {
                                 {campaign.total_contacts > 0 && (
                                     <Box mb="4">
                                         <ContactDataManager 
-                                            campaignId={campaignId!}
+                                            campaignId={campaignId!} 
                                             campaignName={campaign.name}
-                                            onDataUpdate={() => {
-                                                // Refresh contacts when data is updated
-                                                fetchContacts();
-                                            }}
                                         />
                                     </Box>
                                 )}
@@ -1756,171 +1764,17 @@ const CampaignDetailPage = () => {
                             </Card>
                         </Tabs.Content>
 
-                        {/* Email Templates Tab */}
-                        <Tabs.Content value="email-templates">
-                            <Card>
-                                <Flex align="center" justify="between" mb="4">
-                                    <Heading size="4">Email Templates</Heading>
-                                    <Button 
-                                        variant="solid"
-                                        onClick={() => {
-                                            setEditingTemplate(null);
-                                            setTemplateForm({ name: '', subject: '', body: '', template_type: 'general' });
-                                            setShowTemplateModal(true);
-                                        }}
-                                    >
-                                        <PlusIcon />
-                                        Create Template
-                                    </Button>
-                                </Flex>
-
-                                {emailTemplates.length === 0 ? (
-                                    <Flex align="center" justify="center" style={{ padding: '4rem' }}>
-                                        <Text color="gray">No email templates yet. Create your first template!</Text>
-                                    </Flex>
-                                ) : (
-                                    <Box style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1rem' }}>
-                                        {emailTemplates.map(template => (
-                                            <Card key={template.id} style={{ padding: '1.5rem' }}>
-                                                <Flex direction="column" gap="3">
-                                                    <Flex align="center" justify="between">
-                                                        <Heading size="3">{template.name}</Heading>
-                                                        <Badge>{template.template_type}</Badge>
-                                                    </Flex>
-                                                    <Text size="2" color="gray" weight="bold">Subject:</Text>
-                                                    <Text size="2">{template.subject}</Text>
-                                                    <Text size="2" color="gray" weight="bold">Preview:</Text>
-                                                    <Text size="2" style={{ 
-                                                        whiteSpace: 'pre-wrap',
-                                                        overflow: 'hidden',
-                                                        textOverflow: 'ellipsis',
-                                                        display: '-webkit-box',
-                                                        WebkitLineClamp: 3,
-                                                        WebkitBoxOrient: 'vertical'
-                                                    }}>
-                                                        {template.body}
-                                                    </Text>
-                                                    <Flex gap="2" mt="2">
-                                                        <Button 
-                                                            size="2" 
-                                                            variant="soft"
-                                                            onClick={() => {
-                                                                setEditingTemplate(template);
-                                                                setTemplateForm({
-                                                                    name: template.name,
-                                                                    subject: template.subject,
-                                                                    body: template.body,
-                                                                    template_type: template.template_type
-                                                                });
-                                                                setShowTemplateModal(true);
-                                                            }}
-                                                        >
-                                                            <Pencil1Icon />
-                                                            Edit
-                                                        </Button>
-                                                        <Button 
-                                                            size="2" 
-                                                            variant="soft" 
-                                                            color="red"
-                                                            onClick={() => handleDeleteTemplate(template.id)}
-                                                        >
-                                                            <TrashIcon />
-                                                            Delete
-                                                        </Button>
-                                                    </Flex>
-                                                </Flex>
-                                            </Card>
-                                        ))}
-                                    </Box>
-                                )}
-                            </Card>
-                        </Tabs.Content>
-
-                        {/* Generate Emails Tab */}
-                        <Tabs.Content value="emails">
-                            <Card>
-                                <Heading size="4" mb="4">Generate Emails</Heading>
-                                
-                                {campaign.status !== 'draft' ? (
-                                    <Flex direction="column" gap="4">
-                                        <Callout.Root color="blue">
-                                            <Callout.Icon>
-                                                <InfoCircledIcon />
-                                            </Callout.Icon>
-                                            <Callout.Text>
-                                                {campaign.total_contacts} contacts are ready for email generation. 
-                                                Configure your email template below using mail merge variables.
-                                            </Callout.Text>
-                                        </Callout.Root>
-                                        
-                                        <Box>
-                                            <Text as="label" size="2" mb="1" weight="medium">
-                                                Email Subject
-                                            </Text>
-                                            <TextField.Root
-                                                value={emailSubject}
-                                                onChange={(e) => setEmailSubject(e.target.value)}
-                                                placeholder="Join us for an exclusive event, {{first_name}}!"
-                                            />
-                                        </Box>
-                                        
-                                        <Box>
-                                            <Text as="label" size="2" mb="1" weight="medium">
-                                                Email Template
-                                            </Text>
-                                            <TextArea
-                                                value={emailTemplate}
-                                                onChange={(e) => setEmailTemplate(e.target.value)}
-                                                placeholder="Dear {{first_name}},
-
-We're excited to invite you to our upcoming event on {{event_date}} at {{event_time}}.
-
-{{#if event_type == 'in_person'}}
-Location: {{hotel_name}}
-Address: {{hotel_address}}
-{{else}}
-Join us virtually via: {{calendly_link}}
-{{/if}}
-
-Best regards,
-{{owner_name}}"
-                                                rows={15}
-                                            />
-                                            <Text size="1" color="gray" mt="1">
-                                                Available variables: {`{{first_name}}, {{last_name}}, {{company}}, {{title}}, {{event_date}}, {{event_time}}, {{hotel_name}}, {{hotel_address}}, {{calendly_link}}, {{owner_name}}, {{campaign_name}}, {{target_cities}}`}
-                                            </Text>
-                                        </Box>
-                                        
-                                        <Flex gap="3">
-                                            <Button 
-                                                onClick={() => api.put(`/api/campaigns/${campaignId}`, { 
-                                                    email_template: emailTemplate, 
-                                                    email_subject: emailSubject 
-                                                })}
-                                                variant="soft"
-                                            >
-                                                Save Template
-                                            </Button>
-                                            <Button 
-                                                onClick={handleGenerateEmails}
-                                                disabled={!emailTemplate || !emailSubject}
-                                            >
-                                                <EnvelopeClosedIcon />
-                                                Generate Emails for {campaign.total_contacts} Contacts
-                                            </Button>
-                                        </Flex>
-                                    </Flex>
-                                ) : (
-                                    <Callout.Root color="gray">
-                                        <Callout.Icon>
-                                            <InfoCircledIcon />
-                                        </Callout.Icon>
-                                        <Callout.Text>
-                                            Please upload contacts before generating emails.
-                                        </Callout.Text>
-                                    </Callout.Root>
-                                )}
-                            </Card>
+                        {/* Email Campaign Tab */}
+                        <Tabs.Content value="email-campaign">
+                            <EmailCampaignTab
+                                campaignId={campaignId!}
+                                campaign={campaign}
+                                selectedContacts={selectedForEmail}
+                                onClearSelection={() => {
+                                    setSelectedForEmail([]);
+                                    setSelectedContacts(new Set());
+                                }}
+                            />
                         </Tabs.Content>
 
                         {/* Analytics Tab */}
@@ -2625,10 +2479,10 @@ Thank you for confirming your attendance..."
                 
                 {/* Send Communication Modal */}
                 <Dialog.Root open={showSendCommunicationModal} onOpenChange={setShowSendCommunicationModal}>
-                    <Dialog.Content style={{ maxWidth: 500 }}>
+                    <Dialog.Content style={{ maxWidth: 600 }}>
                         <Dialog.Title>Send Communication to RSVPs</Dialog.Title>
                         <Box mt="4">
-                            <Flex direction="column" gap="3">
+                            <Flex direction="column" gap="4">
                                 <Box>
                                     <Text size="2" mb="2">
                                         Select an email template to send to {selectedContacts.size > 0 ? selectedContacts.size : 'all'} RSVP contacts
@@ -2647,10 +2501,7 @@ Thank you for confirming your attendance..."
                                         <Select.Content>
                                             {emailTemplates.map(template => (
                                                 <Select.Item key={template.id} value={template.id}>
-                                                    <Flex direction="column" gap="1">
-                                                        <Text size="2" weight="medium">{template.name}</Text>
-                                                        <Text size="1" color="gray">{template.template_type}</Text>
-                                                    </Flex>
+                                                    {template.name}
                                                 </Select.Item>
                                             ))}
                                         </Select.Content>
@@ -2658,24 +2509,98 @@ Thank you for confirming your attendance..."
                                 </Box>
                                 
                                 {selectedRsvpTemplateId && (
-                                    <Box style={{ 
-                                        backgroundColor: 'var(--gray-2)', 
-                                        padding: '1rem', 
-                                        borderRadius: '8px' 
-                                    }}>
-                                        <Text size="2" weight="medium" mb="2">Preview</Text>
+                                    <Box>
+                                        <Text size="2" weight="medium" mb="3">
+                                            Email Preview (with mail merge)
+                                        </Text>
                                         {(() => {
                                             const template = emailTemplates.find(t => t.id === selectedRsvpTemplateId);
                                             if (!template) return null;
+                                            
+                                            // Get first RSVP contact for preview
+                                            const rsvpContacts = contacts.filter(c => c.is_rsvp);
+                                            const firstContact = rsvpContacts.length > 0 ? rsvpContacts[0] : null;
+                                            
+                                            // Apply mail merge for preview
+                                            let mergedSubject = template.subject;
+                                            let mergedBody = template.body;
+                                            
+                                            if (firstContact) {
+                                                // Contact-level replacements
+                                                const contactReplacements = {
+                                                    '{{FirstName}}': firstContact.first_name || '[FirstName]',
+                                                    '{{LastName}}': firstContact.last_name || '[LastName]',
+                                                    '{{Email}}': firstContact.email || '[Email]',
+                                                    '{{Phone}}': firstContact.enriched_phone || firstContact.phone || '[Phone]',
+                                                    '{{Company}}': firstContact.enriched_company || firstContact.company || '[Company]',
+                                                    '{{Title}}': firstContact.enriched_title || firstContact.title || '[Title]',
+                                                    '{{Neighborhood_1}}': firstContact.neighborhood || '[Neighborhood]',
+                                                };
+                                                
+                                                // Campaign-level replacements
+                                                const campaignReplacements = {
+                                                    '[[Associate Name]]': campaign?.owner_name || '[Associate Name]',
+                                                    '[[Associate email]]': campaign?.owner_email || '[Associate Email]',
+                                                    '[[Associate Phone]]': campaign?.owner_phone || '[Associate Phone]',
+                                                    '[[City]]': campaign?.city || '[City]',
+                                                    '[[State]]': campaign?.state || '[State]',
+                                                    '[[VIDEO-LINK]]': campaign?.video_link || '[Video Link]',
+                                                    '[[Event-Link]]': campaign?.event_link || '[Event Link]',
+                                                    '[[Hotel Name]]': campaign?.hotel_name || '[Hotel Name]',
+                                                    '[[Hotel Address]]': campaign?.hotel_address || '[Hotel Address]',
+                                                    '[[Date1]]': campaign?.event_slots?.[0]?.date || '[Date 1]',
+                                                    '[[Time1]]': campaign?.event_slots?.[0]?.time || '[Time 1]',
+                                                    '[[Date2]]': campaign?.event_slots?.[1]?.date || '',
+                                                    '[[Time2]]': campaign?.event_slots?.[1]?.time || '',
+                                                    '[[Date3]]': campaign?.event_slots?.[2]?.date || '',
+                                                    '[[Time3]]': campaign?.event_slots?.[2]?.time || '',
+                                                    '[[Calendly Link 1]]': campaign?.event_slots?.[0]?.calendly_link || '',
+                                                    '[[Calendly Link 2]]': campaign?.event_slots?.[1]?.calendly_link || '',
+                                                    '[[Calendly Link 3]]': campaign?.event_slots?.[2]?.calendly_link || '',
+                                                };
+                                                
+                                                // Apply all replacements
+                                                for (const [key, value] of Object.entries(contactReplacements)) {
+                                                    mergedSubject = mergedSubject.replace(new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), value);
+                                                    mergedBody = mergedBody.replace(new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), value);
+                                                }
+                                                
+                                                for (const [key, value] of Object.entries(campaignReplacements)) {
+                                                    mergedSubject = mergedSubject.replace(new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), value);
+                                                    mergedBody = mergedBody.replace(new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), value);
+                                                }
+                                            }
+                                            
                                             return (
-                                                <>
-                                                    <Text size="2" color="gray">Subject:</Text>
-                                                    <Text size="2" mb="2">{template.subject}</Text>
-                                                    <Text size="2" color="gray">Body:</Text>
-                                                    <Text size="2" style={{ whiteSpace: 'pre-wrap' }}>
-                                                        {template.body.substring(0, 200)}...
-                                                    </Text>
-                                                </>
+                                                <Card style={{ backgroundColor: 'var(--gray-1)', padding: '1.5rem' }}>
+                                                    {firstContact && (
+                                                        <Box mb="3">
+                                                            <Badge color="blue" size="1">
+                                                                Preview for: {firstContact.first_name} {firstContact.last_name}
+                                                            </Badge>
+                                                        </Box>
+                                                    )}
+                                                    
+                                                    <Box mb="3">
+                                                        <Text size="1" color="gray" weight="medium">SUBJECT</Text>
+                                                        <Text size="3" weight="medium" style={{ display: 'block', marginTop: '0.25rem' }}>
+                                                            {mergedSubject}
+                                                        </Text>
+                                                    </Box>
+                                                    
+                                                    <Box>
+                                                        <Text size="1" color="gray" weight="medium">EMAIL BODY</Text>
+                                                        <ScrollArea style={{ height: '300px', marginTop: '0.5rem' }}>
+                                                            <Text size="2" style={{ 
+                                                                whiteSpace: 'pre-wrap',
+                                                                lineHeight: '1.6',
+                                                                fontFamily: 'system-ui, -apple-system, sans-serif'
+                                                            }}>
+                                                                {mergedBody}
+                                                            </Text>
+                                                        </ScrollArea>
+                                                    </Box>
+                                                </Card>
                                             );
                                         })()}
                                     </Box>
