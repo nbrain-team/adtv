@@ -283,6 +283,15 @@ const CampaignDetailPage = () => {
     const [bulkEditValue, setBulkEditValue] = useState<string>('');
     const [selectedForEmail, setSelectedForEmail] = useState<Contact[]>([]);  // Add this state
     
+    // Pagination state for contacts
+    const [currentPage, setCurrentPage] = useState(1);
+    const [contactsPerPage] = useState(50);
+    
+    // Bulk email generation state
+    const [showBulkEmailModal, setShowBulkEmailModal] = useState(false);
+    const [selectedEmailTemplateId, setSelectedEmailTemplateId] = useState<string>('');
+    const [isGeneratingBulkEmails, setIsGeneratingBulkEmails] = useState(false);
+    
     // Email Template Management
     const [emailTemplates, setEmailTemplates] = useState<any[]>([]);
     const [showTemplateModal, setShowTemplateModal] = useState(false);
@@ -689,7 +698,167 @@ const CampaignDetailPage = () => {
         }
     };
 
+    // Add function to select all contacts with emails
+    const selectAllWithEmails = () => {
+        const contactsWithEmails = filteredContacts.filter(c => c.email && c.email.trim() !== '');
+        setSelectedContacts(new Set(contactsWithEmails.map(c => c.id)));
+    };
+
+    // Add function to generate bulk mail-merged emails
+    const generateBulkMailMerge = () => {
+        if (selectedContacts.size === 0) {
+            alert('Please select contacts first');
+            return;
+        }
+        setShowBulkEmailModal(true);
+    };
+
+    // Process mail merge for a single contact
+    const applyMailMerge = (template: EmailTemplate, contact: Contact) => {
+        let mergedSubject = template.subject;
+        let mergedBody = template.body;
+        
+        // Contact-level replacements
+        const contactReplacements: Record<string, string> = {
+            '{{FirstName}}': contact.first_name || '',
+            '{{LastName}}': contact.last_name || '',
+            '{{Email}}': contact.email || '',
+            '{{Phone}}': contact.enriched_phone || contact.phone || '',
+            '{{Company}}': contact.enriched_company || contact.company || '',
+            '{{Title}}': contact.enriched_title || contact.title || '',
+            '{{Neighborhood_1}}': contact.neighborhood || '',
+            '{{Neighborhood}}': contact.neighborhood || '',
+            // Legacy lowercase versions
+            '{{first_name}}': contact.first_name || '',
+            '{{last_name}}': contact.last_name || '',
+            '{{email}}': contact.email || '',
+            '{{phone}}': contact.enriched_phone || contact.phone || '',
+            '{{company}}': contact.enriched_company || contact.company || '',
+            '{{title}}': contact.enriched_title || contact.title || '',
+            '{{neighborhood}}': contact.neighborhood || '',
+        };
+        
+        // Campaign-level replacements
+        const campaignReplacements: Record<string, string> = {
+            '[[Associate Name]]': campaign?.owner_name || '',
+            '[[Associate email]]': campaign?.owner_email || '',
+            '[[Associate Phone]]': campaign?.owner_phone || '',
+            '[[AssociateName]]': campaign?.owner_name || '',
+            '[[AssociatePhone]]': campaign?.owner_phone || '',
+            '[[City]]': campaign?.city || '',
+            '[[State]]': campaign?.state || '',
+            '[[VIDEO-LINK]]': campaign?.video_link || '',
+            '[[Event-Link]]': campaign?.event_link || '',
+            '[[Hotel Name]]': campaign?.hotel_name || '',
+            '[[Hotel Address]]': campaign?.hotel_address || '',
+            '[[HotelName]]': campaign?.hotel_name || '',
+            '[[HotelAddress]]': campaign?.hotel_address || '',
+            '[[Date1]]': campaign?.event_slots?.[0]?.date || '',
+            '[[Time1]]': campaign?.event_slots?.[0]?.time || '',
+            '[[Date2]]': campaign?.event_slots?.[1]?.date || '',
+            '[[Time2]]': campaign?.event_slots?.[1]?.time || '',
+            '[[Date3]]': campaign?.event_slots?.[2]?.date || '',
+            '[[Time3]]': campaign?.event_slots?.[2]?.time || '',
+            '[[Calendly Link]]': campaign?.calendly_link || '',
+            '[[Calendly Link 1]]': campaign?.event_slots?.[0]?.calendly_link || '',
+            '[[Calendly Link 2]]': campaign?.event_slots?.[1]?.calendly_link || '',
+            '[[Calendly Link 3]]': campaign?.event_slots?.[2]?.calendly_link || '',
+        };
+        
+        // Apply all replacements
+        for (const [key, value] of Object.entries(contactReplacements)) {
+            const regex = new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+            mergedSubject = mergedSubject.replace(regex, value);
+            mergedBody = mergedBody.replace(regex, value);
+        }
+        
+        for (const [key, value] of Object.entries(campaignReplacements)) {
+            const regex = new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+            mergedSubject = mergedSubject.replace(regex, value);
+            mergedBody = mergedBody.replace(regex, value);
+        }
+        
+        return { subject: mergedSubject, body: mergedBody };
+    };
+
+    // Generate and download bulk mail-merged emails as CSV
+    const handleBulkEmailGeneration = async () => {
+        if (!selectedEmailTemplateId) {
+            alert('Please select an email template');
+            return;
+        }
+        
+        setIsGeneratingBulkEmails(true);
+        
+        try {
+            const template = availableTemplates.find(t => t.id === selectedEmailTemplateId);
+            if (!template) {
+                alert('Template not found');
+                return;
+            }
+            
+            // Get selected contacts
+            const selectedContactsList = contacts.filter(c => selectedContacts.has(c.id));
+            
+            // Generate mail-merged emails
+            const csvData = selectedContactsList.map(contact => {
+                const merged = applyMailMerge(template, contact);
+                return {
+                    id: contact.id,
+                    first_name: contact.first_name || '',
+                    last_name: contact.last_name || '',
+                    email: contact.email || '',
+                    phone: contact.enriched_phone || contact.phone || '',
+                    company: contact.enriched_company || contact.company || '',
+                    title: contact.enriched_title || contact.title || '',
+                    neighborhood: contact.neighborhood || '',
+                    email_subject: merged.subject,
+                    email_body: merged.body
+                };
+            });
+            
+            // Convert to CSV
+            const headers = ['ID', 'First Name', 'Last Name', 'Email', 'Phone', 'Company', 'Title', 'Neighborhood', 'Email Subject', 'Email Body'];
+            const csvContent = [
+                headers.join(','),
+                ...csvData.map(row => [
+                    row.id,
+                    `"${row.first_name.replace(/"/g, '""')}"`,
+                    `"${row.last_name.replace(/"/g, '""')}"`,
+                    `"${row.email.replace(/"/g, '""')}"`,
+                    `"${row.phone.replace(/"/g, '""')}"`,
+                    `"${row.company.replace(/"/g, '""')}"`,
+                    `"${row.title.replace(/"/g, '""')}"`,
+                    `"${row.neighborhood.replace(/"/g, '""')}"`,
+                    `"${row.email_subject.replace(/"/g, '""')}"`,
+                    `"${row.email_body.replace(/"/g, '""').replace(/\n/g, ' ')}"`,
+                ].join(','))
+            ].join('\n');
+            
+            // Download CSV
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', `${campaign?.name.replace(/[^a-z0-9]/gi, '_')}_mail_merge_${new Date().toISOString().split('T')[0]}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            
+            alert(`Successfully generated and downloaded mail-merged emails for ${selectedContactsList.length} contacts!`);
+            setShowBulkEmailModal(false);
+            setSelectedEmailTemplateId('');
+        } catch (error) {
+            console.error('Error generating bulk emails:', error);
+            alert('Failed to generate bulk emails. Please try again.');
+        } finally {
+            setIsGeneratingBulkEmails(false);
+        }
+    };
+
     const filteredContacts = contacts.filter(contact => {
+        if (contact.is_rsvp) return false; // Don't show RSVP contacts in main list
         const searchLower = searchTerm.toLowerCase();
         return (
             contact.first_name?.toLowerCase().includes(searchLower) ||
@@ -715,6 +884,12 @@ const CampaignDetailPage = () => {
             contact.neighborhood?.toLowerCase().includes(searchLower)
         );
     });
+    
+    // Calculate pagination
+    const indexOfLastContact = currentPage * contactsPerPage;
+    const indexOfFirstContact = indexOfLastContact - contactsPerPage;
+    const currentContacts = filteredContacts.slice(indexOfFirstContact, indexOfLastContact);
+    const totalPages = Math.ceil(filteredContacts.length / contactsPerPage);
 
     // Analytics data
     const enrichmentData = campaign ? [
@@ -1390,12 +1565,15 @@ const CampaignDetailPage = () => {
                         <Tabs.Content value="contacts">
                             <Card>
                                 <Flex align="center" justify="between" mb="4">
-                                    <Heading size="4">Contact List</Heading>
+                                    <Heading size="4">Contact List ({filteredContacts.length} total)</Heading>
                                     <Flex gap="3" align="center">
                                         <TextField.Root
                                             placeholder="Search contacts..."
                                             value={searchTerm}
-                                            onChange={(e) => setSearchTerm(e.target.value)}
+                                            onChange={(e) => {
+                                                setSearchTerm(e.target.value);
+                                                setCurrentPage(1); // Reset to first page on search
+                                            }}
                                             style={{ width: '300px' }}
                                         >
                                             <TextField.Slot>
@@ -1403,33 +1581,52 @@ const CampaignDetailPage = () => {
                                             </TextField.Slot>
                                         </TextField.Root>
                                         
+                                        <Button 
+                                            variant="soft" 
+                                            onClick={selectAllWithEmails}
+                                            size="2"
+                                        >
+                                            Select All with Emails
+                                        </Button>
+                                        
                                         {selectedContacts.size > 0 && (
-                                            <DropdownMenu.Root>
-                                                <DropdownMenu.Trigger>
-                                                    <Button variant="soft">
-                                                        Actions ({selectedContacts.size})
-                                                        <DotsHorizontalIcon />
-                                                    </Button>
-                                                </DropdownMenu.Trigger>
-                                                <DropdownMenu.Content>
-                                                    <DropdownMenu.Item onClick={() => handleBulkExclude(true)}>
-                                                        Exclude from Campaign
-                                                    </DropdownMenu.Item>
-                                                    <DropdownMenu.Item onClick={() => handleBulkExclude(false)}>
-                                                        Include in Campaign
-                                                    </DropdownMenu.Item>
-                                                    <DropdownMenu.Separator />
-                                                    <DropdownMenu.Item onClick={handleMoveToRSVP}>
-                                                        <CheckIcon style={{ marginRight: '8px' }} />
-                                                        Move to RSVP
-                                                    </DropdownMenu.Item>
-                                                    <DropdownMenu.Separator />
-                                                    <DropdownMenu.Item onClick={() => setShowBulkEditModal(true)}>
-                                                        <Pencil1Icon style={{ marginRight: '8px' }} />
-                                                        Bulk Edit
-                                                    </DropdownMenu.Item>
-                                                </DropdownMenu.Content>
-                                            </DropdownMenu.Root>
+                                            <>
+                                                <Button 
+                                                    variant="solid" 
+                                                    color="blue"
+                                                    onClick={generateBulkMailMerge}
+                                                >
+                                                    <EnvelopeClosedIcon />
+                                                    Generate Emails ({selectedContacts.size})
+                                                </Button>
+                                                
+                                                <DropdownMenu.Root>
+                                                    <DropdownMenu.Trigger>
+                                                        <Button variant="soft">
+                                                            More Actions
+                                                            <DotsHorizontalIcon />
+                                                        </Button>
+                                                    </DropdownMenu.Trigger>
+                                                    <DropdownMenu.Content>
+                                                        <DropdownMenu.Item onClick={() => handleBulkExclude(true)}>
+                                                            Exclude from Campaign
+                                                        </DropdownMenu.Item>
+                                                        <DropdownMenu.Item onClick={() => handleBulkExclude(false)}>
+                                                            Include in Campaign
+                                                        </DropdownMenu.Item>
+                                                        <DropdownMenu.Separator />
+                                                        <DropdownMenu.Item onClick={handleMoveToRSVP}>
+                                                            <CheckIcon style={{ marginRight: '8px' }} />
+                                                            Move to RSVP
+                                                        </DropdownMenu.Item>
+                                                        <DropdownMenu.Separator />
+                                                        <DropdownMenu.Item onClick={() => setShowBulkEditModal(true)}>
+                                                            <Pencil1Icon style={{ marginRight: '8px' }} />
+                                                            Bulk Edit
+                                                        </DropdownMenu.Item>
+                                                    </DropdownMenu.Content>
+                                                </DropdownMenu.Root>
+                                            </>
                                         )}
                                     </Flex>
                                 </Flex>
@@ -1448,12 +1645,24 @@ const CampaignDetailPage = () => {
                                     <Table.Root style={{ minWidth: '1200px' }}>
                                         <Table.Header>
                                             <Table.Row>
-                                                <Table.ColumnHeaderCell style={{ position: 'sticky', left: 0, backgroundColor: 'var(--color-background)', zIndex: 1 }}>
+                                                <Table.Cell style={{ position: 'sticky', left: 0, backgroundColor: 'var(--color-background)', zIndex: 1 }}>
                                                     <Checkbox
-                                                        checked={selectedContacts.size === filteredContacts.length && filteredContacts.length > 0}
-                                                        onCheckedChange={toggleAllContacts}
+                                                        checked={selectedContacts.size === currentContacts.length && currentContacts.length > 0}
+                                                        onCheckedChange={() => {
+                                                            if (selectedContacts.size === currentContacts.length) {
+                                                                // Deselect all on current page
+                                                                const newSelection = new Set(selectedContacts);
+                                                                currentContacts.forEach(c => newSelection.delete(c.id));
+                                                                setSelectedContacts(newSelection);
+                                                            } else {
+                                                                // Select all on current page
+                                                                const newSelection = new Set(selectedContacts);
+                                                                currentContacts.forEach(c => newSelection.add(c.id));
+                                                                setSelectedContacts(newSelection);
+                                                            }
+                                                        }}
                                                     />
-                                                </Table.ColumnHeaderCell>
+                                                </Table.Cell>
                                                 <Table.ColumnHeaderCell>First Name</Table.ColumnHeaderCell>
                                                 <Table.ColumnHeaderCell>Last Name</Table.ColumnHeaderCell>
                                                 <Table.ColumnHeaderCell>Email</Table.ColumnHeaderCell>
@@ -1467,7 +1676,7 @@ const CampaignDetailPage = () => {
                                             </Table.Row>
                                         </Table.Header>
                                         <Table.Body>
-                                            {filteredContacts.map(contact => (
+                                            {currentContacts.map(contact => (
                                                 <React.Fragment key={contact.id}>
                                                     <Table.Row 
                                                         style={{ cursor: 'pointer' }}
@@ -1658,6 +1867,62 @@ const CampaignDetailPage = () => {
                                         </Table.Body>
                                     </Table.Root>
                                 </Box>
+
+                                {/* Pagination Controls */}
+                                {totalPages > 1 && (
+                                    <Flex align="center" justify="between" mt="4" pt="4" style={{ borderTop: '1px solid var(--gray-4)' }}>
+                                        <Text size="2" color="gray">
+                                            Showing {indexOfFirstContact + 1}-{Math.min(indexOfLastContact, filteredContacts.length)} of {filteredContacts.length} contacts
+                                        </Text>
+                                        
+                                        <Flex gap="2" align="center">
+                                            <Button 
+                                                variant="soft" 
+                                                size="2"
+                                                disabled={currentPage === 1}
+                                                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                            >
+                                                Previous
+                                            </Button>
+                                            
+                                            {/* Page numbers */}
+                                            <Flex gap="1">
+                                                {[...Array(Math.min(10, totalPages))].map((_, index) => {
+                                                    let pageNum;
+                                                    if (totalPages <= 10) {
+                                                        pageNum = index + 1;
+                                                    } else if (currentPage <= 5) {
+                                                        pageNum = index + 1;
+                                                    } else if (currentPage >= totalPages - 4) {
+                                                        pageNum = totalPages - 9 + index;
+                                                    } else {
+                                                        pageNum = currentPage - 4 + index;
+                                                    }
+                                                    
+                                                    return (
+                                                        <Button
+                                                            key={index}
+                                                            variant={pageNum === currentPage ? 'solid' : 'soft'}
+                                                            size="2"
+                                                            onClick={() => setCurrentPage(pageNum)}
+                                                        >
+                                                            {pageNum}
+                                                        </Button>
+                                                    );
+                                                })}
+                                            </Flex>
+                                            
+                                            <Button 
+                                                variant="soft" 
+                                                size="2"
+                                                disabled={currentPage === totalPages}
+                                                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                            >
+                                                Next
+                                            </Button>
+                                        </Flex>
+                                    </Flex>
+                                )}
                             </Card>
                         </Tabs.Content>
 
@@ -2616,6 +2881,61 @@ Thank you for confirming your attendance..."
                                     >
                                         <EnvelopeClosedIcon />
                                         Send Email
+                                    </Button>
+                                </Flex>
+                            </Flex>
+                        </Box>
+                    </Dialog.Content>
+                </Dialog.Root>
+
+                {/* Bulk Email Generation Modal */}
+                <Dialog.Root open={showBulkEmailModal} onOpenChange={setShowBulkEmailModal}>
+                    <Dialog.Content style={{ maxWidth: 500 }}>
+                        <Dialog.Title>Generate Bulk Mail-Merged Emails</Dialog.Title>
+                        <Box mt="4">
+                            <Flex direction="column" gap="4">
+                                <Text size="2">
+                                    Generate mail-merged emails for {selectedContacts.size} selected contacts
+                                </Text>
+                                
+                                <Box>
+                                    <Text as="label" size="2" mb="1" weight="medium">
+                                        Select Email Template *
+                                    </Text>
+                                    <Select.Root
+                                        value={selectedEmailTemplateId}
+                                        onValueChange={setSelectedEmailTemplateId}
+                                    >
+                                        <Select.Trigger placeholder="Choose a template..." />
+                                        <Select.Content>
+                                            {availableTemplates.map(template => (
+                                                <Select.Item key={template.id} value={template.id}>
+                                                    {template.name}
+                                                </Select.Item>
+                                            ))}
+                                        </Select.Content>
+                                    </Select.Root>
+                                </Box>
+                                
+                                <Callout.Root color="blue">
+                                    <Callout.Icon>
+                                        <InfoCircledIcon />
+                                    </Callout.Icon>
+                                    <Callout.Text>
+                                        This will generate personalized emails for each selected contact and download them as a CSV file with the following columns:
+                                        ID, First Name, Last Name, Email, Phone, Company, Title, Neighborhood, Email Subject, and Email Body.
+                                    </Callout.Text>
+                                </Callout.Root>
+                                
+                                <Flex gap="3" justify="end">
+                                    <Dialog.Close>
+                                        <Button variant="soft">Cancel</Button>
+                                    </Dialog.Close>
+                                    <Button 
+                                        onClick={handleBulkEmailGeneration}
+                                        disabled={!selectedEmailTemplateId || isGeneratingBulkEmails}
+                                    >
+                                        {isGeneratingBulkEmails ? 'Generating...' : 'Generate & Download CSV'}
                                     </Button>
                                 </Flex>
                             </Flex>
