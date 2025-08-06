@@ -20,7 +20,7 @@ import L from 'leaflet';
 import React from 'react'; // Added for React.Fragment
 import { GeneratorWorkflow } from '../components/GeneratorWorkflow';
 import { ContactDataManager } from '../components/ContactDataManager';
-import { EmailCampaignTab } from '../components/EmailCampaignTab';
+import { CreateCommunicationsTab } from '../components/CreateCommunicationsTab';
 
 // Fix for default markers in react-leaflet
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -281,39 +281,22 @@ const CampaignDetailPage = () => {
     const [showBulkEditModal, setShowBulkEditModal] = useState(false);
     const [bulkEditField, setBulkEditField] = useState<string>('');
     const [bulkEditValue, setBulkEditValue] = useState<string>('');
-    const [selectedForEmail, setSelectedForEmail] = useState<Contact[]>([]);  // Add this state
     
     // Pagination state for contacts
     const [currentPage, setCurrentPage] = useState(1);
     const [contactsPerPage] = useState(50);
     
-    // Bulk email generation state
-    const [showBulkEmailModal, setShowBulkEmailModal] = useState(false);
-    const [selectedEmailTemplateId, setSelectedEmailTemplateId] = useState<string>('');
-    const [isGeneratingBulkEmails, setIsGeneratingBulkEmails] = useState(false);
-    
-    // Email Template Management
-    const [emailTemplates, setEmailTemplates] = useState<any[]>([]);
-    const [showTemplateModal, setShowTemplateModal] = useState(false);
-    const [editingTemplate, setEditingTemplate] = useState<any>(null);
-    const [templateForm, setTemplateForm] = useState({
-        name: '',
-        subject: '',
-        body: '',
-        template_type: 'general'
-    });
-    
     // RSVP Management
     const [rsvpContacts, setRsvpContacts] = useState<Contact[]>([]);
     const [showSendCommunicationModal, setShowSendCommunicationModal] = useState(false);
     const [selectedRsvpTemplateId, setSelectedRsvpTemplateId] = useState<string>('');
+    const [showRsvpCommunicationModal, setShowRsvpCommunicationModal] = useState(false);
 
     useEffect(() => {
         if (campaignId) {
             fetchCampaign();
             fetchContacts();
             fetchTemplates();
-            fetchEmailTemplates();
         }
     }, [campaignId]);
 
@@ -430,50 +413,7 @@ const CampaignDetailPage = () => {
             setIsLoadingTemplates(false);
         }
     };
-
-    const fetchEmailTemplates = async () => {
-        try {
-            const response = await api.get(`/api/campaigns/${campaignId}/email-templates`);
-            setEmailTemplates(response.data);
-        } catch (err) {
-            console.error('Failed to fetch email templates:', err);
-        }
-    };
     
-    const handleCreateTemplate = async () => {
-        try {
-            await api.post(`/api/campaigns/${campaignId}/email-templates`, templateForm);
-            await fetchEmailTemplates();
-            setShowTemplateModal(false);
-            setTemplateForm({ name: '', subject: '', body: '', template_type: 'general' });
-        } catch (err) {
-            console.error('Failed to create template:', err);
-        }
-    };
-    
-    const handleUpdateTemplate = async () => {
-        if (!editingTemplate) return;
-        
-        try {
-            await api.put(`/api/campaigns/${campaignId}/email-templates/${editingTemplate.id}`, templateForm);
-            await fetchEmailTemplates();
-            setShowTemplateModal(false);
-            setEditingTemplate(null);
-            setTemplateForm({ name: '', subject: '', body: '', template_type: 'general' });
-        } catch (err) {
-            console.error('Failed to update template:', err);
-        }
-    };
-    
-    const handleDeleteTemplate = async (templateId: string) => {
-        try {
-            await api.delete(`/api/campaigns/${campaignId}/email-templates/${templateId}`);
-            await fetchEmailTemplates();
-        } catch (err) {
-            console.error('Failed to delete template:', err);
-        }
-    };
-
     const handleTemplateSelect = (templateId: string) => {
         if (templateId === 'scratch') {
             // Clear template for starting from scratch
@@ -695,165 +635,6 @@ const CampaignDetailPage = () => {
             setSelectedContacts(new Set());
         } else {
             setSelectedContacts(new Set(filteredContacts.map(c => c.id)));
-        }
-    };
-
-    // Add function to select all contacts with emails
-    const selectAllWithEmails = () => {
-        const contactsWithEmails = filteredContacts.filter(c => c.email && c.email.trim() !== '');
-        setSelectedContacts(new Set(contactsWithEmails.map(c => c.id)));
-    };
-
-    // Add function to generate bulk mail-merged emails
-    const generateBulkMailMerge = () => {
-        if (selectedContacts.size === 0) {
-            alert('Please select contacts first');
-            return;
-        }
-        setShowBulkEmailModal(true);
-    };
-
-    // Process mail merge for a single contact
-    const applyMailMerge = (template: EmailTemplate, contact: Contact) => {
-        let mergedSubject = template.subject;
-        let mergedBody = template.body;
-        
-        // Contact-level replacements
-        const contactReplacements: Record<string, string> = {
-            '{{FirstName}}': contact.first_name || '',
-            '{{LastName}}': contact.last_name || '',
-            '{{Email}}': contact.email || '',
-            '{{Phone}}': contact.enriched_phone || contact.phone || '',
-            '{{Company}}': contact.enriched_company || contact.company || '',
-            '{{Title}}': contact.enriched_title || contact.title || '',
-            '{{Neighborhood_1}}': contact.neighborhood || '',
-            '{{Neighborhood}}': contact.neighborhood || '',
-            // Legacy lowercase versions
-            '{{first_name}}': contact.first_name || '',
-            '{{last_name}}': contact.last_name || '',
-            '{{email}}': contact.email || '',
-            '{{phone}}': contact.enriched_phone || contact.phone || '',
-            '{{company}}': contact.enriched_company || contact.company || '',
-            '{{title}}': contact.enriched_title || contact.title || '',
-            '{{neighborhood}}': contact.neighborhood || '',
-        };
-        
-        // Campaign-level replacements
-        const campaignReplacements: Record<string, string> = {
-            '[[Associate Name]]': campaign?.owner_name || '',
-            '[[Associate email]]': campaign?.owner_email || '',
-            '[[Associate Phone]]': campaign?.owner_phone || '',
-            '[[AssociateName]]': campaign?.owner_name || '',
-            '[[AssociatePhone]]': campaign?.owner_phone || '',
-            '[[City]]': campaign?.city || '',
-            '[[State]]': campaign?.state || '',
-            '[[VIDEO-LINK]]': campaign?.video_link || '',
-            '[[Event-Link]]': campaign?.event_link || '',
-            '[[Hotel Name]]': campaign?.hotel_name || '',
-            '[[Hotel Address]]': campaign?.hotel_address || '',
-            '[[HotelName]]': campaign?.hotel_name || '',
-            '[[HotelAddress]]': campaign?.hotel_address || '',
-            '[[Date1]]': campaign?.event_slots?.[0]?.date || '',
-            '[[Time1]]': campaign?.event_slots?.[0]?.time || '',
-            '[[Date2]]': campaign?.event_slots?.[1]?.date || '',
-            '[[Time2]]': campaign?.event_slots?.[1]?.time || '',
-            '[[Date3]]': campaign?.event_slots?.[2]?.date || '',
-            '[[Time3]]': campaign?.event_slots?.[2]?.time || '',
-            '[[Calendly Link]]': campaign?.calendly_link || '',
-            '[[Calendly Link 1]]': campaign?.event_slots?.[0]?.calendly_link || '',
-            '[[Calendly Link 2]]': campaign?.event_slots?.[1]?.calendly_link || '',
-            '[[Calendly Link 3]]': campaign?.event_slots?.[2]?.calendly_link || '',
-        };
-        
-        // Apply all replacements
-        for (const [key, value] of Object.entries(contactReplacements)) {
-            const regex = new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
-            mergedSubject = mergedSubject.replace(regex, value);
-            mergedBody = mergedBody.replace(regex, value);
-        }
-        
-        for (const [key, value] of Object.entries(campaignReplacements)) {
-            const regex = new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
-            mergedSubject = mergedSubject.replace(regex, value);
-            mergedBody = mergedBody.replace(regex, value);
-        }
-        
-        return { subject: mergedSubject, body: mergedBody };
-    };
-
-    // Generate and download bulk mail-merged emails as CSV
-    const handleBulkEmailGeneration = async () => {
-        if (!selectedEmailTemplateId) {
-            alert('Please select an email template');
-            return;
-        }
-        
-        setIsGeneratingBulkEmails(true);
-        
-        try {
-            const template = availableTemplates.find(t => t.id === selectedEmailTemplateId);
-            if (!template) {
-                alert('Template not found');
-                return;
-            }
-            
-            // Get selected contacts
-            const selectedContactsList = contacts.filter(c => selectedContacts.has(c.id));
-            
-            // Generate mail-merged emails
-            const csvData = selectedContactsList.map(contact => {
-                const merged = applyMailMerge(template, contact);
-                return {
-                    id: contact.id,
-                    first_name: contact.first_name || '',
-                    last_name: contact.last_name || '',
-                    email: contact.email || '',
-                    phone: contact.enriched_phone || contact.phone || '',
-                    company: contact.enriched_company || contact.company || '',
-                    title: contact.enriched_title || contact.title || '',
-                    neighborhood: contact.neighborhood || '',
-                    email_subject: merged.subject,
-                    email_body: merged.body
-                };
-            });
-            
-            // Convert to CSV
-            const headers = ['ID', 'First Name', 'Last Name', 'Email', 'Phone', 'Company', 'Title', 'Neighborhood', 'Email Subject', 'Email Body'];
-            const csvContent = [
-                headers.join(','),
-                ...csvData.map(row => [
-                    row.id,
-                    `"${row.first_name.replace(/"/g, '""')}"`,
-                    `"${row.last_name.replace(/"/g, '""')}"`,
-                    `"${row.email.replace(/"/g, '""')}"`,
-                    `"${row.phone.replace(/"/g, '""')}"`,
-                    `"${row.company.replace(/"/g, '""')}"`,
-                    `"${row.title.replace(/"/g, '""')}"`,
-                    `"${row.neighborhood.replace(/"/g, '""')}"`,
-                    `"${row.email_subject.replace(/"/g, '""')}"`,
-                    `"${row.email_body.replace(/"/g, '""').replace(/\n/g, ' ')}"`,
-                ].join(','))
-            ].join('\n');
-            
-            // Download CSV
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
-            const url = URL.createObjectURL(blob);
-            link.setAttribute('href', url);
-            link.setAttribute('download', `${campaign?.name.replace(/[^a-z0-9]/gi, '_')}_mail_merge_${new Date().toISOString().split('T')[0]}.csv`);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-            
-            alert(`Successfully generated and downloaded mail-merged emails for ${selectedContactsList.length} contacts!`);
-            setShowBulkEmailModal(false);
-            setSelectedEmailTemplateId('');
-        } catch (error) {
-            console.error('Error generating bulk emails:', error);
-            alert('Failed to generate bulk emails. Please try again.');
-        } finally {
-            setIsGeneratingBulkEmails(false);
         }
     };
 
@@ -1122,8 +903,8 @@ const CampaignDetailPage = () => {
                             <Tabs.Trigger value="overview">Overview</Tabs.Trigger>
                             <Tabs.Trigger value="contacts">Contacts ({campaign.total_contacts})</Tabs.Trigger>
                             <Tabs.Trigger value="rsvp">RSVPs ({contacts.filter(c => c.is_rsvp).length})</Tabs.Trigger>
-                            <Tabs.Trigger value="email-campaign">
-                                Email Campaign {selectedForEmail.length > 0 && `(${selectedForEmail.length})`}
+                            <Tabs.Trigger value="create-communications">
+                                Create Communications
                             </Tabs.Trigger>
                             <Tabs.Trigger value="analytics">Analytics</Tabs.Trigger>
                             <Tabs.Trigger value="map">Map View</Tabs.Trigger>
@@ -1581,29 +1362,12 @@ const CampaignDetailPage = () => {
                                             </TextField.Slot>
                                         </TextField.Root>
                                         
-                                        <Button 
-                                            variant="soft" 
-                                            onClick={selectAllWithEmails}
-                                            size="2"
-                                        >
-                                            Select All with Emails
-                                        </Button>
-                                        
                                         {selectedContacts.size > 0 && (
                                             <>
-                                                <Button 
-                                                    variant="solid" 
-                                                    color="blue"
-                                                    onClick={generateBulkMailMerge}
-                                                >
-                                                    <EnvelopeClosedIcon />
-                                                    Generate Emails ({selectedContacts.size})
-                                                </Button>
-                                                
                                                 <DropdownMenu.Root>
                                                     <DropdownMenu.Trigger>
                                                         <Button variant="soft">
-                                                            More Actions
+                                                            Actions ({selectedContacts.size})
                                                             <DotsHorizontalIcon />
                                                         </Button>
                                                     </DropdownMenu.Trigger>
@@ -2029,16 +1793,12 @@ const CampaignDetailPage = () => {
                             </Card>
                         </Tabs.Content>
 
-                        {/* Email Campaign Tab */}
-                        <Tabs.Content value="email-campaign">
-                            <EmailCampaignTab
+                        {/* Create Communications Tab */}
+                        <Tabs.Content value="create-communications">
+                            <CreateCommunicationsTab
                                 campaignId={campaignId!}
                                 campaign={campaign}
-                                selectedContacts={selectedForEmail}
-                                onClearSelection={() => {
-                                    setSelectedForEmail([]);
-                                    setSelectedContacts(new Set());
-                                }}
+                                contacts={contacts}
                             />
                         </Tabs.Content>
 
@@ -2594,55 +2354,41 @@ const CampaignDetailPage = () => {
                 
                 {/* Bulk Edit Modal */}
                 <Dialog.Root open={showBulkEditModal} onOpenChange={setShowBulkEditModal}>
-                    <Dialog.Content style={{ maxWidth: 500 }}>
-                        <Dialog.Title>Bulk Edit {selectedContacts.size} Contacts</Dialog.Title>
+                    <Dialog.Content style={{ maxWidth: 450 }}>
+                        <Dialog.Title>Bulk Edit Contacts</Dialog.Title>
                         <Box mt="4">
-                            <Flex direction="column" gap="3">
+                            <Flex direction="column" gap="4">
+                                <Text size="2" color="gray">
+                                    Update {selectedContacts.size} selected contacts
+                                </Text>
+                                
                                 <Box>
-                                    <Text as="label" size="2">Field to Edit</Text>
-                                    <Select.Root value={bulkEditField} onValueChange={setBulkEditField}>
-                                        <Select.Trigger placeholder="Select a field..." />
+                                    <Text as="label" size="2" mb="1" weight="medium">
+                                        Field to Update
+                                    </Text>
+                                    <Select.Root 
+                                        value={bulkEditField}
+                                        onValueChange={setBulkEditField}
+                                    >
+                                        <Select.Trigger placeholder="Select field..." />
                                         <Select.Content>
                                             <Select.Item value="company">Company</Select.Item>
                                             <Select.Item value="title">Title</Select.Item>
                                             <Select.Item value="neighborhood">Neighborhood</Select.Item>
-                                            <Select.Item value="excluded">Excluded Status</Select.Item>
                                         </Select.Content>
                                     </Select.Root>
                                 </Box>
                                 
-                                {bulkEditField && bulkEditField !== 'excluded' && (
-                                    <Box>
-                                        <Text as="label" size="2">New Value</Text>
-                                        <TextField.Root
-                                            value={bulkEditValue}
-                                            onChange={(e) => setBulkEditValue(e.target.value)}
-                                            placeholder={`Enter new ${bulkEditField}...`}
-                                        />
-                                    </Box>
-                                )}
-                                
-                                {bulkEditField === 'excluded' && (
-                                    <Box>
-                                        <Text as="label" size="2">Excluded Status</Text>
-                                        <Select.Root value={bulkEditValue} onValueChange={setBulkEditValue}>
-                                            <Select.Trigger />
-                                            <Select.Content>
-                                                <Select.Item value="true">Exclude from Campaign</Select.Item>
-                                                <Select.Item value="false">Include in Campaign</Select.Item>
-                                            </Select.Content>
-                                        </Select.Root>
-                                    </Box>
-                                )}
-                                
-                                <Callout.Root color="blue">
-                                    <Callout.Icon>
-                                        <InfoCircledIcon />
-                                    </Callout.Icon>
-                                    <Callout.Text>
-                                        This will update the selected field for all {selectedContacts.size} selected contacts.
-                                    </Callout.Text>
-                                </Callout.Root>
+                                <Box>
+                                    <Text as="label" size="2" mb="1" weight="medium">
+                                        New Value
+                                    </Text>
+                                    <TextField.Root
+                                        value={bulkEditValue}
+                                        onChange={(e) => setBulkEditValue(e.target.value)}
+                                        placeholder="Enter new value..."
+                                    />
+                                </Box>
                                 
                                 <Flex gap="3" justify="end">
                                     <Dialog.Close>
@@ -2650,91 +2396,9 @@ const CampaignDetailPage = () => {
                                     </Dialog.Close>
                                     <Button 
                                         onClick={handleBulkEdit}
-                                        disabled={!bulkEditField || (!bulkEditValue && bulkEditField !== 'excluded')}
+                                        disabled={!bulkEditField || !bulkEditValue}
                                     >
-                                        Update {selectedContacts.size} Contacts
-                                    </Button>
-                                </Flex>
-                            </Flex>
-                        </Box>
-                    </Dialog.Content>
-                </Dialog.Root>
-                
-                {/* Email Template Modal */}
-                <Dialog.Root open={showTemplateModal} onOpenChange={setShowTemplateModal}>
-                    <Dialog.Content style={{ maxWidth: 600 }}>
-                        <Dialog.Title>
-                            {editingTemplate ? 'Edit Email Template' : 'Create Email Template'}
-                        </Dialog.Title>
-                        <Box mt="4">
-                            <Flex direction="column" gap="3">
-                                <Box>
-                                    <Text as="label" size="2" mb="1" weight="medium">
-                                        Template Name
-                                    </Text>
-                                    <TextField.Root
-                                        value={templateForm.name}
-                                        onChange={(e) => setTemplateForm({ ...templateForm, name: e.target.value })}
-                                        placeholder="e.g., RSVP Confirmation"
-                                    />
-                                </Box>
-                                
-                                <Box>
-                                    <Text as="label" size="2" mb="1" weight="medium">
-                                        Template Type
-                                    </Text>
-                                    <Select.Root 
-                                        value={templateForm.template_type}
-                                        onValueChange={(value) => setTemplateForm({ ...templateForm, template_type: value })}
-                                    >
-                                        <Select.Trigger />
-                                        <Select.Content>
-                                            <Select.Item value="general">General</Select.Item>
-                                            <Select.Item value="rsvp_confirmation">RSVP Confirmation</Select.Item>
-                                            <Select.Item value="reminder">Reminder</Select.Item>
-                                            <Select.Item value="follow_up">Follow Up</Select.Item>
-                                        </Select.Content>
-                                    </Select.Root>
-                                </Box>
-                                
-                                <Box>
-                                    <Text as="label" size="2" mb="1" weight="medium">
-                                        Subject Line
-                                    </Text>
-                                    <TextField.Root
-                                        value={templateForm.subject}
-                                        onChange={(e) => setTemplateForm({ ...templateForm, subject: e.target.value })}
-                                        placeholder="e.g., Thank you for your RSVP!"
-                                    />
-                                </Box>
-                                
-                                <Box>
-                                    <Text as="label" size="2" mb="1" weight="medium">
-                                        Email Body
-                                    </Text>
-                                    <TextArea
-                                        value={templateForm.body}
-                                        onChange={(e) => setTemplateForm({ ...templateForm, body: e.target.value })}
-                                        placeholder="Dear {{first_name}},
-
-Thank you for confirming your attendance..."
-                                        rows={10}
-                                    />
-                                    <Text size="1" color="gray" mt="1">
-                                        {`Available variables: {{first_name}}, {{last_name}}, {{email}}, {{company}}, 
-                                        {{title}}, {{phone}}, {{neighborhood}}, {{state}}`}
-                                    </Text>
-                                </Box>
-                                
-                                <Flex gap="3" justify="end">
-                                    <Dialog.Close>
-                                        <Button variant="soft">Cancel</Button>
-                                    </Dialog.Close>
-                                    <Button 
-                                        onClick={editingTemplate ? handleUpdateTemplate : handleCreateTemplate}
-                                        disabled={!templateForm.name || !templateForm.subject || !templateForm.body}
-                                    >
-                                        {editingTemplate ? 'Update Template' : 'Create Template'}
+                                        Update Contacts
                                     </Button>
                                 </Flex>
                             </Flex>
@@ -2764,7 +2428,7 @@ Thank you for confirming your attendance..."
                                     >
                                         <Select.Trigger placeholder="Select a template..." />
                                         <Select.Content>
-                                            {emailTemplates.map(template => (
+                                            {availableTemplates.map(template => (
                                                 <Select.Item key={template.id} value={template.id}>
                                                     {template.name}
                                                 </Select.Item>
@@ -2779,7 +2443,7 @@ Thank you for confirming your attendance..."
                                             Email Preview (with mail merge)
                                         </Text>
                                         {(() => {
-                                            const template = emailTemplates.find(t => t.id === selectedRsvpTemplateId);
+                                            const template = availableTemplates.find(t => t.id === selectedRsvpTemplateId);
                                             if (!template) return null;
                                             
                                             // Get first RSVP contact for preview
@@ -2881,61 +2545,6 @@ Thank you for confirming your attendance..."
                                     >
                                         <EnvelopeClosedIcon />
                                         Send Email
-                                    </Button>
-                                </Flex>
-                            </Flex>
-                        </Box>
-                    </Dialog.Content>
-                </Dialog.Root>
-
-                {/* Bulk Email Generation Modal */}
-                <Dialog.Root open={showBulkEmailModal} onOpenChange={setShowBulkEmailModal}>
-                    <Dialog.Content style={{ maxWidth: 500 }}>
-                        <Dialog.Title>Generate Bulk Mail-Merged Emails</Dialog.Title>
-                        <Box mt="4">
-                            <Flex direction="column" gap="4">
-                                <Text size="2">
-                                    Generate mail-merged emails for {selectedContacts.size} selected contacts
-                                </Text>
-                                
-                                <Box>
-                                    <Text as="label" size="2" mb="1" weight="medium">
-                                        Select Email Template *
-                                    </Text>
-                                    <Select.Root
-                                        value={selectedEmailTemplateId}
-                                        onValueChange={setSelectedEmailTemplateId}
-                                    >
-                                        <Select.Trigger placeholder="Choose a template..." />
-                                        <Select.Content>
-                                            {availableTemplates.map(template => (
-                                                <Select.Item key={template.id} value={template.id}>
-                                                    {template.name}
-                                                </Select.Item>
-                                            ))}
-                                        </Select.Content>
-                                    </Select.Root>
-                                </Box>
-                                
-                                <Callout.Root color="blue">
-                                    <Callout.Icon>
-                                        <InfoCircledIcon />
-                                    </Callout.Icon>
-                                    <Callout.Text>
-                                        This will generate personalized emails for each selected contact and download them as a CSV file with the following columns:
-                                        ID, First Name, Last Name, Email, Phone, Company, Title, Neighborhood, Email Subject, and Email Body.
-                                    </Callout.Text>
-                                </Callout.Root>
-                                
-                                <Flex gap="3" justify="end">
-                                    <Dialog.Close>
-                                        <Button variant="soft">Cancel</Button>
-                                    </Dialog.Close>
-                                    <Button 
-                                        onClick={handleBulkEmailGeneration}
-                                        disabled={!selectedEmailTemplateId || isGeneratingBulkEmails}
-                                    >
-                                        {isGeneratingBulkEmails ? 'Generating...' : 'Generate & Download CSV'}
                                     </Button>
                                 </Flex>
                             </Flex>
