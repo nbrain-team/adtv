@@ -265,9 +265,6 @@ const CampaignsPage = () => {
                                     <Flex direction="column" gap="3">
                                         <Flex align="center" justify="between">
                                             <Heading size="4">{campaign.name}</Heading>
-                                            <Badge color={getStatusColor(campaign.status)}>
-                                                {getStatusLabel(campaign.status)}
-                                            </Badge>
                                         </Flex>
 
                                         <Flex direction="column" gap="2">

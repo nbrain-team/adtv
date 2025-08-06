@@ -230,6 +230,46 @@ const getNeighborhoodCoords = (neighborhood?: string): [number, number] | null =
     return null;
 };
 
+// Get the best available location for a contact (prioritizing enriched data)
+const getBestContactLocation = (contact: Contact): string | null => {
+    // Priority order:
+    // 1. geocoded_address - most accurate if available from enrichment
+    // 2. enriched_location - enriched location data
+    // 3. neighborhood + state - combine if both available
+    // 4. neighborhood alone - original data
+    
+    if (contact.geocoded_address) {
+        return contact.geocoded_address;
+    }
+    
+    if (contact.enriched_location) {
+        return contact.enriched_location;
+    }
+    
+    if (contact.neighborhood && contact.state) {
+        return `${contact.neighborhood}, ${contact.state}`;
+    }
+    
+    if (contact.neighborhood) {
+        return contact.neighborhood;
+    }
+    
+    return null;
+};
+
+// Parse coordinates from geocoded address format (if stored as lat,lng)
+const parseGeocodedCoords = (geocoded: string): [number, number] | null => {
+    // Check if the geocoded address contains coordinates in format "lat,lng"
+    const coordPattern = /^-?\d+\.?\d*,-?\d+\.?\d*$/;
+    if (coordPattern.test(geocoded.trim())) {
+        const [lat, lng] = geocoded.split(',').map(s => parseFloat(s.trim()));
+        if (!isNaN(lat) && !isNaN(lng)) {
+            return [lat, lng];
+        }
+    }
+    return null;
+};
+
 // Function to geocode address (using Nominatim - free OpenStreetMap geocoding)
 const geocodeAddress = async (address: string): Promise<[number, number] | null> => {
     if (!address) return null;
@@ -285,6 +325,10 @@ const CampaignDetailPage = () => {
     // Pagination state for contacts
     const [currentPage, setCurrentPage] = useState(1);
     const [contactsPerPage] = useState(50);
+    
+    // Map state for geocoded contacts
+    const [geocodedContacts, setGeocodedContacts] = useState<Map<string, [number, number]>>(new Map());
+    const [isGeocodingContacts, setIsGeocodingContacts] = useState(false);
     
     // RSVP Management
     const [rsvpContacts, setRsvpContacts] = useState<Contact[]>([]);
@@ -360,6 +404,69 @@ const CampaignDetailPage = () => {
         
         geocodeHotel();
     }, [campaign?.hotel_address, campaign?.event_type]);
+
+    // Geocode enhanced contact addresses
+    useEffect(() => {
+        const geocodeEnhancedContacts = async () => {
+            if (contacts.length === 0 || isGeocodingContacts) return;
+            
+            setIsGeocodingContacts(true);
+            const newGeocodedContacts = new Map(geocodedContacts);
+            
+            // Process contacts with enhanced location data
+            const contactsToGeocode = contacts.filter(contact => {
+                const location = getBestContactLocation(contact);
+                if (!location) return false;
+                
+                // Skip if already geocoded
+                if (newGeocodedContacts.has(contact.id)) return false;
+                
+                // Skip if we can get coordinates from hardcoded list
+                if (getNeighborhoodCoords(location)) return false;
+                
+                // Check if geocoded_address contains coordinates directly
+                if (contact.geocoded_address && parseGeocodedCoords(contact.geocoded_address)) return false;
+                
+                // This contact needs geocoding
+                return contact.enriched_location || contact.geocoded_address;
+            });
+            
+            // Limit to batch geocoding to avoid overwhelming the geocoding service
+            const batchSize = 10;
+            for (let i = 0; i < Math.min(contactsToGeocode.length, batchSize); i++) {
+                const contact = contactsToGeocode[i];
+                const location = getBestContactLocation(contact);
+                
+                if (location) {
+                    // Check if geocoded_address contains coordinates
+                    if (contact.geocoded_address) {
+                        const coords = parseGeocodedCoords(contact.geocoded_address);
+                        if (coords) {
+                            newGeocodedContacts.set(contact.id, coords);
+                            continue;
+                        }
+                    }
+                    
+                    // Try to geocode the address
+                    const coords = await geocodeAddress(location);
+                    if (coords) {
+                        newGeocodedContacts.set(contact.id, coords);
+                    }
+                    
+                    // Small delay to avoid rate limiting
+                    await new Promise(resolve => setTimeout(resolve, 200));
+                }
+            }
+            
+            setGeocodedContacts(newGeocodedContacts);
+            setIsGeocodingContacts(false);
+        };
+        
+        // Run geocoding when contacts change or after enrichment completes
+        if (contacts.some(c => c.enriched_location || c.geocoded_address)) {
+            geocodeEnhancedContacts();
+        }
+    }, [contacts, campaign?.status]); // Re-run when contacts update or campaign status changes
 
     const fetchCampaign = async () => {
         try {
@@ -747,9 +854,6 @@ const CampaignDetailPage = () => {
                             <ArrowLeftIcon />
                         </IconButton>
                         <Heading size="7" style={{ color: 'var(--gray-12)' }}>{campaign.name}</Heading>
-                        <Badge color={getStatusColor(campaign.status)} size="2">
-                            {getStatusLabel(campaign.status)}
-                        </Badge>
                     </Flex>
                     
                     <Flex gap="4" style={{ color: 'var(--gray-12)' }}>
@@ -1403,124 +1507,145 @@ const CampaignDetailPage = () => {
                                 <Card style={{ gridColumn: 'span 2' }}>
                                     <Heading size="4" mb="4">Contact Locations</Heading>
                                     
-                                    {campaign.total_contacts === 0 ? (
-                                        <Box style={{ 
-                                            height: '400px', 
-                                            display: 'flex', 
-                                            alignItems: 'center', 
-                                            justifyContent: 'center',
-                                            backgroundColor: 'var(--gray-2)',
-                                            borderRadius: '8px'
-                                        }}>
-                                            <Text size="3" color="gray">Awaiting Map View...</Text>
-                                        </Box>
-                                    ) : (
-                                        <Box>
-                                            {(() => {
-                                                // Get all non-excluded contacts
-                                                const allContacts = contacts.filter(c => !c.excluded);
+                                    {(() => {
+                                        // Get all non-excluded contacts
+                                        const allContacts = contacts.filter(c => !c.excluded);
+                                        
+                                        // Get coordinates for each contact using enhanced data
+                                        const contactsWithCoords = allContacts
+                                            .map(contact => {
+                                                const location = getBestContactLocation(contact);
+                                                let coords = null;
                                                 
-                                                // Separate contacts with and without coordinates
-                                                const contactsWithCoords = allContacts
-                                                    .map(c => ({
-                                                        ...c,
-                                                        coords: getNeighborhoodCoords(c.neighborhood)
-                                                    }))
-                                                    .filter(c => c.coords !== null);
+                                                // Priority for getting coordinates:
+                                                // 1. Check if we have geocoded coordinates in state
+                                                if (geocodedContacts.has(contact.id)) {
+                                                    coords = geocodedContacts.get(contact.id);
+                                                }
+                                                // 2. Check if geocoded_address has coordinates
+                                                else if (contact.geocoded_address) {
+                                                    coords = parseGeocodedCoords(contact.geocoded_address);
+                                                }
+                                                // 3. Try hardcoded neighborhood coords
+                                                else if (location) {
+                                                    coords = getNeighborhoodCoords(location);
+                                                }
                                                 
-                                                const contactsWithoutCoords = allContacts
-                                                    .filter(c => !getNeighborhoodCoords(c.neighborhood));
+                                                return {
+                                                    ...contact,
+                                                    location,
+                                                    coords
+                                                };
+                                            })
+                                            .filter(c => c.coords !== null);
+                                        
+                                        const contactsWithoutCoords = allContacts.filter(contact => {
+                                            const location = getBestContactLocation(contact);
+                                            if (!location) return true;
+                                            
+                                            // Check all possible coordinate sources
+                                            if (geocodedContacts.has(contact.id)) return false;
+                                            if (contact.geocoded_address && parseGeocodedCoords(contact.geocoded_address)) return false;
+                                            if (getNeighborhoodCoords(location)) return false;
+                                            
+                                            return true;
+                                        });
+                                        
+                                        // Count locations for mapped contacts
+                                        const locationCounts = contactsWithCoords.reduce((acc, contact) => {
+                                            const key = contact.location || 'Unknown';
+                                            acc[key] = (acc[key] || 0) + 1;
+                                            return acc;
+                                        }, {} as Record<string, number>);
+                                        
+                                        return (
+                                            <Box>
+                                                <Flex gap="2" mb="3">
+                                                    <Badge size="1" color="green">
+                                                        {contactsWithCoords.length} mapped
+                                                    </Badge>
+                                                    <Badge size="1" color="orange">
+                                                        {contactsWithoutCoords.length} unmapped
+                                                    </Badge>
+                                                    {isGeocodingContacts && (
+                                                        <Badge size="1" color="blue">
+                                                            Geocoding enhanced locations...
+                                                        </Badge>
+                                                    )}
+                                                </Flex>
                                                 
-                                                // Count neighborhoods for mapped contacts
-                                                const neighborhoodCounts = contactsWithCoords.reduce((acc, contact) => {
-                                                    const key = contact.neighborhood || 'Unknown';
-                                                    acc[key] = (acc[key] || 0) + 1;
-                                                    return acc;
-                                                }, {} as Record<string, number>);
-                                                
-                                                return (
-                                                    <Box>
-                                                        <Flex gap="2" mb="3">
-                                                            <Badge size="1" color="green">
-                                                                {contactsWithCoords.length} mapped
-                                                            </Badge>
-                                                            <Badge size="1" color="orange">
-                                                                {contactsWithoutCoords.length} unmapped
-                                                            </Badge>
-                                                        </Flex>
-                                                        
-                                                        {contactsWithCoords.length === 0 ? (
-                                                            <Box style={{ 
-                                                                height: '350px', 
-                                                                display: 'flex', 
-                                                                alignItems: 'center', 
-                                                                justifyContent: 'center',
-                                                                backgroundColor: 'var(--gray-2)',
-                                                                borderRadius: '8px'
-                                                            }}>
-                                                                <Text size="2" color="gray">No contacts with valid location data</Text>
-                                                            </Box>
-                                                        ) : (
-                                                            <Box style={{ height: '350px', position: 'relative' }}>
-                                                                <MapContainer
-                                                                    center={[33.5186, -86.8104]} // Alabama center (Birmingham)
-                                                                    zoom={7}
-                                                                    style={{ height: '100%', width: '100%', borderRadius: '8px' }}
-                                                                >
-                                                                    <TileLayer
-                                                                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                                                                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                                                                    />
-                                                                    
-                                                                    {Object.entries(neighborhoodCounts).map(([neighborhood, count]) => {
-                                                                        const coords = getNeighborhoodCoords(neighborhood);
-                                                                        if (!coords) return null;
-                                                                        
-                                                                        return (
-                                                                            <CircleMarker
-                                                                                key={neighborhood}
-                                                                                center={coords}
-                                                                                radius={Math.min(20, 8 + count * 2)}
-                                                                                fillColor="#3b82f6"
-                                                                                fillOpacity={0.6}
-                                                                                stroke={true}
-                                                                                color="#1e40af"
-                                                                                weight={2}
-                                                                            >
-                                                                                <Popup>
-                                                                                    <Box>
-                                                                                        <Text weight="bold">{neighborhood}</Text>
-                                                                                        <br />
-                                                                                        <Text>{count} contacts</Text>
-                                                                                    </Box>
-                                                                                </Popup>
-                                                                            </CircleMarker>
-                                                                        );
-                                                                    })}
-                                                                    
-                                                                    {/* Hotel Marker */}
-                                                                    {hotelCoords && campaign.event_type === 'in_person' && (
-                                                                        <Marker 
-                                                                            position={hotelCoords} 
-                                                                            icon={hotelIcon}
-                                                                        >
-                                                                            <Popup>
-                                                                                <Box>
-                                                                                    <Text weight="bold">{campaign.hotel_name || 'Event Hotel'}</Text>
-                                                                                    <br />
-                                                                                    <Text size="1">{campaign.hotel_address}</Text>
-                                                                                </Box>
-                                                                            </Popup>
-                                                                        </Marker>
-                                                                    )}
-                                                                </MapContainer>
-                                                            </Box>
-                                                        )}
+                                                {contactsWithCoords.length === 0 ? (
+                                                    <Box style={{ 
+                                                        height: '350px', 
+                                                        display: 'flex', 
+                                                        alignItems: 'center', 
+                                                        justifyContent: 'center',
+                                                        backgroundColor: 'var(--gray-2)',
+                                                        borderRadius: '8px'
+                                                    }}>
+                                                        <Text size="2" color="gray">No contacts with valid location data</Text>
                                                     </Box>
-                                                );
-                                            })()}
-                                        </Box>
-                                    )}
+                                                ) : (
+                                                    <Box style={{ height: '350px', position: 'relative' }}>
+                                                        <MapContainer
+                                                            center={[33.5186, -86.8104]} // Alabama center (Birmingham)
+                                                            zoom={7}
+                                                            style={{ height: '100%', width: '100%', borderRadius: '8px' }}
+                                                        >
+                                                            <TileLayer
+                                                                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                                                                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                                                            />
+                                                            
+                                                            {Object.entries(locationCounts).map(([location, count]) => {
+                                                                // Find the first contact with this location to get coords
+                                                                const contactWithLocation = contactsWithCoords.find(c => c.location === location);
+                                                                const coords = contactWithLocation?.coords;
+                                                                if (!coords) return null;
+                                                                
+                                                                return (
+                                                                    <CircleMarker
+                                                                        key={location}
+                                                                        center={coords}
+                                                                        radius={Math.min(20, 8 + count * 2)}
+                                                                        fillColor="#3b82f6"
+                                                                        fillOpacity={0.6}
+                                                                        stroke={true}
+                                                                        color="#1e40af"
+                                                                        weight={2}
+                                                                    >
+                                                                        <Popup>
+                                                                            <Box>
+                                                                                <Text weight="bold">{location}</Text>
+                                                                                <br />
+                                                                                <Text>{count} contacts</Text>
+                                                                            </Box>
+                                                                        </Popup>
+                                                                    </CircleMarker>
+                                                                );
+                                                            })}
+                                                            
+                                                            {/* Hotel Marker */}
+                                                            {hotelCoords && campaign.event_type === 'in_person' && (
+                                                                <Marker 
+                                                                    position={hotelCoords} 
+                                                                    icon={hotelIcon}
+                                                                >
+                                                                    <Popup>
+                                                                        <Box>
+                                                                            <Text weight="bold">{campaign.hotel_name || 'Event Hotel'}</Text>
+                                                                            <br />
+                                                                            <Text size="1">{campaign.hotel_address}</Text>
+                                                                        </Box>
+                                                                    </Popup>
+                                                                </Marker>
+                                                            )}
+                                                        </MapContainer>
+                                                    </Box>
+                                                )}
+                                            </Box>
+                                        );
+                                    })()}
                                 </Card>
                             </Box>
                         </Tabs.Content>
@@ -2189,27 +2314,56 @@ const CampaignDetailPage = () => {
                                     // Get all non-excluded contacts
                                     const allContacts = contacts.filter(c => !c.excluded);
                                     
-                                    // Separate contacts with and without coordinates
+                                    // Get coordinates for each contact using enhanced data
                                     const contactsWithCoords = allContacts
-                                        .map(c => ({
-                                            ...c,
-                                            coords: getNeighborhoodCoords(c.neighborhood)
-                                        }))
+                                        .map(contact => {
+                                            const location = getBestContactLocation(contact);
+                                            let coords = null;
+                                            
+                                            // Priority for getting coordinates:
+                                            // 1. Check if we have geocoded coordinates in state
+                                            if (geocodedContacts.has(contact.id)) {
+                                                coords = geocodedContacts.get(contact.id);
+                                            }
+                                            // 2. Check if geocoded_address has coordinates
+                                            else if (contact.geocoded_address) {
+                                                coords = parseGeocodedCoords(contact.geocoded_address);
+                                            }
+                                            // 3. Try hardcoded neighborhood coords
+                                            else if (location) {
+                                                coords = getNeighborhoodCoords(location);
+                                            }
+                                            
+                                            return {
+                                                ...contact,
+                                                location,
+                                                coords
+                                            };
+                                        })
                                         .filter(c => c.coords !== null);
                                     
-                                    const contactsWithoutCoords = allContacts
-                                        .filter(c => !getNeighborhoodCoords(c.neighborhood));
+                                    const contactsWithoutCoords = allContacts.filter(contact => {
+                                        const location = getBestContactLocation(contact);
+                                        if (!location) return true;
+                                        
+                                        // Check all possible coordinate sources
+                                        if (geocodedContacts.has(contact.id)) return false;
+                                        if (contact.geocoded_address && parseGeocodedCoords(contact.geocoded_address)) return false;
+                                        if (getNeighborhoodCoords(location)) return false;
+                                        
+                                        return true;
+                                    });
                                     
-                                    // Count neighborhoods for mapped contacts
-                                    const neighborhoodCounts = contactsWithCoords.reduce((acc, contact) => {
-                                        const key = contact.neighborhood || 'Unknown';
+                                    // Count locations for mapped contacts
+                                    const locationCounts = contactsWithCoords.reduce((acc, contact) => {
+                                        const key = contact.location || 'Unknown';
                                         acc[key] = (acc[key] || 0) + 1;
                                         return acc;
                                     }, {} as Record<string, number>);
                                     
-                                    // Count unmapped neighborhoods
-                                    const unmappedNeighborhoods = contactsWithoutCoords.reduce((acc, contact) => {
-                                        const key = contact.neighborhood || 'No neighborhood';
+                                    // Count unmapped locations
+                                    const unmappedLocations = contactsWithoutCoords.reduce((acc, contact) => {
+                                        const key = getBestContactLocation(contact) || 'No location data';
                                         acc[key] = (acc[key] || 0) + 1;
                                         return acc;
                                     }, {} as Record<string, number>);
@@ -2226,11 +2380,16 @@ const CampaignDetailPage = () => {
                                                 <Badge size="2" color="gray">
                                                     Total: {allContacts.length} contacts
                                                 </Badge>
+                                                {isGeocodingContacts && (
+                                                    <Badge size="2" color="blue">
+                                                        Geocoding enhanced locations...
+                                                    </Badge>
+                                                )}
                                             </Flex>
                                             
                                             {contactsWithCoords.length === 0 ? (
                                                 <Box p="4">
-                                                    <Text color="gray">No contacts with valid neighborhood data to display on map.</Text>
+                                                    <Text color="gray">No contacts with valid location data to display on map.</Text>
                                                 </Box>
                                             ) : (
                                                 <Box style={{ height: '600px', position: 'relative' }}>
@@ -2244,13 +2403,15 @@ const CampaignDetailPage = () => {
                                                             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                                                         />
                                                         
-                                                        {Object.entries(neighborhoodCounts).map(([neighborhood, count]) => {
-                                                            const coords = getNeighborhoodCoords(neighborhood);
+                                                        {Object.entries(locationCounts).map(([location, count]) => {
+                                                            // Find the first contact with this location to get coords
+                                                            const contactWithLocation = contactsWithCoords.find(c => c.location === location);
+                                                            const coords = contactWithLocation?.coords;
                                                             if (!coords) return null;
                                                             
                                                             return (
                                                                 <CircleMarker
-                                                                    key={neighborhood}
+                                                                    key={location}
                                                                     center={coords}
                                                                     radius={Math.min(30, 10 + count * 2)}
                                                                     fillColor="#3b82f6"
@@ -2261,7 +2422,7 @@ const CampaignDetailPage = () => {
                                                                 >
                                                                     <Popup>
                                                                         <Box>
-                                                                            <Text weight="bold">{neighborhood}</Text>
+                                                                            <Text weight="bold">{location}</Text>
                                                                             <br />
                                                                             <Text>{count} contacts</Text>
                                                                         </Box>
@@ -2302,12 +2463,12 @@ const CampaignDetailPage = () => {
                                                             maxWidth: '300px'
                                                         }}
                                                     >
-                                                        <Text size="2" weight="bold" mb="2">Mapped Neighborhoods</Text>
-                                                        {Object.entries(neighborhoodCounts)
+                                                        <Text size="2" weight="bold" mb="2">Mapped Locations</Text>
+                                                        {Object.entries(locationCounts)
                                                             .sort(([, a], [, b]) => b - a)
-                                                            .map(([neighborhood, count]) => (
-                                                                <Flex key={neighborhood} justify="between" gap="3" mb="1">
-                                                                    <Text size="1">{neighborhood}</Text>
+                                                            .map(([location, count]) => (
+                                                                <Flex key={location} justify="between" gap="3" mb="1">
+                                                                    <Text size="1">{location}</Text>
                                                                     <Text size="1" weight="medium">{count}</Text>
                                                                 </Flex>
                                                             ))
@@ -2316,24 +2477,24 @@ const CampaignDetailPage = () => {
                                                         {contactsWithoutCoords.length > 0 && (
                                                             <>
                                                                 <Text size="2" weight="bold" mt="3" mb="2" color="orange">
-                                                                    Unmapped Neighborhoods
+                                                                    Unmapped Locations
                                                                 </Text>
                                                                 <Text size="1" color="gray" mb="2">
-                                                                    (Add coordinates to display on map)
+                                                                    (Need coordinates to display on map)
                                                                 </Text>
-                                                                {Object.entries(unmappedNeighborhoods)
+                                                                {Object.entries(unmappedLocations)
                                                                     .sort(([, a], [, b]) => b - a)
                                                                     .slice(0, 20) // Show top 20
-                                                                    .map(([neighborhood, count]) => (
-                                                                        <Flex key={neighborhood} justify="between" gap="3" mb="1">
-                                                                            <Text size="1" color="orange">{neighborhood}</Text>
+                                                                    .map(([location, count]) => (
+                                                                        <Flex key={location} justify="between" gap="3" mb="1">
+                                                                            <Text size="1" color="orange">{location}</Text>
                                                                             <Text size="1" weight="medium" color="orange">{count}</Text>
                                                                         </Flex>
                                                                     ))
                                                                 }
-                                                                {Object.keys(unmappedNeighborhoods).length > 20 && (
+                                                                {Object.keys(unmappedLocations).length > 20 && (
                                                                     <Text size="1" color="gray" mt="2">
-                                                                        ... and {Object.keys(unmappedNeighborhoods).length - 20} more
+                                                                        ... and {Object.keys(unmappedLocations).length - 20} more
                                                                     </Text>
                                                                 )}
                                                             </>
