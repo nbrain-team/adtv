@@ -92,6 +92,10 @@ class ContactResponse(BaseModel):
     excluded: bool
     personalized_email: Optional[str]
     personalized_subject: Optional[str]
+    # RSVP fields
+    is_rsvp: Optional[bool] = False
+    rsvp_status: Optional[str] = None
+    rsvp_date: Optional[datetime] = None
 
 class CampaignTemplateCreate(BaseModel):
     name: str
@@ -247,7 +251,11 @@ async def get_all_campaign_contacts(
                     'manually_edited': getattr(contact, 'manually_edited', False),  # Safe access
                     # Timestamps
                     'created_at': contact.created_at.isoformat() if contact.created_at else None,
-                    'updated_at': contact.updated_at.isoformat() if contact.updated_at else None
+                    'updated_at': contact.updated_at.isoformat() if contact.updated_at else None,
+                    # RSVP fields
+                    'is_rsvp': contact.is_rsvp,
+                    'rsvp_status': contact.rsvp_status,
+                    'rsvp_date': contact.rsvp_date
                 }
                 result.append(contact_dict)
             except Exception as e:
