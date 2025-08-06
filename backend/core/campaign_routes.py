@@ -1052,10 +1052,19 @@ async def get_campaign_contacts(
     skip: int = 0,
     limit: int = 100,
     excluded: Optional[bool] = None,
+    fetch_all: bool = False,  # Add parameter to fetch all contacts
     current_user: User = Depends(auth.get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """Get contacts for a campaign"""
+    """Get contacts for a campaign
+    
+    Args:
+        campaign_id: Campaign ID
+        skip: Number of records to skip
+        limit: Maximum number of records to return (use -1 or fetch_all=true for all)
+        excluded: Filter by excluded status
+        fetch_all: If true, ignores limit and returns all contacts
+    """
     campaign = db.query(Campaign).filter(
         Campaign.id == campaign_id,
         Campaign.user_id == current_user.id
@@ -1069,7 +1078,11 @@ async def get_campaign_contacts(
     if excluded is not None:
         query = query.filter(CampaignContact.excluded == excluded)
     
-    contacts = query.offset(skip).limit(limit).all()
+    # If fetch_all is true or limit is -1, return all contacts
+    if fetch_all or limit == -1:
+        contacts = query.all()
+    else:
+        contacts = query.offset(skip).limit(limit).all()
     
     return contacts
 
