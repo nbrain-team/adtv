@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { 
     Box, Button, Card, Flex, Heading, Text, Badge, Callout, 
-    Select, Checkbox, ScrollArea, Table, Dialog, IconButton
+    Select, Checkbox, ScrollArea, Table, Dialog, IconButton, TextField, TextArea
 } from '@radix-ui/themes';
 import { 
     PersonIcon, CheckCircledIcon, FileTextIcon, 
-    DownloadIcon, InfoCircledIcon, Cross2Icon, ExternalLinkIcon
+    DownloadIcon, InfoCircledIcon, Cross2Icon, ExternalLinkIcon, Pencil1Icon
 } from '@radix-ui/react-icons';
 import api from '../services/api';
 
@@ -81,6 +81,14 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
     const [showPreview, setShowPreview] = useState(false);
     const [previewData, setPreviewData] = useState<any[]>([]);
     const [generationProgress, setGenerationProgress] = useState(0);
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [editingTemplate, setEditingTemplate] = useState<EmailTemplate | null>(null);
+    const [templateForm, setTemplateForm] = useState({
+        name: '',
+        subject: '',
+        body: '',
+        template_type: 'general'
+    });
 
     useEffect(() => {
         fetchTemplates();
@@ -123,6 +131,32 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
             newSelection.add(templateId);
         }
         setSelectedTemplates(newSelection);
+    };
+
+    const handleEditTemplate = (template: EmailTemplate) => {
+        setEditingTemplate(template);
+        setTemplateForm({
+            name: template.name,
+            subject: template.subject,
+            body: template.body,
+            template_type: template.template_type || 'general'
+        });
+        setShowEditModal(true);
+    };
+
+    const handleUpdateTemplate = async () => {
+        if (!editingTemplate) return;
+        
+        try {
+            await api.put(`/api/campaigns/${campaignId}/email-templates/${editingTemplate.id}`, templateForm);
+            await fetchTemplates();
+            setShowEditModal(false);
+            setEditingTemplate(null);
+            alert('Template updated successfully');
+        } catch (err) {
+            console.error('Failed to update template:', err);
+            alert('Failed to update template');
+        }
     };
 
     const applyMailMerge = (template: EmailTemplate, contact: Contact): { subject: string; body: string } => {
@@ -332,7 +366,7 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
         }
     };
 
-    const openInGoogleSheets = (file: GeneratedFile) => {
+    const createGoogleSheet = async (file: GeneratedFile) => {
         // Get the CSV data from localStorage
         const csvData = localStorage.getItem(`file_${file.id}_data`);
         if (!csvData) {
@@ -340,13 +374,65 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
             return;
         }
 
-        // Create a data URI
-        const dataUri = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csvData);
-        
-        // Open in new tab (Google Sheets import will be manual for now)
-        window.open(dataUri, '_blank');
-        
-        alert('The CSV file has been opened. You can now import it into Google Sheets by:\n1. Opening a new Google Sheet\n2. Going to File > Import\n3. Uploading the CSV file');
+        // Parse CSV data
+        const lines = csvData.split('\n');
+        const headers = lines[0].split(',').map(h => h.replace(/"/g, ''));
+        const rows = lines.slice(1).map(line => {
+            // Parse CSV line (handling quoted fields)
+            const regex = /("([^"]*)"|[^,]+|(?<=,)(?=,)|^(?=,)|(?<=,)$)/g;
+            const matches = line.match(regex) || [];
+            return matches.map(field => field.replace(/^"|"$/g, '').replace(/""/g, '"'));
+        });
+
+        // Create HTML table for easy copy-paste to Google Sheets
+        const tableHTML = `
+            <html>
+            <head>
+                <style>
+                    table { border-collapse: collapse; width: 100%; }
+                    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                    th { background-color: #4CAF50; color: white; }
+                    tr:nth-child(even) { background-color: #f2f2f2; }
+                    .instructions { 
+                        background: #e3f2fd; 
+                        padding: 15px; 
+                        margin: 20px 0; 
+                        border-radius: 5px;
+                        border-left: 4px solid #2196F3;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="instructions">
+                    <h2>Instructions to Import to Google Sheets:</h2>
+                    <ol>
+                        <li>Select all data below (Ctrl+A or Cmd+A)</li>
+                        <li>Copy the selection (Ctrl+C or Cmd+C)</li>
+                        <li>Open a new Google Sheet: <a href="https://sheets.new" target="_blank">sheets.new</a></li>
+                        <li>Click on cell A1</li>
+                        <li>Paste the data (Ctrl+V or Cmd+V)</li>
+                    </ol>
+                </div>
+                <table>
+                    <thead>
+                        <tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>
+                    </thead>
+                    <tbody>
+                        ${rows.map(row => `<tr>${row.map(cell => `<td>${cell}</td>`).join('')}</tr>`).join('')}
+                    </tbody>
+                </table>
+            </body>
+            </html>
+        `;
+
+        // Open in new window
+        const newWindow = window.open('', '_blank');
+        if (newWindow) {
+            newWindow.document.write(tableHTML);
+            newWindow.document.close();
+        } else {
+            alert('Please allow pop-ups to open the Google Sheets data');
+        }
     };
 
     const deleteFile = (fileId: string) => {
@@ -422,6 +508,13 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
                                                         Subject: {template.subject.substring(0, 50)}...
                                                     </Text>
                                                 </Box>
+                                                <IconButton
+                                                    size="1"
+                                                    variant="ghost"
+                                                    onClick={() => handleEditTemplate(template)}
+                                                >
+                                                    <Pencil1Icon />
+                                                </IconButton>
                                                 {template.template_type && (
                                                     <Badge>{template.template_type}</Badge>
                                                 )}
@@ -487,10 +580,11 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
                                             <Button
                                                 variant="soft"
                                                 size="2"
-                                                onClick={() => openInGoogleSheets(file)}
+                                                color="green"
+                                                onClick={() => createGoogleSheet(file)}
                                             >
-                                                <FileTextIcon />
-                                                Open in Sheets
+                                                <ExternalLinkIcon />
+                                                Create Google Sheet
                                             </Button>
                                             <IconButton
                                                 variant="soft"
@@ -508,6 +602,62 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
                     </Box>
                 )}
             </Flex>
+
+            {/* Edit Template Modal */}
+            <Dialog.Root open={showEditModal} onOpenChange={setShowEditModal}>
+                <Dialog.Content style={{ maxWidth: 600 }}>
+                    <Dialog.Title>Edit Email Template</Dialog.Title>
+                    <Dialog.Description>
+                        Update the template content below
+                    </Dialog.Description>
+                    
+                    <Flex direction="column" gap="4" mt="4">
+                        <Box>
+                            <Text as="label" size="2" mb="1" weight="medium">
+                                Template Name
+                            </Text>
+                            <TextField.Root
+                                value={templateForm.name}
+                                onChange={(e) => setTemplateForm({ ...templateForm, name: e.target.value })}
+                            />
+                        </Box>
+                        
+                        <Box>
+                            <Text as="label" size="2" mb="1" weight="medium">
+                                Subject Line
+                            </Text>
+                            <TextField.Root
+                                value={templateForm.subject}
+                                onChange={(e) => setTemplateForm({ ...templateForm, subject: e.target.value })}
+                            />
+                        </Box>
+                        
+                        <Box>
+                            <Text as="label" size="2" mb="1" weight="medium">
+                                Email Body
+                            </Text>
+                            <TextArea
+                                value={templateForm.body}
+                                onChange={(e) => setTemplateForm({ ...templateForm, body: e.target.value })}
+                                rows={15}
+                                style={{ fontFamily: 'monospace', fontSize: '12px' }}
+                            />
+                            <Text size="1" color="gray" mt="1">
+                                Use {'{{FirstName}}'}, {'{{Company}}'}, [[City]], [[State]], etc. for mail merge
+                            </Text>
+                        </Box>
+                        
+                        <Flex gap="3" justify="end">
+                            <Dialog.Close>
+                                <Button variant="soft">Cancel</Button>
+                            </Dialog.Close>
+                            <Button onClick={handleUpdateTemplate}>
+                                Update Template
+                            </Button>
+                        </Flex>
+                    </Flex>
+                </Dialog.Content>
+            </Dialog.Root>
         </Card>
     );
 }; 
