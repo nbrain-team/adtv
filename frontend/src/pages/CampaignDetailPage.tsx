@@ -9,7 +9,7 @@ import {
     ArrowLeftIcon, UploadIcon, PersonIcon, EnvelopeClosedIcon, 
     BarChartIcon, InfoCircledIcon, MagnifyingGlassIcon, 
     Pencil1Icon, TrashIcon, CheckIcon, Cross2Icon, DotsHorizontalIcon,
-    DownloadIcon, ReloadIcon, PlusIcon
+    DownloadIcon, ReloadIcon, PlusIcon, FileTextIcon
 } from '@radix-ui/react-icons';
 import { MainLayout } from '../components/MainLayout';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
@@ -21,6 +21,7 @@ import React from 'react'; // Added for React.Fragment
 import { GeneratorWorkflow } from '../components/GeneratorWorkflow';
 import { ContactDataManager } from '../components/ContactDataManager';
 import { CreateCommunicationsTab } from '../components/CreateCommunicationsTab';
+import { RSVPAgreementModal } from '../components/RSVPAgreementModal';
 
 // Fix for default markers in react-leaflet
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -305,7 +306,7 @@ const CampaignDetailPage = () => {
     const [editingContact, setEditingContact] = useState<string | null>(null);
     const [editingEmail, setEditingEmail] = useState('');
     const [showEmailPreview, setShowEmailPreview] = useState(false);
-    const [previewContact, setPreviewContact] = useState<Contact | null>(null);
+    const [previewContact, setPreviewContact] = useState<any>(null);
     const [emailTemplate, setEmailTemplate] = useState('');
     const [emailSubject, setEmailSubject] = useState('');
     const [enrichmentStatus, setEnrichmentStatus] = useState<any>(null);
@@ -335,6 +336,7 @@ const CampaignDetailPage = () => {
     const [showSendCommunicationModal, setShowSendCommunicationModal] = useState(false);
     const [selectedRsvpTemplateId, setSelectedRsvpTemplateId] = useState<string>('');
     const [showRsvpCommunicationModal, setShowRsvpCommunicationModal] = useState(false);
+    const [showAgreementModal, setShowAgreementModal] = useState(false);
 
     useEffect(() => {
         if (campaignId) {
@@ -2022,6 +2024,16 @@ const CampaignDetailPage = () => {
                                             <EnvelopeClosedIcon />
                                             Send Communication
                                         </Button>
+                                        
+                                        <Button 
+                                            variant="solid"
+                                            color="green"
+                                            onClick={() => setShowAgreementModal(true)}
+                                            disabled={selectedContacts.size === 0}
+                                        >
+                                            <FileTextIcon />
+                                            Send Agreement ({selectedContacts.size})
+                                        </Button>
                                     </Flex>
                                 </Flex>
 
@@ -2896,6 +2908,17 @@ const CampaignDetailPage = () => {
                     </Dialog.Content>
                 </Dialog.Root>
             </Box>
+            
+            {/* RSVP Agreement Modal */}
+            <RSVPAgreementModal
+                open={showAgreementModal}
+                onOpenChange={setShowAgreementModal}
+                selectedContacts={Array.from(selectedContacts).map(id => 
+                    contacts.find(c => c.id === id)
+                ).filter(c => c !== undefined) as Contact[]}
+                campaignId={campaignId!}
+                campaignName={campaign?.name || ''}
+            />
         </MainLayout>
     );
 };

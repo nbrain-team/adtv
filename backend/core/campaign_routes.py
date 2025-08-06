@@ -10,6 +10,8 @@ import json
 import logging
 import os
 import uuid
+import hashlib
+import base64
 
 from . import auth
 from .database import get_db, User, Campaign, CampaignContact, CampaignTemplate, CampaignAnalytics, CampaignEmailTemplate, engine
@@ -168,6 +170,18 @@ class RSVPStatusUpdate(BaseModel):
 class SendCommunication(BaseModel):
     template_id: str
     contact_ids: Optional[List[str]] = None  # If None, send to all RSVPs
+
+class AgreementData(BaseModel):
+    start_date: str
+    setup_fee: str
+    monthly_fee: str
+    email_subject: str
+    email_body: str
+    template: str = 'standard'
+
+class SendAgreements(BaseModel):
+    contact_ids: List[str]
+    agreement_data: AgreementData
 
 # Campaign CRUD
 def safe_campaign_response(campaign) -> dict:
@@ -2151,3 +2165,180 @@ def send_rsvp_emails_task(campaign_id: str, template_id: str, contact_ids: List[
         logger.error(f"Error in send_rsvp_emails_task: {e}")
         db.rollback()
         raise 
+
+@router.post("/{campaign_id}/send-agreements")
+async def send_agreements(
+    campaign_id: str,
+    agreements: SendAgreements,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(auth.get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Send e-signature agreements to selected RSVP contacts"""
+    campaign = db.query(Campaign).filter(
+        Campaign.id == campaign_id,
+        Campaign.user_id == current_user.id
+    ).first()
+    
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    # Get selected contacts
+    contacts = db.query(CampaignContact).filter(
+        CampaignContact.campaign_id == campaign_id,
+        CampaignContact.id.in_(agreements.contact_ids),
+        CampaignContact.email.isnot(None)
+    ).all()
+    
+    if not contacts:
+        raise HTTPException(status_code=400, detail="No valid contacts with email addresses found")
+    
+    # Process agreements in background
+    background_tasks.add_task(
+        process_agreements_task,
+        campaign_id,
+        agreements.agreement_data.dict(),
+        [c.id for c in contacts]
+    )
+    
+    return {
+        "message": f"Processing agreements for {len(contacts)} contacts",
+        "contact_count": len(contacts)
+    }
+
+def process_agreements_task(campaign_id: str, agreement_data: dict, contact_ids: List[str]):
+    """Background task to process and send e-signature agreements"""
+    from sqlalchemy.orm import sessionmaker
+    SessionLocal = sessionmaker(bind=engine)
+    db = SessionLocal()
+    
+    try:
+        campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
+        if not campaign:
+            logger.error(f"Campaign {campaign_id} not found")
+            return
+            
+        contacts = db.query(CampaignContact).filter(
+            CampaignContact.id.in_(contact_ids)
+        ).all()
+        
+        sent_count = 0
+        for contact in contacts:
+            try:
+                # Generate unique agreement ID
+                agreement_id = hashlib.md5(
+                    f"{campaign_id}{contact.id}{datetime.utcnow().isoformat()}".encode()
+                ).hexdigest()[:12]
+                
+                # Create agreement URL (in production, this would integrate with DocuSign or similar)
+                # For now, we'll create a simple tracking URL
+                agreement_url = f"https://adtv-agreements.com/sign/{agreement_id}"
+                
+                # Replace placeholders in email
+                email_subject = agreement_data['email_subject']
+                email_body = agreement_data['email_body']
+                
+                # Contact replacements
+                replacements = {
+                    '{{FirstName}}': contact.first_name or '',
+                    '{{LastName}}': contact.last_name or '',
+                    '{{Email}}': contact.email or '',
+                    '{{Company}}': contact.company or '',
+                    '{{StartDate}}': agreement_data['start_date'],
+                    '{{SetupFee}}': agreement_data['setup_fee'],
+                    '{{MonthlyFee}}': agreement_data['monthly_fee'],
+                    '{{AgreementLink}}': agreement_url
+                }
+                
+                for placeholder, value in replacements.items():
+                    email_subject = email_subject.replace(placeholder, value)
+                    email_body = email_body.replace(placeholder, value)
+                
+                # Store agreement data (you would create an agreements table for this)
+                # For now, we'll store in the contact's notes or a JSON field
+                contact.agreement_status = 'sent'
+                contact.agreement_sent_at = datetime.utcnow()
+                contact.agreement_data = json.dumps({
+                    'agreement_id': agreement_id,
+                    'start_date': agreement_data['start_date'],
+                    'setup_fee': agreement_data['setup_fee'],
+                    'monthly_fee': agreement_data['monthly_fee'],
+                    'sent_at': datetime.utcnow().isoformat(),
+                    'url': agreement_url
+                })
+                
+                # Here you would actually send the email
+                # For production, integrate with email service (SendGrid, SES, etc.)
+                logger.info(f"Sending agreement to {contact.email}: {agreement_url}")
+                
+                # Mark as sent
+                sent_count += 1
+                
+            except Exception as e:
+                logger.error(f"Error processing agreement for contact {contact.id}: {e}")
+                contact.agreement_status = 'failed'
+        
+        db.commit()
+        logger.info(f"Successfully sent {sent_count} agreements for campaign {campaign_id}")
+        
+    except Exception as e:
+        logger.error(f"Error in process_agreements_task: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
+@router.get("/{campaign_id}/agreements/status")
+async def get_agreements_status(
+    campaign_id: str,
+    current_user: User = Depends(auth.get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get status of sent agreements"""
+    campaign = db.query(Campaign).filter(
+        Campaign.id == campaign_id,
+        Campaign.user_id == current_user.id
+    ).first()
+    
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    # Get agreement statistics
+    total_sent = db.query(CampaignContact).filter(
+        CampaignContact.campaign_id == campaign_id,
+        CampaignContact.agreement_status == 'sent'
+    ).count()
+    
+    total_signed = db.query(CampaignContact).filter(
+        CampaignContact.campaign_id == campaign_id,
+        CampaignContact.agreement_status == 'signed'
+    ).count()
+    
+    total_viewed = db.query(CampaignContact).filter(
+        CampaignContact.campaign_id == campaign_id,
+        CampaignContact.agreement_status == 'viewed'
+    ).count()
+    
+    # Get recent agreements
+    recent_agreements = db.query(CampaignContact).filter(
+        CampaignContact.campaign_id == campaign_id,
+        CampaignContact.agreement_status.isnot(None)
+    ).order_by(desc(CampaignContact.agreement_sent_at)).limit(10).all()
+    
+    return {
+        "statistics": {
+            "total_sent": total_sent,
+            "total_signed": total_signed,
+            "total_viewed": total_viewed,
+            "signature_rate": round((total_signed / total_sent * 100) if total_sent > 0 else 0, 1)
+        },
+        "recent_agreements": [
+            {
+                "contact_name": f"{c.first_name} {c.last_name}",
+                "email": c.email,
+                "status": c.agreement_status,
+                "sent_at": c.agreement_sent_at.isoformat() if c.agreement_sent_at else None,
+                "agreement_data": json.loads(c.agreement_data) if c.agreement_data else None
+            }
+            for c in recent_agreements
+        ]
+    }

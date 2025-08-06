@@ -305,6 +305,15 @@ def on_startup():
     except Exception as e:
         logger.warning(f"Could not add campaign event fields: {e}, continuing anyway...")
     
+    # Add agreement fields
+    logger.info("Adding agreement fields...")
+    try:
+        from scripts.add_agreement_fields import add_agreement_fields
+        add_agreement_fields()
+        logger.info("Agreement fields added successfully.")
+    except Exception as e:
+        logger.warning(f"Could not add agreement fields: {e}, continuing anyway...")
+    
     # Ensure danny@nbrain.ai has ad-traffic permission
     try:
         with SessionLocal() as db:
