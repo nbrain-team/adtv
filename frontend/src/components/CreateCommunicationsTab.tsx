@@ -6,7 +6,8 @@ import {
 } from '@radix-ui/themes';
 import { 
     InfoCircledIcon, ExternalLinkIcon, Cross2Icon, Pencil1Icon,
-    FileIcon, ImageIcon, UploadIcon, PersonIcon, CheckCircledIcon, DownloadIcon
+    FileIcon, ImageIcon, UploadIcon, PersonIcon, CheckCircledIcon, DownloadIcon,
+    PlusIcon, TrashIcon, EyeOpenIcon
 } from '@radix-ui/react-icons';
 import api from '../api';
 
@@ -85,6 +86,16 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
     const [showEditModal, setShowEditModal] = useState(false);
     const [editingTemplate, setEditingTemplate] = useState<EmailTemplate | null>(null);
     const [templateForm, setTemplateForm] = useState({
+        name: '',
+        subject: '',
+        body: '',
+        template_type: 'general'
+    });
+    
+    // Template Manager states
+    const [showTemplateManager, setShowTemplateManager] = useState(false);
+    const [showCreateTemplate, setShowCreateTemplate] = useState(false);
+    const [newTemplateForm, setNewTemplateForm] = useState({
         name: '',
         subject: '',
         body: '',
@@ -205,6 +216,57 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
             console.error('Failed to update template:', err);
             const errorMessage = err.response?.data?.detail || err.message || 'Failed to update template';
             alert(`Error updating template: ${errorMessage}`);
+        }
+    };
+
+    const handleCreateTemplate = async () => {
+        try {
+            const createData = {
+                name: newTemplateForm.name,
+                subject: newTemplateForm.subject,
+                body: newTemplateForm.body,
+                template_type: newTemplateForm.template_type
+            };
+            
+            await api.post(`/api/campaigns/${campaignId}/email-templates`, createData);
+            
+            // Reset form
+            setNewTemplateForm({
+                name: '',
+                subject: '',
+                body: '',
+                template_type: 'general'
+            });
+            
+            setShowCreateTemplate(false);
+            
+            // Refresh templates list
+            await fetchTemplates();
+            
+            alert('Template created successfully');
+        } catch (err: any) {
+            console.error('Failed to create template:', err);
+            const errorMessage = err.response?.data?.detail || err.message || 'Failed to create template';
+            alert(`Error creating template: ${errorMessage}`);
+        }
+    };
+
+    const handleDeleteTemplate = async (templateId: string, templateName: string) => {
+        if (!confirm(`Are you sure you want to delete the template "${templateName}"?`)) {
+            return;
+        }
+        
+        try {
+            await api.delete(`/api/campaigns/${campaignId}/email-templates/${templateId}`);
+            
+            // Refresh templates list
+            await fetchTemplates();
+            
+            alert('Template deleted successfully');
+        } catch (err: any) {
+            console.error('Failed to delete template:', err);
+            const errorMessage = err.response?.data?.detail || err.message || 'Failed to delete template';
+            alert(`Error deleting template: ${errorMessage}`);
         }
     };
 
@@ -733,12 +795,22 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
     return (
         <Card>
             <Flex direction="column" gap="4">
-                <Box>
-                    <Heading size="4" mb="2">Create Communications</Heading>
-                    <Text size="2" color="gray">
-                        Generate mail-merged communications for your contacts
-                    </Text>
-                </Box>
+                <Flex justify="between" align="center">
+                    <Box>
+                        <Heading size="4" mb="2">Create Communications</Heading>
+                        <Text size="2" color="gray">
+                            Generate mail-merged communications for your contacts
+                        </Text>
+                    </Box>
+                    <Button
+                        variant="soft"
+                        size="2"
+                        onClick={() => setShowTemplateManager(true)}
+                    >
+                        <EyeOpenIcon />
+                        View & Edit Email Templates
+                    </Button>
+                </Flex>
 
                 {/* Step 1: Select Contacts */}
                 <Box>
@@ -896,6 +968,159 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
                     </Box>
                 )}
             </Flex>
+
+            {/* Template Manager Modal */}
+            <Dialog.Root open={showTemplateManager} onOpenChange={setShowTemplateManager}>
+                <Dialog.Content style={{ maxWidth: 900, maxHeight: '90vh', overflowY: 'auto' }}>
+                    <Dialog.Title>Email Templates Manager</Dialog.Title>
+                    <Dialog.Description>
+                        Create, edit, and manage your email templates
+                    </Dialog.Description>
+                    
+                    <Flex direction="column" gap="4" mt="4">
+                        <Flex justify="between" align="center">
+                            <Text size="3" weight="bold">
+                                Available Templates ({availableTemplates.length})
+                            </Text>
+                            <Button
+                                size="2"
+                                onClick={() => setShowCreateTemplate(true)}
+                            >
+                                <PlusIcon />
+                                Create New Template
+                            </Button>
+                        </Flex>
+                        
+                        {showCreateTemplate && (
+                            <Card style={{ padding: '16px', backgroundColor: 'var(--gray-1)' }}>
+                                <Flex direction="column" gap="3">
+                                    <Text weight="bold">New Template</Text>
+                                    
+                                    <Box>
+                                        <Text as="label" size="2" mb="1" weight="medium">
+                                            Template Name
+                                        </Text>
+                                        <TextField.Root
+                                            placeholder="e.g., Follow-up Email"
+                                            value={newTemplateForm.name}
+                                            onChange={(e) => setNewTemplateForm({ ...newTemplateForm, name: e.target.value })}
+                                        />
+                                    </Box>
+                                    
+                                    <Box>
+                                        <Text as="label" size="2" mb="1" weight="medium">
+                                            Subject Line
+                                        </Text>
+                                        <TextField.Root
+                                            placeholder="e.g., Hey {{FirstName}}, following up..."
+                                            value={newTemplateForm.subject}
+                                            onChange={(e) => setNewTemplateForm({ ...newTemplateForm, subject: e.target.value })}
+                                        />
+                                    </Box>
+                                    
+                                    <Box>
+                                        <Text as="label" size="2" mb="1" weight="medium">
+                                            Email Body
+                                        </Text>
+                                        <TextArea
+                                            placeholder="Enter your email template here..."
+                                            value={newTemplateForm.body}
+                                            onChange={(e) => setNewTemplateForm({ ...newTemplateForm, body: e.target.value })}
+                                            rows={8}
+                                            style={{ fontFamily: 'monospace', fontSize: '12px' }}
+                                        />
+                                        <Text size="1" color="gray" mt="1">
+                                            Use {'{{FirstName}}'}, {'{{Company}}'}, [[City]], [[State]], etc. for mail merge
+                                        </Text>
+                                    </Box>
+                                    
+                                    <Flex gap="2" justify="end">
+                                        <Button
+                                            variant="soft"
+                                            onClick={() => {
+                                                setShowCreateTemplate(false);
+                                                setNewTemplateForm({
+                                                    name: '',
+                                                    subject: '',
+                                                    body: '',
+                                                    template_type: 'general'
+                                                });
+                                            }}
+                                        >
+                                            Cancel
+                                        </Button>
+                                        <Button
+                                            onClick={handleCreateTemplate}
+                                            disabled={!newTemplateForm.name || !newTemplateForm.subject || !newTemplateForm.body}
+                                        >
+                                            Create Template
+                                        </Button>
+                                    </Flex>
+                                </Flex>
+                            </Card>
+                        )}
+                        
+                        <ScrollArea style={{ maxHeight: '400px' }}>
+                            <Flex direction="column" gap="2">
+                                {availableTemplates.length === 0 ? (
+                                    <Card style={{ padding: '20px', textAlign: 'center' }}>
+                                        <Text color="gray">No templates yet. Create your first template!</Text>
+                                    </Card>
+                                ) : (
+                                    availableTemplates.map(template => (
+                                        <Card key={template.id} style={{ padding: '12px' }}>
+                                            <Flex justify="between" align="start">
+                                                <Box style={{ flex: 1 }}>
+                                                    <Flex align="center" gap="2" mb="1">
+                                                        <Text weight="bold" size="3">{template.name}</Text>
+                                                        {template.template_type && (
+                                                            <Badge size="1">{template.template_type}</Badge>
+                                                        )}
+                                                    </Flex>
+                                                    <Text size="2" color="gray" style={{ display: 'block', marginBottom: '4px' }}>
+                                                        Subject: {template.subject.substring(0, 80)}
+                                                        {template.subject.length > 80 ? '...' : ''}
+                                                    </Text>
+                                                    <Text size="1" color="gray">
+                                                        Body preview: {template.body.substring(0, 100)}
+                                                        {template.body.length > 100 ? '...' : ''}
+                                                    </Text>
+                                                </Box>
+                                                <Flex gap="2">
+                                                    <IconButton
+                                                        size="2"
+                                                        variant="soft"
+                                                        onClick={() => {
+                                                            handleEditTemplate(template);
+                                                            setShowTemplateManager(false);
+                                                        }}
+                                                    >
+                                                        <Pencil1Icon />
+                                                    </IconButton>
+                                                    <IconButton
+                                                        size="2"
+                                                        variant="soft"
+                                                        color="red"
+                                                        onClick={() => handleDeleteTemplate(template.id, template.name)}
+                                                    >
+                                                        <TrashIcon />
+                                                    </IconButton>
+                                                </Flex>
+                                            </Flex>
+                                        </Card>
+                                    ))
+                                )}
+                            </Flex>
+                        </ScrollArea>
+                        
+                        <Flex justify="end">
+                            <Dialog.Close>
+                                <Button variant="soft">Close</Button>
+                            </Dialog.Close>
+                        </Flex>
+                    </Flex>
+                </Dialog.Content>
+            </Dialog.Root>
 
             {/* Edit Template Modal */}
             <Dialog.Root open={showEditModal} onOpenChange={setShowEditModal}>
