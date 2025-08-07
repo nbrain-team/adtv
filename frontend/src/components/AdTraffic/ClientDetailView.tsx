@@ -11,6 +11,8 @@ import { Client, Campaign, VideoClip, SocialPost } from './types';
 import { CalendarView } from './CalendarView';
 import { PostModal } from './PostModal';
 import { CampaignModal } from './CampaignModal';
+import VideoEditor from './VideoEditor';
+import { Edit3 } from 'lucide-react';
 import { api } from '../../services/api';
 
 interface ClientDetailViewProps {
@@ -51,6 +53,9 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({ client, onBa
   const [showPostModal, setShowPostModal] = useState(false);
   const [showCampaignModal, setShowCampaignModal] = useState(false);
   const [editingPost, setEditingPost] = useState<SocialPost | null>(null);
+  const [showVideoEditor, setShowVideoEditor] = useState(false);
+  const [editingVideoUrl, setEditingVideoUrl] = useState('');
+  const [editingVideoPublicId, setEditingVideoPublicId] = useState('');
 
   useEffect(() => {
     fetchClientProfile();
@@ -137,6 +142,31 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({ client, onBa
         alert('Failed to delete campaign');
       }
     }
+  };
+
+  const handleEditVideo = (videoUrl: string) => {
+    setEditingVideoUrl(videoUrl);
+    
+    // Extract public ID from Cloudinary URL
+    if (videoUrl && videoUrl.includes('cloudinary.com')) {
+      const urlParts = videoUrl.split('/');
+      if (urlParts.includes('upload')) {
+        const uploadIdx = urlParts.indexOf('upload');
+        if (uploadIdx + 2 < urlParts.length) {
+          const publicId = urlParts.slice(uploadIdx + 2).join('/').replace('.mp4', '');
+          setEditingVideoPublicId(publicId);
+          setShowVideoEditor(true);
+        }
+      }
+    }
+  };
+
+  const handleSaveEditedVideo = (editedUrl: string, transformations: any) => {
+    // For now, just close the editor
+    // In production, you'd save this to the database
+    console.log('Edited video URL:', editedUrl);
+    console.log('Transformations:', transformations);
+    setShowVideoEditor(false);
   };
 
   const formatDuration = (seconds: number) => {
@@ -441,7 +471,6 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({ client, onBa
                                 <Card 
                                   key={clip.id}
                                   style={{ cursor: 'pointer' }}
-                                  onClick={() => setSelectedClip(clip)}
                                 >
                                   <Box 
                                     style={{ 
@@ -451,6 +480,7 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({ client, onBa
                                       borderRadius: '4px',
                                       overflow: 'hidden'
                                     }}
+                                    onClick={() => setSelectedClip(clip)}
                                   >
                                     {clip.thumbnail_url ? (
                                       <img 
@@ -486,9 +516,22 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({ client, onBa
                                       {formatDuration(clip.duration)}
                                     </Badge>
                                   </Box>
-                                  <Text size="1" weight="medium" mt="2">
-                                    {clip.title}
-                                  </Text>
+                                  <Flex justify="between" align="center" mt="2">
+                                    <Text size="1" weight="medium">
+                                      {clip.title}
+                                    </Text>
+                                    <Button
+                                      size="1"
+                                      variant="soft"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleEditVideo(clip.video_url);
+                                      }}
+                                    >
+                                      <Edit3 size={12} />
+                                      Edit
+                                    </Button>
+                                  </Flex>
                                   {clip.content_type && (
                                     <Badge size="1" variant="soft" mt="1">
                                       {clip.content_type}
@@ -668,6 +711,17 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({ client, onBa
           />
         </Dialog.Content>
       </Dialog.Root>
+
+      {/* Video Editor Modal */}
+      {showVideoEditor && editingVideoPublicId && (
+        <VideoEditor
+          videoUrl={editingVideoUrl}
+          publicId={editingVideoPublicId}
+          cloudName={process.env.REACT_APP_CLOUDINARY_CLOUD_NAME || 'your-cloud-name'}
+          onSave={handleSaveEditedVideo}
+          onClose={() => setShowVideoEditor(false)}
+        />
+      )}
     </Box>
   );
 }; 

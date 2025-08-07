@@ -90,8 +90,21 @@ export const PostModal: React.FC<PostModalProps> = ({
           setCloudinaryPublicId(publicId);
         }
       }
+    } else if (formData.media_urls && formData.media_urls.length > 0) {
+      // Also check for regular video URLs in media_urls
+      const videoUrl = formData.media_urls[0];
+      if (videoUrl && videoUrl.includes('cloudinary.com')) {
+        const urlParts = videoUrl.split('/');
+        if (urlParts.includes('upload')) {
+          const uploadIdx = urlParts.indexOf('upload');
+          if (uploadIdx + 2 < urlParts.length) {
+            const publicId = urlParts.slice(uploadIdx + 2).join('/').replace('.mp4', '');
+            setCloudinaryPublicId(publicId);
+          }
+        }
+      }
     }
-  }, [post]);
+  }, [post, formData.media_urls]);
 
   const handleSaveEditedVideo = (editedUrl: string, transformations: any) => {
     // Update the form data with the edited video URL
@@ -254,7 +267,7 @@ export const PostModal: React.FC<PostModalProps> = ({
             <Box>
               <Flex justify="between" align="center">
                 <Text size="2" weight="medium">Video Preview</Text>
-                {post?.video_clip && (
+                {(post?.video_clip || (formData.media_urls && formData.media_urls.length > 0 && cloudinaryPublicId)) && (
                   <Button
                     type="button"
                     size="1"
@@ -374,7 +387,7 @@ export const PostModal: React.FC<PostModalProps> = ({
       {/* Video Editor Modal */}
       {showVideoEditor && cloudinaryPublicId && (
         <VideoEditor
-          videoUrl={post?.video_clip?.video_url || ''}
+          videoUrl={post?.video_clip?.video_url || formData.media_urls?.[0] || ''}
           publicId={cloudinaryPublicId}
           cloudName={process.env.REACT_APP_CLOUDINARY_CLOUD_NAME || 'your-cloud-name'}
           onSave={handleSaveEditedVideo}
