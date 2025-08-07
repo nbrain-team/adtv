@@ -17,6 +17,7 @@ from . import auth
 from .database import get_db, User, Campaign, CampaignContact, CampaignTemplate, CampaignAnalytics, CampaignEmailTemplate, engine
 from contact_enricher.services import ContactEnricher
 from core.llm_handler import generate_text
+from .agreements import Agreement
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -2209,6 +2210,7 @@ async def send_agreements(
 def process_agreements_task(campaign_id: str, agreement_data: dict, contact_ids: List[str]):
     """Background task to process and send e-signature agreements"""
     from sqlalchemy.orm import sessionmaker
+    from .agreements import Agreement
     SessionLocal = sessionmaker(bind=engine)
     db = SessionLocal()
     
@@ -2225,14 +2227,25 @@ def process_agreements_task(campaign_id: str, agreement_data: dict, contact_ids:
         sent_count = 0
         for contact in contacts:
             try:
-                # Generate unique agreement ID
-                agreement_id = hashlib.md5(
-                    f"{campaign_id}{contact.id}{datetime.utcnow().isoformat()}".encode()
-                ).hexdigest()[:12]
+                # Create agreement record
+                agreement = Agreement(
+                    campaign_id=campaign_id,
+                    contact_id=contact.id,
+                    contact_name=f"{contact.first_name or ''} {contact.last_name or ''}".strip(),
+                    contact_email=contact.email,
+                    company=contact.enriched_company or contact.company,
+                    start_date=agreement_data['start_date'],
+                    setup_fee=float(agreement_data['setup_fee']),
+                    monthly_fee=float(agreement_data['monthly_fee']),
+                    campaign_name=campaign.name,
+                    status='pending'
+                )
+                db.add(agreement)
+                db.flush()  # Get the agreement ID
                 
-                # Create agreement URL (in production, this would integrate with DocuSign or similar)
-                # For now, we'll create a simple tracking URL
-                agreement_url = f"https://adtv-agreements.com/sign/{agreement_id}"
+                # Generate agreement URL
+                agreement_url = f"https://app.adtv.com/agreement/{agreement.id}"
+                agreement.agreement_url = agreement_url
                 
                 # Replace placeholders in email
                 email_subject = agreement_data['email_subject']
@@ -2254,12 +2267,11 @@ def process_agreements_task(campaign_id: str, agreement_data: dict, contact_ids:
                     email_subject = email_subject.replace(placeholder, value)
                     email_body = email_body.replace(placeholder, value)
                 
-                # Store agreement data (you would create an agreements table for this)
-                # For now, we'll store in the contact's notes or a JSON field
+                # Store agreement status in contact
                 contact.agreement_status = 'sent'
                 contact.agreement_sent_at = datetime.utcnow()
                 contact.agreement_data = json.dumps({
-                    'agreement_id': agreement_id,
+                    'agreement_id': agreement.id,
                     'start_date': agreement_data['start_date'],
                     'setup_fee': agreement_data['setup_fee'],
                     'monthly_fee': agreement_data['monthly_fee'],
@@ -2270,6 +2282,9 @@ def process_agreements_task(campaign_id: str, agreement_data: dict, contact_ids:
                 # Here you would actually send the email
                 # For production, integrate with email service (SendGrid, SES, etc.)
                 logger.info(f"Sending agreement to {contact.email}: {agreement_url}")
+                
+                # For testing, print the URL
+                print(f"Agreement URL for {contact.email}: {agreement_url}")
                 
                 # Mark as sent
                 sent_count += 1

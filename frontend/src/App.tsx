@@ -18,6 +18,7 @@ import CampaignDetailPage from './pages/CampaignDetailPage';
 import TemplateManagerPage from './pages/TemplateManagerPage';
 import AdTrafficPage from './pages/AdTrafficPage';
 import ContactEnricherPage from './pages/ContactEnricherPage';
+import { AgreementSigningPage } from './pages/AgreementSigningPage';
 
 // Define the structure for a message
 interface Message {
@@ -100,6 +101,7 @@ function App() {
                 <ContactEnricherPage />
               </ProtectedRoute>
             } />
+            <Route path="/agreement/:agreementId" element={<AgreementSigningPage />} />
           </Routes>
         </Router>
       </QueryClientProvider>
