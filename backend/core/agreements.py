@@ -17,8 +17,7 @@ from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
 import io
 import base64
 
-from .database import get_db, Base, engine, User
-from . import auth
+from .database import get_db, Base, engine
 
 router = APIRouter(prefix="/api/agreements", tags=["agreements"])
 
