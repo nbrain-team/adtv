@@ -2256,8 +2256,13 @@ def process_agreements_task(campaign_id: str, agreement_data: dict, contact_ids:
                 db.add(agreement)
                 db.flush()  # Get the agreement ID
                 
-                # Generate agreement URL - use actual domain in production
-                base_url = os.getenv("APP_BASE_URL", "http://localhost:3000")
+                # Generate agreement URL - use production URL
+                # Check if we're in production (Render sets RENDER environment variable)
+                if os.getenv("RENDER"):
+                    base_url = "https://adtv-frontend.onrender.com"
+                else:
+                    base_url = os.getenv("APP_BASE_URL", "http://localhost:3000")
+                    
                 agreement_url = f"{base_url}/agreement/{agreement.id}"
                 agreement.agreement_url = agreement_url
                 

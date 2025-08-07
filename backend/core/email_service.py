@@ -18,6 +18,12 @@ class EmailService:
         self.sender_password = os.getenv("GMAIL_PASSWORD", "")  # Should be set via environment variable
         self.sender_name = "ADTV Media"
     
+    def get_base_url(self):
+        """Get the correct base URL for production or development"""
+        if os.getenv("RENDER"):
+            return "https://adtv-frontend.onrender.com"
+        return os.getenv("APP_BASE_URL", "http://localhost:3000")
+    
     def send_email(
         self,
         to_email: str,
