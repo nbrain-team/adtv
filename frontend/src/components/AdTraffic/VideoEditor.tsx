@@ -13,7 +13,8 @@ import {
   Sparkles,
   Layers,
   X,
-  Eye
+  Eye,
+  Scissors
 } from 'lucide-react';
 
 interface VideoEditorProps {
@@ -43,7 +44,7 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
   const [previewUrl, setPreviewUrl] = useState(videoUrl);
   const [originalUrl] = useState(videoUrl);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [activeTab, setActiveTab] = useState('effects');
+  const [activeTab, setActiveTab] = useState('trim');
   const [videoLoading, setVideoLoading] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -89,27 +90,53 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
     opacity: 100
   });
 
+  // Trim state
+  const [trim, setTrim] = useState({
+    enabled: false,
+    startTime: 0,
+    endTime: 0,
+    duration: 0
+  });
+
   // Build Cloudinary URL with transformations
   const buildTransformationUrl = () => {
     let transformArray = [];
 
-    // Add fade effects
-    if (effects.fadeIn > 0) {
-      transformArray.push(`e_fade:${effects.fadeIn * 1000}`);
+    // Add trim transformation first
+    if (trim.enabled) {
+      let trimTransform = [];
+      if (trim.startTime > 0) {
+        trimTransform.push(`so_${trim.startTime}`);
+      }
+      if (trim.endTime > 0) {
+        trimTransform.push(`eo_${trim.endTime}`);
+      }
+      if (trimTransform.length > 0) {
+        transformArray.push(trimTransform.join(','));
+      }
     }
 
-    // Add visual effects
+    // Add fade in effect
+    if (effects.fadeIn > 0) {
+      transformArray.push(`e_fade:${Math.round(effects.fadeIn * 1000)}`);
+    }
+
+    // Add visual effects as a single transformation
+    let visualEffects = [];
     if (effects.blur > 0) {
-      transformArray.push(`e_blur:${effects.blur * 10}`);
+      visualEffects.push(`e_blur:${Math.round(effects.blur * 10)}`);
     }
     if (effects.brightness !== 0) {
-      transformArray.push(`e_brightness:${effects.brightness}`);
+      visualEffects.push(`e_brightness:${effects.brightness}`);
     }
     if (effects.contrast !== 0) {
-      transformArray.push(`e_contrast:${effects.contrast}`);
+      visualEffects.push(`e_contrast:${effects.contrast}`);
     }
     if (effects.saturation !== 0) {
-      transformArray.push(`e_saturation:${effects.saturation}`);
+      visualEffects.push(`e_saturation:${effects.saturation}`);
+    }
+    if (visualEffects.length > 0) {
+      transformArray.push(visualEffects.join(','));
     }
 
     // Add speed adjustment
@@ -119,7 +146,12 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
 
     // Add filters
     if (activeFilter !== 'none' && activeFilter !== '') {
-      transformArray.push(`e_${activeFilter}`);
+      // Special handling for art filters
+      if (activeFilter.startsWith('art:')) {
+        transformArray.push(`e_art:${activeFilter.split(':')[1]}`);
+      } else {
+        transformArray.push(`e_${activeFilter}`);
+      }
     }
 
     // Add text overlay
@@ -152,15 +184,16 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
       transformArray.push(`e_volume:${audio.volume}`);
     }
 
-    // Add fade out effect (should be last)
+    // Add fade out effect (should be near the end)
     if (effects.fadeOut > 0) {
-      transformArray.push(`e_fade:-${effects.fadeOut * 1000}`);
+      transformArray.push(`e_fade:-${Math.round(effects.fadeOut * 1000)}`);
     }
 
-    // Build the URL
+    // Build the URL with slashes between transformation layers
     const baseUrl = `https://res.cloudinary.com/${cloudName}/video/upload`;
-    const transformString = transformArray.length > 0 ? '/' + transformArray.join(',') : '';
+    const transformString = transformArray.length > 0 ? '/' + transformArray.join('/') : '';
     
+    console.log('Built transformation URL:', `${baseUrl}${transformString}/${publicId}`);
     return `${baseUrl}${transformString}/${publicId}`;
   };
 
@@ -209,6 +242,12 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
       size: 150,
       opacity: 100
     });
+    setTrim({
+      enabled: false,
+      startTime: 0,
+      endTime: 0,
+      duration: 0
+    });
     setPreviewUrl(originalUrl);
     setShowPreview(false);
   };
@@ -221,7 +260,8 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
         effects,
         filter: activeFilter,
         audio,
-        logoOverlay
+        logoOverlay,
+        trim
       };
       onSave(finalUrl, allTransformations);
     }
@@ -506,6 +546,7 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
               minHeight: '48px'
             }}>
               {[
+                { id: 'trim', label: 'Trim', icon: Scissors },
                 { id: 'effects', label: 'Effects', icon: Sparkles },
                 { id: 'text', label: 'Text', icon: Type },
                 { id: 'filters', label: 'Filters', icon: Palette },
@@ -548,6 +589,130 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
               backgroundColor: 'white',
               width: '100%'
             }}>
+              {/* Trim Tab */}
+              {activeTab === 'trim' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                  <div style={{ backgroundColor: '#f9fafb', borderRadius: '0.5rem', padding: '1rem', border: '1px solid #e5e7eb' }}>
+                    <h3 style={{ color: '#111827', fontSize: '0.875rem', fontWeight: '600', margin: 0, marginBottom: '1rem' }}>Video Trimming</h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                      <div>
+                        <label style={{ 
+                          color: '#4b5563', 
+                          fontSize: '0.875rem', 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: '0.5rem', 
+                          cursor: 'pointer',
+                          width: 'fit-content'
+                        }}>
+                          <input
+                            type="checkbox"
+                            checked={trim.enabled}
+                            onChange={(e) => setTrim({...trim, enabled: e.target.checked})}
+                            style={{ 
+                              width: '16px', 
+                              height: '16px', 
+                              accentColor: '#7c3aed',
+                              flexShrink: 0
+                            }}
+                          />
+                          <span>Enable Video Trimming</span>
+                        </label>
+                      </div>
+
+                      {trim.enabled && (
+                        <>
+                          <div>
+                            <label style={{ color: '#4b5563', fontSize: '0.875rem', display: 'block', marginBottom: '0.5rem' }}>
+                              Start Time: {trim.startTime}s
+                            </label>
+                            <input
+                              type="range"
+                              min="0"
+                              max="60"
+                              step="0.5"
+                              value={trim.startTime}
+                              onChange={(e) => setTrim({...trim, startTime: parseFloat(e.target.value)})}
+                              style={{ width: '100%', cursor: 'pointer', accentColor: '#7c3aed' }}
+                            />
+                            <input
+                              type="number"
+                              min="0"
+                              max="60"
+                              step="0.5"
+                              value={trim.startTime}
+                              onChange={(e) => setTrim({...trim, startTime: parseFloat(e.target.value) || 0})}
+                              style={{ 
+                                width: '100%', 
+                                marginTop: '0.5rem',
+                                padding: '0.5rem 0.75rem', 
+                                backgroundColor: '#f9fafb', 
+                                color: '#111827', 
+                                border: '1px solid #e5e7eb', 
+                                borderRadius: '0.375rem',
+                                boxSizing: 'border-box',
+                                fontSize: '0.875rem'
+                              }}
+                              placeholder="Start time in seconds"
+                            />
+                          </div>
+
+                          <div>
+                            <label style={{ color: '#4b5563', fontSize: '0.875rem', display: 'block', marginBottom: '0.5rem' }}>
+                              End Time: {trim.endTime > 0 ? trim.endTime + 's' : 'Original End'}
+                            </label>
+                            <input
+                              type="range"
+                              min="0"
+                              max="60"
+                              step="0.5"
+                              value={trim.endTime}
+                              onChange={(e) => setTrim({...trim, endTime: parseFloat(e.target.value)})}
+                              style={{ width: '100%', cursor: 'pointer', accentColor: '#7c3aed' }}
+                            />
+                            <input
+                              type="number"
+                              min="0"
+                              max="60"
+                              step="0.5"
+                              value={trim.endTime}
+                              onChange={(e) => setTrim({...trim, endTime: parseFloat(e.target.value) || 0})}
+                              style={{ 
+                                width: '100%', 
+                                marginTop: '0.5rem',
+                                padding: '0.5rem 0.75rem', 
+                                backgroundColor: '#f9fafb', 
+                                color: '#111827', 
+                                border: '1px solid #e5e7eb', 
+                                borderRadius: '0.375rem',
+                                boxSizing: 'border-box',
+                                fontSize: '0.875rem'
+                              }}
+                              placeholder="End time in seconds (0 = original end)"
+                            />
+                          </div>
+
+                          <div style={{ 
+                            padding: '0.75rem', 
+                            backgroundColor: 'white', 
+                            borderRadius: '0.375rem',
+                            border: '1px solid #e5e7eb'
+                          }}>
+                            <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>
+                              <strong>Tips:</strong><br />
+                              • Set start time to remove content from the beginning<br />
+                              • Set end time to remove content from the end<br />
+                              • Leave end time at 0 to keep original ending<br />
+                              • Times are in seconds (e.g., 5.5 = 5½ seconds)
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Effects Tab */}
               {activeTab === 'effects' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
