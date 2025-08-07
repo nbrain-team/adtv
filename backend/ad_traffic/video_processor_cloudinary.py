@@ -1,5 +1,17 @@
 """
 Video processing using Cloudinary - cloud-based solution for reliable video processing
+
+This module uses Cloudinary's AI-powered smart cropping to intelligently crop videos
+for different aspect ratios. Instead of just cropping to the center, it:
+- Detects faces and important subjects
+- Focuses on the most interesting parts of the video
+- Adapts cropping based on the target aspect ratio
+
+Environment Variables:
+- CLOUDINARY_CLOUD_NAME: Your Cloudinary cloud name
+- CLOUDINARY_API_KEY: Your API key
+- CLOUDINARY_API_SECRET: Your API secret
+- CLOUDINARY_GRAVITY_OVERRIDE: Optional override for gravity setting (default: uses smart cropping)
 """
 import logging
 import os
@@ -39,6 +51,41 @@ PLATFORM_ASPECT_RATIOS = {
         {"name": "video", "ratio": "9:16", "width": 1080, "height": 1920}
     ]
 }
+
+# Smart cropping configuration
+# Cloudinary's AI-powered gravity options for intelligent cropping
+SMART_CROP_GRAVITY = {
+    "9:16": "auto:subject",  # For vertical videos, focus on main subject
+    "1:1": "auto:faces",     # For square videos, prioritize faces
+    "16:9": "auto",          # For horizontal videos, auto-detect interesting areas
+    "default": "auto"        # Default fallback
+}
+
+# Allow environment variable override for testing different gravity settings
+GRAVITY_OVERRIDE = os.getenv('CLOUDINARY_GRAVITY_OVERRIDE', None)
+
+def get_smart_gravity(aspect_ratio: str) -> str:
+    """
+    Get the appropriate gravity setting for smart cropping based on aspect ratio.
+    
+    Cloudinary gravity options:
+    - 'auto': Automatically detects the most interesting part
+    - 'auto:faces': Focuses on faces with fallback to auto
+    - 'auto:subject': Focuses on the main subject/object
+    - 'auto:subject_face': Combines subject and face detection
+    - 'face': Focuses specifically on faces (no fallback)
+    - 'faces': Focuses on multiple faces
+    - 'center': Traditional center cropping (fallback)
+    
+    Can be overridden with CLOUDINARY_GRAVITY_OVERRIDE environment variable.
+    """
+    if GRAVITY_OVERRIDE:
+        logger.info(f"Using gravity override: {GRAVITY_OVERRIDE}")
+        return GRAVITY_OVERRIDE
+    
+    gravity = SMART_CROP_GRAVITY.get(aspect_ratio, SMART_CROP_GRAVITY["default"])
+    logger.debug(f"Using smart gravity '{gravity}' for aspect ratio {aspect_ratio}")
+    return gravity
 
 
 async def process_campaign(
@@ -123,7 +170,7 @@ async def process_campaign(
                     resource_type="video",
                     transformation=[
                         {'start_offset': thumbnail_time},
-                        {'width': 640, 'height': 360, 'crop': 'fill'},
+                        {'width': 640, 'height': 360, 'crop': 'fill', 'gravity': 'auto:faces'},
                         {'quality': 'auto', 'fetch_format': 'jpg'}
                     ]
                 )
@@ -208,7 +255,7 @@ Platforms: {', '.join(platforms)}
                     resource_type="video",
                     transformation=[
                         {'start_offset': frame_time, 'duration': 1},  # Extract 1 second frame
-                        {'width': 800, 'height': 450, 'crop': 'fill'},
+                        {'width': 800, 'height': 450, 'crop': 'fill', 'gravity': 'auto'},
                         {'quality': 'auto', 'fetch_format': 'jpg'}
                     ]
                 )
@@ -609,7 +656,7 @@ async def process_campaign_with_multiple_videos(
                                             'width': aspect_config['width'],
                                             'height': aspect_config['height'],
                                             'crop': 'fill',
-                                            'gravity': 'center'
+                                            'gravity': get_smart_gravity(aspect_config['ratio'])
                                         },
                                         {'quality': 'auto', 'fetch_format': 'mp4'}
                                     ]
@@ -628,7 +675,7 @@ async def process_campaign_with_multiple_videos(
                         resource_type="video",
                         transformation=[
                             {'start_offset': thumbnail_time},
-                            {'width': 640, 'height': 360, 'crop': 'fill'},
+                            {'width': 640, 'height': 360, 'crop': 'fill', 'gravity': 'auto:faces'},
                             {'quality': 'auto', 'fetch_format': 'jpg'}
                         ]
                     )
