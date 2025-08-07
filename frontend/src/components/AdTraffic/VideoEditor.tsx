@@ -12,7 +12,8 @@ import {
   Sparkles,
   Layers,
   Zap,
-  X
+  X,
+  Eye
 } from 'lucide-react';
 
 interface VideoEditorProps {
@@ -39,9 +40,11 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
 }) => {
   const [transformations, setTransformations] = useState<Transformation[]>([]);
   const [previewUrl, setPreviewUrl] = useState(videoUrl);
+  const [originalUrl] = useState(videoUrl);
   const [isPlaying, setIsPlaying] = useState(false);
   const [activeTab, setActiveTab] = useState('effects');
-  const [videoLoading, setVideoLoading] = useState(true);
+  const [videoLoading, setVideoLoading] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   // Text overlay state
@@ -91,49 +94,42 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
 
     // Add fade effects
     if (effects.fadeIn > 0) {
-      transformArray.push({ effect: `fade:${effects.fadeIn * 1000}` });
+      transformArray.push(`e_fade:${effects.fadeIn * 1000}`);
     }
 
     // Add visual effects
     if (effects.blur > 0) {
-      transformArray.push({ effect: `blur:${effects.blur * 10}` });
+      transformArray.push(`e_blur:${effects.blur * 10}`);
     }
     if (effects.brightness !== 0) {
-      transformArray.push({ effect: `brightness:${effects.brightness}` });
+      transformArray.push(`e_brightness:${effects.brightness}`);
     }
     if (effects.contrast !== 0) {
-      transformArray.push({ effect: `contrast:${effects.contrast}` });
+      transformArray.push(`e_contrast:${effects.contrast}`);
     }
     if (effects.saturation !== 0) {
-      transformArray.push({ effect: `saturation:${effects.saturation}` });
+      transformArray.push(`e_saturation:${effects.saturation}`);
     }
 
     // Add speed adjustment
     if (effects.speed !== 100) {
-      transformArray.push({ effect: `accelerate:${effects.speed}` });
+      transformArray.push(`e_accelerate:${effects.speed}`);
     }
 
     // Add filters
-    if (activeFilter !== 'none') {
-      transformArray.push({ effect: activeFilter });
+    if (activeFilter !== 'none' && activeFilter !== '') {
+      transformArray.push(`e_${activeFilter}`);
     }
 
     // Add text overlay
     if (textOverlay.enabled && textOverlay.text) {
       const encodedText = encodeURIComponent(textOverlay.text);
-      const textTransform: any = {
-        overlay: {
-          font_family: textOverlay.font,
-          font_size: textOverlay.size,
-          text: encodedText
-        },
-        color: textOverlay.color,
-        gravity: textOverlay.position,
-        y: 20
-      };
+      let textTransform = `l_text:${textOverlay.font}_${textOverlay.size}:${encodedText}`;
+      textTransform += `,co_${textOverlay.color}`;
+      textTransform += `,g_${textOverlay.position}`;
       
       if (textOverlay.background !== 'none') {
-        textTransform.background = textOverlay.background;
+        textTransform += `,b_${textOverlay.background}`;
       }
       
       transformArray.push(textTransform);
@@ -141,60 +137,42 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
 
     // Add logo overlay
     if (logoOverlay.enabled && logoOverlay.url) {
-      transformArray.push({
-        overlay: logoOverlay.url,
-        gravity: logoOverlay.position.replace('-', '_'),
-        width: logoOverlay.size,
-        opacity: logoOverlay.opacity
-      });
+      let logoTransform = `l_${logoOverlay.url}`;
+      logoTransform += `,g_${logoOverlay.position.replace('-', '_')}`;
+      logoTransform += `,w_${logoOverlay.size}`;
+      logoTransform += `,o_${logoOverlay.opacity}`;
+      transformArray.push(logoTransform);
     }
 
     // Add audio transformations
     if (audio.muted) {
-      transformArray.push({ volume: 'mute' });
+      transformArray.push('e_volume:mute');
     } else if (audio.volume !== 100) {
-      transformArray.push({ volume: audio.volume });
+      transformArray.push(`e_volume:${audio.volume}`);
     }
 
     // Add fade out effect (should be last)
     if (effects.fadeOut > 0) {
-      transformArray.push({ effect: `fade:-${effects.fadeOut * 1000}` });
+      transformArray.push(`e_fade:-${effects.fadeOut * 1000}`);
     }
 
     // Build the URL
     const baseUrl = `https://res.cloudinary.com/${cloudName}/video/upload`;
-    const transformString = transformArray.length > 0 
-      ? '/' + transformArray.map(t => {
-          if (typeof t === 'object') {
-            return Object.entries(t).map(([key, value]) => {
-              if (typeof value === 'object' && value !== null) {
-                return `${key}_${Object.entries(value).map(([k, v]) => `${k}:${v}`).join('_')}`;
-              }
-              return `${key}_${value}`;
-            }).join(',');
-          }
-          return t;
-        }).join('/')
-      : '';
+    const transformString = transformArray.length > 0 ? '/' + transformArray.join(',') : '';
     
-    return `${baseUrl}${transformString}/${publicId}.mp4`;
+    return `${baseUrl}${transformString}/${publicId}`;
   };
 
-  // Update preview when transformations change
-  useEffect(() => {
+  // Preview changes function
+  const handlePreviewChanges = () => {
     const newUrl = buildTransformationUrl();
     setPreviewUrl(newUrl);
+    setShowPreview(true);
     setVideoLoading(true);
-  }, [textOverlay, effects, activeFilter, audio, logoOverlay]);
-
-  const handlePlayPause = () => {
+    
+    // Force video reload
     if (videoRef.current) {
-      if (isPlaying) {
-        videoRef.current.pause();
-      } else {
-        videoRef.current.play();
-      }
-      setIsPlaying(!isPlaying);
+      videoRef.current.load();
     }
   };
 
@@ -230,10 +208,13 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
       size: 150,
       opacity: 100
     });
+    setPreviewUrl(originalUrl);
+    setShowPreview(false);
   };
 
   const handleSave = () => {
     if (onSave) {
+      const finalUrl = buildTransformationUrl();
       const allTransformations = {
         textOverlay,
         effects,
@@ -241,7 +222,7 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
         audio,
         logoOverlay
       };
-      onSave(previewUrl, allTransformations);
+      onSave(finalUrl, allTransformations);
     }
   };
 
@@ -267,7 +248,8 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
         backgroundColor: 'rgba(0, 0, 0, 0.95)',
         zIndex: 9999,
         display: 'flex',
-        flexDirection: 'column'
+        flexDirection: 'column',
+        overflow: 'hidden'
       }}
     >
       {/* Header */}
@@ -278,7 +260,8 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
           padding: '1rem 1.5rem',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between'
+          justifyContent: 'space-between',
+          flexShrink: 0
         }}
       >
         <h2 style={{ color: 'white', fontSize: '1.25rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
@@ -286,6 +269,23 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
           Video Editor
         </h2>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button
+            onClick={handlePreviewChanges}
+            style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: '#059669',
+              color: 'white',
+              border: 'none',
+              borderRadius: '0.375rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem'
+            }}
+          >
+            <Eye style={{ width: '16px', height: '16px' }} />
+            Preview Changes
+          </button>
           <button
             onClick={handleReset}
             style={{
@@ -341,9 +341,9 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
       {/* Main Content */}
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         {/* Video Preview - Left Side */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', backgroundColor: '#111827' }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', backgroundColor: '#111827', minWidth: 0 }}>
           {/* Video Container */}
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem', overflow: 'hidden' }}>
             <div style={{ position: 'relative', width: '100%', maxWidth: '1200px', maxHeight: '80vh' }}>
               {videoLoading && (
                 <div style={{
@@ -352,7 +352,8 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
                   left: '50%',
                   transform: 'translate(-50%, -50%)',
                   color: 'white',
-                  textAlign: 'center'
+                  textAlign: 'center',
+                  zIndex: 10
                 }}>
                   <div style={{
                     width: '48px',
@@ -374,36 +375,54 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
                   height: 'auto',
                   maxHeight: '70vh',
                   backgroundColor: 'black',
-                  borderRadius: '0.5rem'
+                  borderRadius: '0.5rem',
+                  display: 'block'
                 }}
                 controls
                 onLoadedData={() => setVideoLoading(false)}
                 onPlay={() => setIsPlaying(true)}
                 onPause={() => setIsPlaying(false)}
+                onError={(e) => {
+                  console.error('Video error:', e);
+                  setVideoLoading(false);
+                }}
               />
             </div>
           </div>
 
-          {/* URL Preview Bar */}
+          {/* Status Bar */}
           <div style={{
             backgroundColor: '#1f2937',
             borderTop: '1px solid #374151',
             padding: '0.75rem 1.5rem',
             display: 'flex',
             alignItems: 'center',
-            gap: '0.75rem'
+            gap: '0.75rem',
+            flexShrink: 0
           }}>
-            <span style={{ color: '#9ca3af', fontSize: '0.75rem', fontWeight: '600', textTransform: 'uppercase' }}>
-              Preview URL
+            <span style={{ 
+              color: showPreview ? '#10b981' : '#9ca3af', 
+              fontSize: '0.75rem', 
+              fontWeight: '600', 
+              textTransform: 'uppercase' 
+            }}>
+              {showPreview ? 'Preview Mode' : 'Original Video'}
             </span>
             <div style={{
               flex: 1,
               backgroundColor: '#111827',
               borderRadius: '0.25rem',
               padding: '0.5rem 0.75rem',
-              overflowX: 'auto'
+              overflowX: 'auto',
+              maxWidth: 'calc(100% - 150px)'
             }}>
-              <code style={{ color: '#a855f7', fontSize: '0.75rem', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
+              <code style={{ 
+                color: '#a855f7', 
+                fontSize: '0.75rem', 
+                fontFamily: 'monospace', 
+                whiteSpace: 'nowrap',
+                display: 'block'
+              }}>
                 {previewUrl}
               </code>
             </div>
@@ -411,9 +430,18 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
         </div>
 
         {/* Controls - Right Sidebar */}
-        <div style={{ width: '400px', backgroundColor: '#1f2937', borderLeft: '1px solid #374151', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ 
+          width: '400px', 
+          minWidth: '400px',
+          maxWidth: '400px',
+          backgroundColor: '#1f2937', 
+          borderLeft: '1px solid #374151', 
+          display: 'flex', 
+          flexDirection: 'column',
+          overflow: 'hidden'
+        }}>
           {/* Tabs */}
-          <div style={{ borderBottom: '1px solid #374151', display: 'flex' }}>
+          <div style={{ borderBottom: '1px solid #374151', display: 'flex', flexShrink: 0 }}>
             {[
               { id: 'effects', label: 'Effects', icon: Sparkles },
               { id: 'text', label: 'Text', icon: Type },
@@ -446,7 +474,12 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
           </div>
 
           {/* Tab Content */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem' }}>
+          <div style={{ 
+            flex: 1, 
+            overflowY: 'auto', 
+            overflowX: 'hidden',
+            padding: '1.5rem'
+          }}>
             {/* Effects Tab */}
             {activeTab === 'effects' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -464,7 +497,7 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
                         step="0.5"
                         value={effects.fadeIn}
                         onChange={(e) => setEffects({...effects, fadeIn: parseFloat(e.target.value)})}
-                        style={{ width: '100%' }}
+                        style={{ width: '100%', cursor: 'pointer' }}
                       />
                     </div>
                     <div>
@@ -478,7 +511,7 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
                         step="0.5"
                         value={effects.fadeOut}
                         onChange={(e) => setEffects({...effects, fadeOut: parseFloat(e.target.value)})}
-                        style={{ width: '100%' }}
+                        style={{ width: '100%', cursor: 'pointer' }}
                       />
                     </div>
                   </div>
@@ -497,7 +530,7 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
                         max="100"
                         value={effects.blur}
                         onChange={(e) => setEffects({...effects, blur: parseInt(e.target.value)})}
-                        style={{ width: '100%' }}
+                        style={{ width: '100%', cursor: 'pointer' }}
                       />
                     </div>
                     <div>
@@ -510,7 +543,7 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
                         max="100"
                         value={effects.brightness}
                         onChange={(e) => setEffects({...effects, brightness: parseInt(e.target.value)})}
-                        style={{ width: '100%' }}
+                        style={{ width: '100%', cursor: 'pointer' }}
                       />
                     </div>
                     <div>
@@ -523,7 +556,7 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
                         max="100"
                         value={effects.contrast}
                         onChange={(e) => setEffects({...effects, contrast: parseInt(e.target.value)})}
-                        style={{ width: '100%' }}
+                        style={{ width: '100%', cursor: 'pointer' }}
                       />
                     </div>
                     <div>
@@ -536,7 +569,7 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
                         max="100"
                         value={effects.saturation}
                         onChange={(e) => setEffects({...effects, saturation: parseInt(e.target.value)})}
-                        style={{ width: '100%' }}
+                        style={{ width: '100%', cursor: 'pointer' }}
                       />
                     </div>
                   </div>
@@ -555,7 +588,7 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
                       step="25"
                       value={effects.speed}
                       onChange={(e) => setEffects({...effects, speed: parseInt(e.target.value)})}
-                      style={{ width: '100%' }}
+                      style={{ width: '100%', cursor: 'pointer' }}
                     />
                   </div>
                 </div>
@@ -568,37 +601,53 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
                 <h3 style={{ color: 'white', fontSize: '0.875rem', fontWeight: '500', marginBottom: '1rem' }}>Text Overlay</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                   <div>
-                    <label style={{ color: '#d1d5db', fontSize: '0.875rem', display: 'block', marginBottom: '0.5rem' }}>
+                    <label style={{ color: '#d1d5db', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={textOverlay.enabled}
+                        onChange={(e) => setTextOverlay({...textOverlay, enabled: e.target.checked})}
+                        style={{ width: '16px', height: '16px', accentColor: '#a855f7' }}
+                      />
                       Enable Text Overlay
                     </label>
-                    <input
-                      type="checkbox"
-                      checked={textOverlay.enabled}
-                      onChange={(e) => setTextOverlay({...textOverlay, enabled: e.target.checked})}
-                      style={{ width: '16px', height: '16px', accentColor: '#a855f7' }}
-                    />
                   </div>
 
                   {textOverlay.enabled && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <>
                       <div>
                         <label style={{ color: '#d1d5db', fontSize: '0.875rem', display: 'block', marginBottom: '0.5rem' }}>Text Content</label>
                         <input
                           type="text"
                           value={textOverlay.text}
                           onChange={(e) => setTextOverlay({...textOverlay, text: e.target.value})}
-                          style={{ width: '100%', padding: '0.5rem 0.75rem', backgroundColor: '#263238', color: 'white', border: '1px solid #4b5563', borderRadius: '0.375rem' }}
+                          style={{ 
+                            width: '100%', 
+                            padding: '0.5rem 0.75rem', 
+                            backgroundColor: '#111827', 
+                            color: 'white', 
+                            border: '1px solid #4b5563', 
+                            borderRadius: '0.375rem',
+                            boxSizing: 'border-box'
+                          }}
                           placeholder="Enter your text..."
                         />
                       </div>
 
-                      <div style={{ display: 'flex', gap: '0.75rem' }}>
-                        <div style={{ flex: 1 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                        <div>
                           <label style={{ color: '#d1d5db', fontSize: '0.875rem', display: 'block', marginBottom: '0.5rem' }}>Font</label>
                           <select
                             value={textOverlay.font}
                             onChange={(e) => setTextOverlay({...textOverlay, font: e.target.value})}
-                            style={{ width: '100%', padding: '0.5rem 0.75rem', backgroundColor: '#263238', color: 'white', border: '1px solid #4b5563', borderRadius: '0.375rem' }}
+                            style={{ 
+                              width: '100%', 
+                              padding: '0.5rem 0.75rem', 
+                              backgroundColor: '#111827', 
+                              color: 'white', 
+                              border: '1px solid #4b5563', 
+                              borderRadius: '0.375rem',
+                              cursor: 'pointer'
+                            }}
                           >
                             <option value="Arial">Arial</option>
                             <option value="Helvetica">Helvetica</option>
@@ -608,12 +657,20 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
                           </select>
                         </div>
 
-                        <div style={{ flex: 1 }}>
+                        <div>
                           <label style={{ color: '#d1d5db', fontSize: '0.875rem', display: 'block', marginBottom: '0.5rem' }}>Color</label>
                           <select
                             value={textOverlay.color}
                             onChange={(e) => setTextOverlay({...textOverlay, color: e.target.value})}
-                            style={{ width: '100%', padding: '0.5rem 0.75rem', backgroundColor: '#263238', color: 'white', border: '1px solid #4b5563', borderRadius: '0.375rem' }}
+                            style={{ 
+                              width: '100%', 
+                              padding: '0.5rem 0.75rem', 
+                              backgroundColor: '#111827', 
+                              color: 'white', 
+                              border: '1px solid #4b5563', 
+                              borderRadius: '0.375rem',
+                              cursor: 'pointer'
+                            }}
                           >
                             <option value="white">White</option>
                             <option value="black">Black</option>
@@ -635,7 +692,7 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
                           max="200"
                           value={textOverlay.size}
                           onChange={(e) => setTextOverlay({...textOverlay, size: parseInt(e.target.value)})}
-                          style={{ width: '100%' }}
+                          style={{ width: '100%', cursor: 'pointer' }}
                         />
                       </div>
 
@@ -644,7 +701,15 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
                         <select
                           value={textOverlay.position}
                           onChange={(e) => setTextOverlay({...textOverlay, position: e.target.value})}
-                          style={{ width: '100%', padding: '0.5rem 0.75rem', backgroundColor: '#263238', color: 'white', border: '1px solid #4b5563', borderRadius: '0.375rem' }}
+                          style={{ 
+                            width: '100%', 
+                            padding: '0.5rem 0.75rem', 
+                            backgroundColor: '#111827', 
+                            color: 'white', 
+                            border: '1px solid #4b5563', 
+                            borderRadius: '0.375rem',
+                            cursor: 'pointer'
+                          }}
                         >
                           <option value="center">Center</option>
                           <option value="north">Top</option>
@@ -657,22 +722,7 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
                           <option value="south_west">Bottom Left</option>
                         </select>
                       </div>
-
-                      <div>
-                        <label style={{ color: '#d1d5db', fontSize: '0.875rem', display: 'block', marginBottom: '0.5rem' }}>Background</label>
-                        <select
-                          value={textOverlay.background}
-                          onChange={(e) => setTextOverlay({...textOverlay, background: e.target.value})}
-                          style={{ width: '100%', padding: '0.5rem 0.75rem', backgroundColor: '#263238', color: 'white', border: '1px solid #4b5563', borderRadius: '0.375rem' }}
-                        >
-                          <option value="none">None</option>
-                          <option value="rgb:00000080">Semi-transparent Black</option>
-                          <option value="rgb:FFFFFF80">Semi-transparent White</option>
-                          <option value="black">Solid Black</option>
-                          <option value="white">Solid White</option>
-                        </select>
-                      </div>
-                    </div>
+                    </>
                   )}
                 </div>
               </div>
@@ -710,26 +760,34 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
                 <h3 style={{ color: 'white', fontSize: '0.875rem', fontWeight: '500', marginBottom: '1rem' }}>Logo/Watermark</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                   <div>
-                    <label style={{ color: '#d1d5db', fontSize: '0.875rem', display: 'block', marginBottom: '0.5rem' }}>
+                    <label style={{ color: '#d1d5db', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={logoOverlay.enabled}
+                        onChange={(e) => setLogoOverlay({...logoOverlay, enabled: e.target.checked})}
+                        style={{ width: '16px', height: '16px', accentColor: '#a855f7' }}
+                      />
                       Enable Logo/Watermark
                     </label>
-                    <input
-                      type="checkbox"
-                      checked={logoOverlay.enabled}
-                      onChange={(e) => setLogoOverlay({...logoOverlay, enabled: e.target.checked})}
-                      style={{ width: '16px', height: '16px', accentColor: '#a855f7' }}
-                    />
                   </div>
 
                   {logoOverlay.enabled && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <>
                       <div>
                         <label style={{ color: '#d1d5db', fontSize: '0.875rem', display: 'block', marginBottom: '0.5rem' }}>Logo URL or Public ID</label>
                         <input
                           type="text"
                           value={logoOverlay.url}
                           onChange={(e) => setLogoOverlay({...logoOverlay, url: e.target.value})}
-                          style={{ width: '100%', padding: '0.5rem 0.75rem', backgroundColor: '#263238', color: 'white', border: '1px solid #4b5563', borderRadius: '0.375rem' }}
+                          style={{ 
+                            width: '100%', 
+                            padding: '0.5rem 0.75rem', 
+                            backgroundColor: '#111827', 
+                            color: 'white', 
+                            border: '1px solid #4b5563', 
+                            borderRadius: '0.375rem',
+                            boxSizing: 'border-box'
+                          }}
                           placeholder="logo_image_id"
                         />
                       </div>
@@ -739,7 +797,15 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
                         <select
                           value={logoOverlay.position}
                           onChange={(e) => setLogoOverlay({...logoOverlay, position: e.target.value})}
-                          style={{ width: '100%', padding: '0.5rem 0.75rem', backgroundColor: '#263238', color: 'white', border: '1px solid #4b5563', borderRadius: '0.375rem' }}
+                          style={{ 
+                            width: '100%', 
+                            padding: '0.5rem 0.75rem', 
+                            backgroundColor: '#111827', 
+                            color: 'white', 
+                            border: '1px solid #4b5563', 
+                            borderRadius: '0.375rem',
+                            cursor: 'pointer'
+                          }}
                         >
                           <option value="bottom-right">Bottom Right</option>
                           <option value="bottom-left">Bottom Left</option>
@@ -760,7 +826,7 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
                           step="10"
                           value={logoOverlay.size}
                           onChange={(e) => setLogoOverlay({...logoOverlay, size: parseInt(e.target.value)})}
-                          style={{ width: '100%' }}
+                          style={{ width: '100%', cursor: 'pointer' }}
                         />
                       </div>
 
@@ -774,10 +840,10 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
                           max="100"
                           value={logoOverlay.opacity}
                           onChange={(e) => setLogoOverlay({...logoOverlay, opacity: parseInt(e.target.value)})}
-                          style={{ width: '100%' }}
+                          style={{ width: '100%', cursor: 'pointer' }}
                         />
                       </div>
-                    </div>
+                    </>
                   )}
                 </div>
               </div>
@@ -789,15 +855,15 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
                 <h3 style={{ color: 'white', fontSize: '0.875rem', fontWeight: '500', marginBottom: '1rem' }}>Audio</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                   <div>
-                    <label style={{ color: '#d1d5db', fontSize: '0.875rem', display: 'block', marginBottom: '0.5rem' }}>
+                    <label style={{ color: '#d1d5db', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={audio.muted}
+                        onChange={(e) => setAudio({...audio, muted: e.target.checked})}
+                        style={{ width: '16px', height: '16px', accentColor: '#a855f7' }}
+                      />
                       Mute Video
                     </label>
-                    <input
-                      type="checkbox"
-                      checked={audio.muted}
-                      onChange={(e) => setAudio({...audio, muted: e.target.checked})}
-                      style={{ width: '16px', height: '16px', accentColor: '#a855f7' }}
-                    />
                   </div>
 
                   {!audio.muted && (
@@ -811,7 +877,7 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
                         max="100"
                         value={audio.volume}
                         onChange={(e) => setAudio({...audio, volume: parseInt(e.target.value)})}
-                        style={{ width: '100%' }}
+                        style={{ width: '100%', cursor: 'pointer' }}
                       />
                     </div>
                   )}
@@ -822,7 +888,15 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
                       type="text"
                       value={audio.backgroundMusic}
                       onChange={(e) => setAudio({...audio, backgroundMusic: e.target.value})}
-                      style={{ width: '100%', padding: '0.5rem 0.75rem', backgroundColor: '#263238', color: 'white', border: '1px solid #4b5563', borderRadius: '0.375rem' }}
+                      style={{ 
+                        width: '100%', 
+                        padding: '0.5rem 0.75rem', 
+                        backgroundColor: '#111827', 
+                        color: 'white', 
+                        border: '1px solid #4b5563', 
+                        borderRadius: '0.375rem',
+                        boxSizing: 'border-box'
+                      }}
                       placeholder="background_music_id"
                     />
                     <p style={{ color: '#9ca3af', fontSize: '0.75rem', marginTop: '0.5rem' }}>
