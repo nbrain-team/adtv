@@ -527,14 +527,14 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
 
           {/* Controls - Right Sidebar */}
           <div style={{ 
-            width: '420px', 
-            minWidth: '420px',
-            maxWidth: '420px',
+            width: '450px', 
+            minWidth: '450px',
+            maxWidth: '450px',
             backgroundColor: 'white', 
             borderLeft: '1px solid #e5e7eb', 
             display: 'flex', 
             flexDirection: 'column',
-            overflow: 'visible'
+            overflow: 'hidden'
           }}>
             {/* Tabs */}
             <div style={{ 
@@ -543,7 +543,7 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
               flexShrink: 0, 
               backgroundColor: '#f9fafb',
               overflowX: 'auto',
-              minHeight: '48px'
+              minHeight: '44px'
             }}>
               {[
                 { id: 'trim', label: 'Trim', icon: Scissors },
@@ -558,8 +558,8 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
                   onClick={() => setActiveTab(tab.id)}
                   style={{
                     flex: '0 0 auto',
-                    minWidth: '80px',
-                    padding: '0.75rem 0.5rem',
+                    minWidth: '70px',
+                    padding: '0.6rem 0.4rem',
                     backgroundColor: activeTab === tab.id ? 'white' : 'transparent',
                     color: activeTab === tab.id ? '#7c3aed' : '#6b7280',
                     border: 'none',
@@ -568,13 +568,13 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '0.25rem',
-                    fontSize: '0.8rem',
+                    gap: '0.2rem',
+                    fontSize: '0.75rem',
                     fontWeight: activeTab === tab.id ? '500' : '400',
                     whiteSpace: 'nowrap'
                   }}
                 >
-                  <tab.icon style={{ width: '14px', height: '14px', flexShrink: 0 }} />
+                  <tab.icon style={{ width: '12px', height: '12px', flexShrink: 0 }} />
                   <span>{tab.label}</span>
                 </button>
               ))}
@@ -584,10 +584,11 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
             <div style={{ 
               flex: 1, 
               overflowY: 'auto', 
-              overflowX: 'visible',
-              padding: '1rem',
+              overflowX: 'hidden',
+              padding: '0.75rem',
               backgroundColor: 'white',
-              width: '100%'
+              width: '100%',
+              boxSizing: 'border-box'
             }}>
               {/* Trim Tab */}
               {activeTab === 'trim' && (
@@ -715,12 +716,12 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
 
               {/* Effects Tab */}
               {activeTab === 'effects' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                  <div style={{ backgroundColor: '#f9fafb', borderRadius: '0.5rem', padding: '1rem', border: '1px solid #e5e7eb' }}>
-                    <h3 style={{ color: '#111827', fontSize: '0.875rem', fontWeight: '600', marginBottom: '1rem' }}>Transitions</h3>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <div style={{ backgroundColor: '#f9fafb', borderRadius: '0.375rem', padding: '0.75rem', border: '1px solid #e5e7eb' }}>
+                    <h3 style={{ color: '#111827', fontSize: '0.8rem', fontWeight: '600', margin: 0, marginBottom: '0.75rem' }}>Transitions</h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                       <div>
-                        <label style={{ color: '#4b5563', fontSize: '0.875rem', display: 'block', marginBottom: '0.5rem' }}>
+                        <label style={{ color: '#4b5563', fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' }}>
                           Fade In: {effects.fadeIn}s
                         </label>
                         <input
@@ -730,11 +731,11 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
                           step="0.5"
                           value={effects.fadeIn}
                           onChange={(e) => setEffects({...effects, fadeIn: parseFloat(e.target.value)})}
-                          style={{ width: '100%', cursor: 'pointer', accentColor: '#7c3aed' }}
+                          style={{ width: '100%', cursor: 'pointer', accentColor: '#7c3aed', height: '20px' }}
                         />
                       </div>
                       <div>
-                        <label style={{ color: '#4b5563', fontSize: '0.875rem', display: 'block', marginBottom: '0.5rem' }}>
+                        <label style={{ color: '#4b5563', fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' }}>
                           Fade Out: {effects.fadeOut}s
                         </label>
                         <input
@@ -744,17 +745,17 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
                           step="0.5"
                           value={effects.fadeOut}
                           onChange={(e) => setEffects({...effects, fadeOut: parseFloat(e.target.value)})}
-                          style={{ width: '100%', cursor: 'pointer', accentColor: '#7c3aed' }}
+                          style={{ width: '100%', cursor: 'pointer', accentColor: '#7c3aed', height: '20px' }}
                         />
                       </div>
                     </div>
                   </div>
 
-                  <div style={{ backgroundColor: '#f9fafb', borderRadius: '0.5rem', padding: '1rem', border: '1px solid #e5e7eb' }}>
-                    <h3 style={{ color: '#111827', fontSize: '0.875rem', fontWeight: '600', marginBottom: '1rem' }}>Visual Effects</h3>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <div style={{ backgroundColor: '#f9fafb', borderRadius: '0.375rem', padding: '0.75rem', border: '1px solid #e5e7eb' }}>
+                    <h3 style={{ color: '#111827', fontSize: '0.8rem', fontWeight: '600', margin: 0, marginBottom: '0.75rem' }}>Visual Effects</h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                       <div>
-                        <label style={{ color: '#4b5563', fontSize: '0.875rem', display: 'block', marginBottom: '0.5rem' }}>
+                        <label style={{ color: '#4b5563', fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' }}>
                           Blur: {effects.blur}%
                         </label>
                         <input
@@ -763,11 +764,11 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
                           max="100"
                           value={effects.blur}
                           onChange={(e) => setEffects({...effects, blur: parseInt(e.target.value)})}
-                          style={{ width: '100%', cursor: 'pointer', accentColor: '#7c3aed' }}
+                          style={{ width: '100%', cursor: 'pointer', accentColor: '#7c3aed', height: '20px' }}
                         />
                       </div>
                       <div>
-                        <label style={{ color: '#4b5563', fontSize: '0.875rem', display: 'block', marginBottom: '0.5rem' }}>
+                        <label style={{ color: '#4b5563', fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' }}>
                           Brightness: {effects.brightness > 0 ? '+' : ''}{effects.brightness}
                         </label>
                         <input
@@ -776,11 +777,11 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
                           max="100"
                           value={effects.brightness}
                           onChange={(e) => setEffects({...effects, brightness: parseInt(e.target.value)})}
-                          style={{ width: '100%', cursor: 'pointer', accentColor: '#7c3aed' }}
+                          style={{ width: '100%', cursor: 'pointer', accentColor: '#7c3aed', height: '20px' }}
                         />
                       </div>
                       <div>
-                        <label style={{ color: '#4b5563', fontSize: '0.875rem', display: 'block', marginBottom: '0.5rem' }}>
+                        <label style={{ color: '#4b5563', fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' }}>
                           Contrast: {effects.contrast > 0 ? '+' : ''}{effects.contrast}
                         </label>
                         <input
@@ -789,11 +790,11 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
                           max="100"
                           value={effects.contrast}
                           onChange={(e) => setEffects({...effects, contrast: parseInt(e.target.value)})}
-                          style={{ width: '100%', cursor: 'pointer', accentColor: '#7c3aed' }}
+                          style={{ width: '100%', cursor: 'pointer', accentColor: '#7c3aed', height: '20px' }}
                         />
                       </div>
                       <div>
-                        <label style={{ color: '#4b5563', fontSize: '0.875rem', display: 'block', marginBottom: '0.5rem' }}>
+                        <label style={{ color: '#4b5563', fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' }}>
                           Saturation: {effects.saturation > 0 ? '+' : ''}{effects.saturation}
                         </label>
                         <input
@@ -802,16 +803,16 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
                           max="100"
                           value={effects.saturation}
                           onChange={(e) => setEffects({...effects, saturation: parseInt(e.target.value)})}
-                          style={{ width: '100%', cursor: 'pointer', accentColor: '#7c3aed' }}
+                          style={{ width: '100%', cursor: 'pointer', accentColor: '#7c3aed', height: '20px' }}
                         />
                       </div>
                     </div>
                   </div>
 
-                  <div style={{ backgroundColor: '#f9fafb', borderRadius: '0.5rem', padding: '1rem', border: '1px solid #e5e7eb' }}>
-                    <h3 style={{ color: '#111827', fontSize: '0.875rem', fontWeight: '600', marginBottom: '1rem' }}>Playback</h3>
+                  <div style={{ backgroundColor: '#f9fafb', borderRadius: '0.375rem', padding: '0.75rem', border: '1px solid #e5e7eb' }}>
+                    <h3 style={{ color: '#111827', fontSize: '0.8rem', fontWeight: '600', margin: 0, marginBottom: '0.75rem' }}>Playback</h3>
                     <div>
-                      <label style={{ color: '#4b5563', fontSize: '0.875rem', display: 'block', marginBottom: '0.5rem' }}>
+                      <label style={{ color: '#4b5563', fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' }}>
                         Speed: {effects.speed}%
                       </label>
                       <input
@@ -821,7 +822,7 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
                         step="25"
                         value={effects.speed}
                         onChange={(e) => setEffects({...effects, speed: parseInt(e.target.value)})}
-                        style={{ width: '100%', cursor: 'pointer', accentColor: '#7c3aed' }}
+                        style={{ width: '100%', cursor: 'pointer', accentColor: '#7c3aed', height: '20px' }}
                       />
                     </div>
                   </div>
