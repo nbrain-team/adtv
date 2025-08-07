@@ -259,160 +259,36 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
     { id: 'art:zorro', name: 'Artistic', color: '#dc2626' }
   ];
 
-  const styles = {
-    container: {
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
-    },
-    leftPanel: {
-      background: 'rgba(17, 24, 39, 0.95)',
-      backdropFilter: 'blur(10px)',
-      borderRight: '1px solid rgba(255, 255, 255, 0.1)'
-    },
-    rightPanel: {
-      background: 'rgba(31, 41, 55, 0.98)',
-      backdropFilter: 'blur(10px)'
-    },
-    videoContainer: {
-      background: 'radial-gradient(circle at center, rgba(99, 102, 241, 0.1) 0%, transparent 70%)',
-      border: '2px solid rgba(99, 102, 241, 0.2)',
-      borderRadius: '16px',
-      boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.1)'
-    },
-    button: {
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      border: 'none',
-      borderRadius: '8px',
-      color: 'white',
-      padding: '10px 20px',
-      fontWeight: '600',
-      cursor: 'pointer',
-      transition: 'all 0.3s ease',
-      fontSize: '14px'
-    },
-    secondaryButton: {
-      background: 'rgba(55, 65, 81, 0.5)',
-      border: '1px solid rgba(107, 114, 128, 0.3)',
-      borderRadius: '8px',
-      color: '#e5e7eb',
-      padding: '10px 20px',
-      fontWeight: '500',
-      cursor: 'pointer',
-      transition: 'all 0.3s ease',
-      fontSize: '14px'
-    },
-    tab: {
-      background: 'transparent',
-      border: 'none',
-      color: '#9ca3af',
-      padding: '12px 16px',
-      cursor: 'pointer',
-      transition: 'all 0.3s ease',
-      fontSize: '14px',
-      fontWeight: '500',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '8px',
-      borderRadius: '8px',
-      margin: '0 4px'
-    },
-    activeTab: {
-      background: 'rgba(99, 102, 241, 0.1)',
-      color: '#818cf8',
-      borderBottom: 'none'
-    },
-    slider: {
-      width: '100%',
-      height: '6px',
-      borderRadius: '3px',
-      background: 'rgba(107, 114, 128, 0.3)',
-      outline: 'none',
-      WebkitAppearance: 'none' as any,
-      cursor: 'pointer'
-    },
-    input: {
-      background: 'rgba(17, 24, 39, 0.5)',
-      border: '1px solid rgba(107, 114, 128, 0.3)',
-      borderRadius: '8px',
-      color: '#e5e7eb',
-      padding: '10px 14px',
-      fontSize: '14px',
-      width: '100%',
-      transition: 'all 0.2s ease'
-    },
-    select: {
-      background: 'rgba(17, 24, 39, 0.5)',
-      border: '1px solid rgba(107, 114, 128, 0.3)',
-      borderRadius: '8px',
-      color: '#e5e7eb',
-      padding: '10px 14px',
-      fontSize: '14px',
-      width: '100%',
-      cursor: 'pointer'
-    },
-    label: {
-      color: '#d1d5db',
-      fontSize: '13px',
-      fontWeight: '500',
-      marginBottom: '6px',
-      display: 'block',
-      letterSpacing: '0.025em'
-    },
-    effectGroup: {
-      background: 'rgba(17, 24, 39, 0.3)',
-      borderRadius: '12px',
-      padding: '16px',
-      marginBottom: '12px',
-      border: '1px solid rgba(107, 114, 128, 0.2)'
-    }
-  };
-
   return (
-    <div className="fixed inset-0 z-50 flex" style={styles.container}>
-      {/* Left Panel - Video Preview */}
-      <div className="flex-1 flex flex-col" style={styles.leftPanel}>
+    <div className="fixed inset-0 z-50 flex bg-gray-900">
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col bg-gray-900">
         {/* Header */}
-        <div className="p-5 border-b border-gray-800/50">
+        <div className="bg-gray-800 border-b border-gray-700 p-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-              <div className="p-2 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg">
-                <Zap className="w-5 h-5 text-white" />
-              </div>
-              Video Editor Pro
+            <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+              <Zap className="w-5 h-5 text-purple-500" />
+              Video Editor
             </h2>
             <div className="flex gap-2">
               <button
-                onClick={() => setIsFullscreen(!isFullscreen)}
-                style={{...styles.secondaryButton, padding: '8px 12px'}}
-                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(55, 65, 81, 0.8)'}
-                onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(55, 65, 81, 0.5)'}
-              >
-                {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-              </button>
-              <button
                 onClick={handleReset}
-                style={styles.secondaryButton}
-                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(55, 65, 81, 0.8)'}
-                onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(55, 65, 81, 0.5)'}
+                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors flex items-center gap-2"
               >
-                <RotateCcw className="w-4 h-4 mr-2" style={{ display: 'inline' }} />
+                <RotateCcw className="w-4 h-4" />
                 Reset All
               </button>
               <button
                 onClick={handleSave}
-                style={styles.button}
-                onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
-                onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors flex items-center gap-2"
               >
-                <Save className="w-4 h-4 mr-2" style={{ display: 'inline' }} />
+                <Save className="w-4 h-4" />
                 Save Changes
               </button>
               {onClose && (
                 <button
                   onClick={onClose}
-                  style={{...styles.secondaryButton, padding: '8px 12px'}}
-                  onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)'}
-                  onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(55, 65, 81, 0.5)'}
+                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -421,13 +297,13 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
           </div>
         </div>
         
-        {/* Video Container */}
-        <div className="flex-1 flex items-center justify-center p-8">
-          <div className="relative w-full max-w-4xl" style={styles.videoContainer}>
+        {/* Video Container - Full size */}
+        <div className="flex-1 flex items-center justify-center p-8 bg-gray-900">
+          <div className="relative w-full h-full max-w-6xl max-h-[80vh] bg-black rounded-lg overflow-hidden shadow-2xl">
             {videoLoading && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-lg z-10">
-                <div className="text-white">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
+              <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-10">
+                <div className="text-white text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500 mx-auto"></div>
                   <p className="mt-4 text-sm">Loading preview...</p>
                 </div>
               </div>
@@ -435,32 +311,31 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
             <video
               ref={videoRef}
               src={previewUrl}
-              className="w-full rounded-lg"
+              className="w-full h-full object-contain"
               controls
               onLoadedData={() => setVideoLoading(false)}
               onPlay={() => setIsPlaying(true)}
               onPause={() => setIsPlaying(false)}
-              style={{ maxHeight: '70vh' }}
             />
           </div>
         </div>
 
         {/* URL Preview Bar */}
-        <div className="p-4 border-t border-gray-800/50">
+        <div className="bg-gray-800 border-t border-gray-700 p-3">
           <div className="flex items-center gap-3">
-            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Preview URL</span>
-            <div className="flex-1 bg-gray-900/50 rounded-lg px-3 py-2">
-              <code className="text-xs text-purple-400 font-mono break-all">{previewUrl}</code>
+            <span className="text-xs font-semibold text-gray-400 uppercase">Preview URL</span>
+            <div className="flex-1 bg-gray-900 rounded px-3 py-2 overflow-x-auto">
+              <code className="text-xs text-purple-400 font-mono whitespace-nowrap">{previewUrl}</code>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Right Panel - Controls */}
-      <div className="w-[420px] overflow-y-auto" style={styles.rightPanel}>
+      {/* Right Sidebar - Controls */}
+      <div className="w-[400px] bg-gray-800 border-l border-gray-700 flex flex-col">
         {/* Tabs */}
-        <div className="p-4 border-b border-gray-700/50">
-          <div className="flex flex-wrap justify-center">
+        <div className="border-b border-gray-700">
+          <div className="flex">
             {[
               { id: 'effects', label: 'Effects', icon: Sparkles },
               { id: 'text', label: 'Text', icon: Type },
@@ -471,43 +346,30 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                style={{
-                  ...styles.tab,
-                  ...(activeTab === tab.id ? styles.activeTab : {})
-                }}
-                onMouseEnter={(e) => {
-                  if (activeTab !== tab.id) {
-                    e.currentTarget.style.background = 'rgba(55, 65, 81, 0.3)';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (activeTab !== tab.id) {
-                    e.currentTarget.style.background = 'transparent';
-                  }
-                }}
+                className={`flex-1 py-3 px-4 flex items-center justify-center gap-2 transition-colors ${
+                  activeTab === tab.id 
+                    ? 'bg-gray-700 text-purple-400 border-b-2 border-purple-400' 
+                    : 'text-gray-400 hover:text-white hover:bg-gray-700/50'
+                }`}
               >
                 <tab.icon className="w-4 h-4" />
-                {tab.label}
+                <span className="text-sm">{tab.label}</span>
               </button>
             ))}
           </div>
         </div>
 
         {/* Tab Content */}
-        <div className="p-6">
+        <div className="flex-1 overflow-y-auto p-6">
           {/* Effects Tab */}
           {activeTab === 'effects' && (
-            <div className="space-y-4">
-              <div style={styles.effectGroup}>
-                <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
-                  <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                  Transitions
-                </h3>
+            <div className="space-y-6">
+              <div className="bg-gray-700/50 rounded-lg p-4">
+                <h3 className="text-white font-medium mb-4">Transitions</h3>
                 <div className="space-y-4">
                   <div>
-                    <label style={styles.label}>
-                      Fade In
-                      <span className="float-right text-purple-400">{effects.fadeIn}s</span>
+                    <label className="text-sm text-gray-300 block mb-2">
+                      Fade In: {effects.fadeIn}s
                     </label>
                     <input
                       type="range"
@@ -516,15 +378,13 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
                       step="0.5"
                       value={effects.fadeIn}
                       onChange={(e) => setEffects({...effects, fadeIn: parseFloat(e.target.value)})}
-                      style={styles.slider}
-                      className="slider"
+                      className="w-full"
                     />
                   </div>
 
                   <div>
-                    <label style={styles.label}>
-                      Fade Out
-                      <span className="float-right text-purple-400">{effects.fadeOut}s</span>
+                    <label className="text-sm text-gray-300 block mb-2">
+                      Fade Out: {effects.fadeOut}s
                     </label>
                     <input
                       type="range"
@@ -533,23 +393,18 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
                       step="0.5"
                       value={effects.fadeOut}
                       onChange={(e) => setEffects({...effects, fadeOut: parseFloat(e.target.value)})}
-                      style={styles.slider}
-                      className="slider"
+                      className="w-full"
                     />
                   </div>
                 </div>
               </div>
 
-              <div style={styles.effectGroup}>
-                <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
-                  <div className="w-2 h-2 bg-pink-500 rounded-full"></div>
-                  Visual Effects
-                </h3>
+              <div className="bg-gray-700/50 rounded-lg p-4">
+                <h3 className="text-white font-medium mb-4">Visual Effects</h3>
                 <div className="space-y-4">
                   <div>
-                    <label style={styles.label}>
-                      Blur
-                      <span className="float-right text-purple-400">{effects.blur}%</span>
+                    <label className="text-sm text-gray-300 block mb-2">
+                      Blur: {effects.blur}%
                     </label>
                     <input
                       type="range"
@@ -557,15 +412,13 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
                       max="100"
                       value={effects.blur}
                       onChange={(e) => setEffects({...effects, blur: parseInt(e.target.value)})}
-                      style={styles.slider}
-                      className="slider"
+                      className="w-full"
                     />
                   </div>
 
                   <div>
-                    <label style={styles.label}>
-                      Brightness
-                      <span className="float-right text-purple-400">{effects.brightness > 0 ? '+' : ''}{effects.brightness}</span>
+                    <label className="text-sm text-gray-300 block mb-2">
+                      Brightness: {effects.brightness > 0 ? '+' : ''}{effects.brightness}
                     </label>
                     <input
                       type="range"
@@ -573,15 +426,13 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
                       max="100"
                       value={effects.brightness}
                       onChange={(e) => setEffects({...effects, brightness: parseInt(e.target.value)})}
-                      style={styles.slider}
-                      className="slider"
+                      className="w-full"
                     />
                   </div>
 
                   <div>
-                    <label style={styles.label}>
-                      Contrast
-                      <span className="float-right text-purple-400">{effects.contrast > 0 ? '+' : ''}{effects.contrast}</span>
+                    <label className="text-sm text-gray-300 block mb-2">
+                      Contrast: {effects.contrast > 0 ? '+' : ''}{effects.contrast}
                     </label>
                     <input
                       type="range"
@@ -589,15 +440,13 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
                       max="100"
                       value={effects.contrast}
                       onChange={(e) => setEffects({...effects, contrast: parseInt(e.target.value)})}
-                      style={styles.slider}
-                      className="slider"
+                      className="w-full"
                     />
                   </div>
 
                   <div>
-                    <label style={styles.label}>
-                      Saturation
-                      <span className="float-right text-purple-400">{effects.saturation > 0 ? '+' : ''}{effects.saturation}</span>
+                    <label className="text-sm text-gray-300 block mb-2">
+                      Saturation: {effects.saturation > 0 ? '+' : ''}{effects.saturation}
                     </label>
                     <input
                       type="range"
@@ -605,22 +454,17 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
                       max="100"
                       value={effects.saturation}
                       onChange={(e) => setEffects({...effects, saturation: parseInt(e.target.value)})}
-                      style={styles.slider}
-                      className="slider"
+                      className="w-full"
                     />
                   </div>
                 </div>
               </div>
 
-              <div style={styles.effectGroup}>
-                <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                  Playback
-                </h3>
+              <div className="bg-gray-700/50 rounded-lg p-4">
+                <h3 className="text-white font-medium mb-4">Playback</h3>
                 <div>
-                  <label style={styles.label}>
-                    Speed
-                    <span className="float-right text-purple-400">{effects.speed}%</span>
+                  <label className="text-sm text-gray-300 block mb-2">
+                    Speed: {effects.speed}%
                   </label>
                   <input
                     type="range"
@@ -629,14 +473,8 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
                     step="25"
                     value={effects.speed}
                     onChange={(e) => setEffects({...effects, speed: parseInt(e.target.value)})}
-                    style={styles.slider}
-                    className="slider"
+                    className="w-full"
                   />
-                  <div className="flex justify-between mt-2">
-                    <span className="text-xs text-gray-500">Slow</span>
-                    <span className="text-xs text-gray-500">Normal</span>
-                    <span className="text-xs text-gray-500">Fast</span>
-                  </div>
                 </div>
               </div>
             </div>
@@ -644,14 +482,14 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
 
           {/* Text Tab */}
           {activeTab === 'text' && (
-            <div style={styles.effectGroup}>
+            <div className="bg-gray-700/50 rounded-lg p-4">
               <div className="space-y-4">
-                <label className="flex items-center gap-3 cursor-pointer">
+                <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={textOverlay.enabled}
                     onChange={(e) => setTextOverlay({...textOverlay, enabled: e.target.checked})}
-                    className="w-5 h-5 rounded border-gray-600 text-purple-500 focus:ring-purple-500"
+                    className="w-4 h-4 text-purple-500"
                   />
                   <span className="text-white font-medium">Enable Text Overlay</span>
                 </label>
@@ -659,25 +497,23 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
                 {textOverlay.enabled && (
                   <div className="space-y-4 mt-4">
                     <div>
-                      <label style={styles.label}>Text Content</label>
+                      <label className="text-sm text-gray-300 block mb-2">Text Content</label>
                       <input
                         type="text"
                         value={textOverlay.text}
                         onChange={(e) => setTextOverlay({...textOverlay, text: e.target.value})}
-                        style={styles.input}
+                        className="w-full px-3 py-2 bg-gray-800 text-white rounded border border-gray-600 focus:border-purple-500"
                         placeholder="Enter your text..."
-                        onFocus={(e) => e.currentTarget.style.borderColor = 'rgba(139, 92, 246, 0.5)'}
-                        onBlur={(e) => e.currentTarget.style.borderColor = 'rgba(107, 114, 128, 0.3)'}
                       />
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label style={styles.label}>Font</label>
+                        <label className="text-sm text-gray-300 block mb-2">Font</label>
                         <select
                           value={textOverlay.font}
                           onChange={(e) => setTextOverlay({...textOverlay, font: e.target.value})}
-                          style={styles.select}
+                          className="w-full px-3 py-2 bg-gray-800 text-white rounded border border-gray-600"
                         >
                           <option value="Arial">Arial</option>
                           <option value="Helvetica">Helvetica</option>
@@ -688,11 +524,11 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
                       </div>
 
                       <div>
-                        <label style={styles.label}>Color</label>
+                        <label className="text-sm text-gray-300 block mb-2">Color</label>
                         <select
                           value={textOverlay.color}
                           onChange={(e) => setTextOverlay({...textOverlay, color: e.target.value})}
-                          style={styles.select}
+                          className="w-full px-3 py-2 bg-gray-800 text-white rounded border border-gray-600"
                         >
                           <option value="white">White</option>
                           <option value="black">Black</option>
@@ -705,9 +541,8 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
                     </div>
 
                     <div>
-                      <label style={styles.label}>
-                        Size
-                        <span className="float-right text-purple-400">{textOverlay.size}px</span>
+                      <label className="text-sm text-gray-300 block mb-2">
+                        Size: {textOverlay.size}px
                       </label>
                       <input
                         type="range"
@@ -715,17 +550,16 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
                         max="200"
                         value={textOverlay.size}
                         onChange={(e) => setTextOverlay({...textOverlay, size: parseInt(e.target.value)})}
-                        style={styles.slider}
-                        className="slider"
+                        className="w-full"
                       />
                     </div>
 
                     <div>
-                      <label style={styles.label}>Position</label>
+                      <label className="text-sm text-gray-300 block mb-2">Position</label>
                       <select
                         value={textOverlay.position}
                         onChange={(e) => setTextOverlay({...textOverlay, position: e.target.value})}
-                        style={styles.select}
+                        className="w-full px-3 py-2 bg-gray-800 text-white rounded border border-gray-600"
                       >
                         <option value="center">Center</option>
                         <option value="north">Top</option>
@@ -740,11 +574,11 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
                     </div>
 
                     <div>
-                      <label style={styles.label}>Background</label>
+                      <label className="text-sm text-gray-300 block mb-2">Background</label>
                       <select
                         value={textOverlay.background}
                         onChange={(e) => setTextOverlay({...textOverlay, background: e.target.value})}
-                        style={styles.select}
+                        className="w-full px-3 py-2 bg-gray-800 text-white rounded border border-gray-600"
                       >
                         <option value="none">None</option>
                         <option value="rgb:00000080">Semi-transparent Black</option>
@@ -762,48 +596,19 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
           {/* Filters Tab */}
           {activeTab === 'filters' && (
             <div>
-              <h3 className="text-white font-semibold mb-4">Choose a Filter</h3>
+              <h3 className="text-white font-medium mb-4">Choose a Filter</h3>
               <div className="grid grid-cols-2 gap-3">
                 {filters.map(filter => (
                   <button
                     key={filter.id}
                     onClick={() => setActiveFilter(filter.id)}
-                    className="relative overflow-hidden rounded-lg transition-all duration-300"
-                    style={{
-                      padding: '12px',
-                      background: activeFilter === filter.id 
-                        ? `linear-gradient(135deg, ${filter.color}40, ${filter.color}20)`
-                        : 'rgba(17, 24, 39, 0.5)',
-                      border: activeFilter === filter.id 
-                        ? `2px solid ${filter.color}`
-                        : '2px solid transparent',
-                      color: activeFilter === filter.id ? '#fff' : '#9ca3af',
-                      fontWeight: '500',
-                      fontSize: '14px',
-                      cursor: 'pointer'
-                    }}
-                    onMouseEnter={(e) => {
-                      if (activeFilter !== filter.id) {
-                        e.currentTarget.style.background = 'rgba(55, 65, 81, 0.5)';
-                        e.currentTarget.style.borderColor = filter.color + '40';
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (activeFilter !== filter.id) {
-                        e.currentTarget.style.background = 'rgba(17, 24, 39, 0.5)';
-                        e.currentTarget.style.borderColor = 'transparent';
-                      }
-                    }}
+                    className={`p-3 rounded-lg transition-all ${
+                      activeFilter === filter.id
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                    }`}
                   >
-                    {activeFilter === filter.id && (
-                      <div 
-                        className="absolute inset-0 opacity-20"
-                        style={{
-                          background: `radial-gradient(circle at center, ${filter.color}, transparent)`
-                        }}
-                      />
-                    )}
-                    <span className="relative z-10">{filter.name}</span>
+                    {filter.name}
                   </button>
                 ))}
               </div>
@@ -812,13 +617,13 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
 
           {/* Overlay Tab */}
           {activeTab === 'overlay' && (
-            <div style={styles.effectGroup}>
-              <label className="flex items-center gap-3 cursor-pointer mb-4">
+            <div className="bg-gray-700/50 rounded-lg p-4">
+              <label className="flex items-center gap-2 cursor-pointer mb-4">
                 <input
                   type="checkbox"
                   checked={logoOverlay.enabled}
                   onChange={(e) => setLogoOverlay({...logoOverlay, enabled: e.target.checked})}
-                  className="w-5 h-5 rounded border-gray-600 text-purple-500 focus:ring-purple-500"
+                  className="w-4 h-4 text-purple-500"
                 />
                 <span className="text-white font-medium">Enable Logo/Watermark</span>
               </label>
@@ -826,24 +631,22 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
               {logoOverlay.enabled && (
                 <div className="space-y-4">
                   <div>
-                    <label style={styles.label}>Logo URL or Public ID</label>
+                    <label className="text-sm text-gray-300 block mb-2">Logo URL or Public ID</label>
                     <input
                       type="text"
                       value={logoOverlay.url}
                       onChange={(e) => setLogoOverlay({...logoOverlay, url: e.target.value})}
-                      style={styles.input}
+                      className="w-full px-3 py-2 bg-gray-800 text-white rounded border border-gray-600 focus:border-purple-500"
                       placeholder="logo_image_id"
-                      onFocus={(e) => e.currentTarget.style.borderColor = 'rgba(139, 92, 246, 0.5)'}
-                      onBlur={(e) => e.currentTarget.style.borderColor = 'rgba(107, 114, 128, 0.3)'}
                     />
                   </div>
 
                   <div>
-                    <label style={styles.label}>Position</label>
+                    <label className="text-sm text-gray-300 block mb-2">Position</label>
                     <select
                       value={logoOverlay.position}
                       onChange={(e) => setLogoOverlay({...logoOverlay, position: e.target.value})}
-                      style={styles.select}
+                      className="w-full px-3 py-2 bg-gray-800 text-white rounded border border-gray-600"
                     >
                       <option value="bottom-right">Bottom Right</option>
                       <option value="bottom-left">Bottom Left</option>
@@ -854,9 +657,8 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
                   </div>
 
                   <div>
-                    <label style={styles.label}>
-                      Size
-                      <span className="float-right text-purple-400">{logoOverlay.size}px</span>
+                    <label className="text-sm text-gray-300 block mb-2">
+                      Size: {logoOverlay.size}px
                     </label>
                     <input
                       type="range"
@@ -865,15 +667,13 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
                       step="10"
                       value={logoOverlay.size}
                       onChange={(e) => setLogoOverlay({...logoOverlay, size: parseInt(e.target.value)})}
-                      style={styles.slider}
-                      className="slider"
+                      className="w-full"
                     />
                   </div>
 
                   <div>
-                    <label style={styles.label}>
-                      Opacity
-                      <span className="float-right text-purple-400">{logoOverlay.opacity}%</span>
+                    <label className="text-sm text-gray-300 block mb-2">
+                      Opacity: {logoOverlay.opacity}%
                     </label>
                     <input
                       type="range"
@@ -881,8 +681,7 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
                       max="100"
                       value={logoOverlay.opacity}
                       onChange={(e) => setLogoOverlay({...logoOverlay, opacity: parseInt(e.target.value)})}
-                      style={styles.slider}
-                      className="slider"
+                      className="w-full"
                     />
                   </div>
                 </div>
@@ -892,23 +691,22 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
 
           {/* Audio Tab */}
           {activeTab === 'audio' && (
-            <div style={styles.effectGroup}>
+            <div className="bg-gray-700/50 rounded-lg p-4">
               <div className="space-y-4">
-                <label className="flex items-center gap-3 cursor-pointer">
+                <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={audio.muted}
                     onChange={(e) => setAudio({...audio, muted: e.target.checked})}
-                    className="w-5 h-5 rounded border-gray-600 text-purple-500 focus:ring-purple-500"
+                    className="w-4 h-4 text-purple-500"
                   />
                   <span className="text-white font-medium">Mute Video</span>
                 </label>
 
                 {!audio.muted && (
                   <div>
-                    <label style={styles.label}>
-                      Volume
-                      <span className="float-right text-purple-400">{audio.volume}%</span>
+                    <label className="text-sm text-gray-300 block mb-2">
+                      Volume: {audio.volume}%
                     </label>
                     <input
                       type="range"
@@ -916,22 +714,19 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
                       max="100"
                       value={audio.volume}
                       onChange={(e) => setAudio({...audio, volume: parseInt(e.target.value)})}
-                      style={styles.slider}
-                      className="slider"
+                      className="w-full"
                     />
                   </div>
                 )}
 
                 <div>
-                  <label style={styles.label}>Background Music (Audio Public ID)</label>
+                  <label className="text-sm text-gray-300 block mb-2">Background Music (Audio Public ID)</label>
                   <input
                     type="text"
                     value={audio.backgroundMusic}
                     onChange={(e) => setAudio({...audio, backgroundMusic: e.target.value})}
-                    style={styles.input}
+                    className="w-full px-3 py-2 bg-gray-800 text-white rounded border border-gray-600 focus:border-purple-500"
                     placeholder="background_music_id"
-                    onFocus={(e) => e.currentTarget.style.borderColor = 'rgba(139, 92, 246, 0.5)'}
-                    onBlur={(e) => e.currentTarget.style.borderColor = 'rgba(107, 114, 128, 0.3)'}
                   />
                   <p className="text-xs text-gray-500 mt-2">
                     Upload audio files to Cloudinary first
@@ -942,43 +737,6 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
           )}
         </div>
       </div>
-
-      {/* Custom CSS for sliders */}
-      <style>{`
-        .slider::-webkit-slider-thumb {
-          -webkit-appearance: none;
-          appearance: none;
-          width: 16px;
-          height: 16px;
-          border-radius: 50%;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          cursor: pointer;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-          transition: transform 0.2s ease;
-        }
-        
-        .slider::-webkit-slider-thumb:hover {
-          transform: scale(1.2);
-        }
-        
-        .slider::-moz-range-thumb {
-          width: 16px;
-          height: 16px;
-          border-radius: 50%;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          cursor: pointer;
-          border: none;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-        }
-        
-        input[type="range"]::-webkit-slider-runnable-track {
-          background: linear-gradient(to right, 
-            #8b5cf6 0%, 
-            #8b5cf6 var(--value), 
-            rgba(107, 114, 128, 0.3) var(--value), 
-            rgba(107, 114, 128, 0.3) 100%);
-        }
-      `}</style>
     </div>
   );
 };
