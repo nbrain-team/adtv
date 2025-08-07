@@ -2222,6 +2222,7 @@ def process_agreements_task(campaign_id: str, agreement_data: dict, contact_ids:
     """Background task to process and send e-signature agreements"""
     from sqlalchemy.orm import sessionmaker
     from .agreements import Agreement
+    from .email_service import email_service
     SessionLocal = sessionmaker(bind=engine)
     db = SessionLocal()
     
@@ -2266,6 +2267,10 @@ def process_agreements_task(campaign_id: str, agreement_data: dict, contact_ids:
                 agreement_url = f"{base_url}/agreement/{agreement.id}"
                 agreement.agreement_url = agreement_url
                 
+                # Commit the agreement immediately so it's available even if email fails
+                db.commit()
+                logger.info(f"Agreement {agreement.id} saved to database")
+                
                 # Log the agreement URL for easy access during testing
                 print(f"\n{'='*60}")
                 print(f"📝 AGREEMENT CREATED FOR: {contact.first_name} {contact.last_name}")
@@ -2305,24 +2310,30 @@ def process_agreements_task(campaign_id: str, agreement_data: dict, contact_ids:
                             'sent_at': datetime.utcnow().isoformat(),
                             'url': agreement_url
                         })
+                    db.commit()  # Commit contact updates
                     
-                    logger.info(f"Agreement email sent to {contact.email}")
+                    logger.info(f"Agreement successfully processed for {contact.email}")
                     sent_count += 1
                 else:
-                    # Email failed to send
+                    # Email failed to send - but agreement still exists in database
                     if hasattr(contact, 'agreement_status'):
                         contact.agreement_status = 'failed'
                     agreement.status = 'failed'
+                    db.commit()  # Save the failed status
                     logger.error(f"Failed to send agreement email to {contact.email}")
                     failed_count += 1
                 
             except Exception as e:
                 logger.error(f"Error processing agreement for contact {contact.id}: {e}")
+                db.rollback()  # Rollback this specific agreement if there's an error
                 if hasattr(contact, 'agreement_status'):
                     contact.agreement_status = 'failed'
+                    try:
+                        db.commit()  # Try to save the failed status
+                    except:
+                        pass
                 failed_count += 1
         
-        db.commit()
         logger.info(f"Agreement task completed: {sent_count} sent, {failed_count} failed for campaign {campaign_id}")
         
     except Exception as e:
