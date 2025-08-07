@@ -487,17 +487,24 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
 
           {/* Controls - Right Sidebar */}
           <div style={{ 
-            width: '400px', 
-            minWidth: '400px',
-            maxWidth: '400px',
+            width: '420px', 
+            minWidth: '420px',
+            maxWidth: '420px',
             backgroundColor: 'white', 
             borderLeft: '1px solid #e5e7eb', 
             display: 'flex', 
             flexDirection: 'column',
-            overflow: 'hidden'
+            overflow: 'visible'
           }}>
             {/* Tabs */}
-            <div style={{ borderBottom: '1px solid #e5e7eb', display: 'flex', flexShrink: 0, backgroundColor: '#f9fafb' }}>
+            <div style={{ 
+              borderBottom: '1px solid #e5e7eb', 
+              display: 'flex', 
+              flexShrink: 0, 
+              backgroundColor: '#f9fafb',
+              overflowX: 'auto',
+              minHeight: '48px'
+            }}>
               {[
                 { id: 'effects', label: 'Effects', icon: Sparkles },
                 { id: 'text', label: 'Text', icon: Type },
@@ -509,8 +516,9 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   style={{
-                    flex: 1,
-                    padding: '0.75rem',
+                    flex: '0 0 auto',
+                    minWidth: '80px',
+                    padding: '0.75rem 0.5rem',
                     backgroundColor: activeTab === tab.id ? 'white' : 'transparent',
                     color: activeTab === tab.id ? '#7c3aed' : '#6b7280',
                     border: 'none',
@@ -519,13 +527,14 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '0.5rem',
-                    fontSize: '0.875rem',
-                    fontWeight: activeTab === tab.id ? '500' : '400'
+                    gap: '0.25rem',
+                    fontSize: '0.8rem',
+                    fontWeight: activeTab === tab.id ? '500' : '400',
+                    whiteSpace: 'nowrap'
                   }}
                 >
-                  <tab.icon style={{ width: '16px', height: '16px' }} />
-                  {tab.label}
+                  <tab.icon style={{ width: '14px', height: '14px', flexShrink: 0 }} />
+                  <span>{tab.label}</span>
                 </button>
               ))}
             </div>
@@ -534,9 +543,10 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
             <div style={{ 
               flex: 1, 
               overflowY: 'auto', 
-              overflowX: 'hidden',
-              padding: '1.5rem',
-              backgroundColor: 'white'
+              overflowX: 'visible',
+              padding: '1rem',
+              backgroundColor: 'white',
+              width: '100%'
             }}>
               {/* Effects Tab */}
               {activeTab === 'effects' && (
@@ -910,24 +920,56 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
 
               {/* Audio Tab */}
               {activeTab === 'audio' && (
-                <div style={{ backgroundColor: '#f9fafb', borderRadius: '0.5rem', padding: '1rem', border: '1px solid #e5e7eb' }}>
-                  <h3 style={{ color: '#111827', fontSize: '0.875rem', fontWeight: '600', marginBottom: '1rem' }}>Audio</h3>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div style={{ 
+                  backgroundColor: '#f9fafb', 
+                  borderRadius: '0.5rem', 
+                  padding: '1rem', 
+                  border: '1px solid #e5e7eb',
+                  width: '100%',
+                  boxSizing: 'border-box'
+                }}>
+                  <h3 style={{ 
+                    color: '#111827', 
+                    fontSize: '0.875rem', 
+                    fontWeight: '600', 
+                    margin: 0,
+                    marginBottom: '1rem'
+                  }}>Audio</h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%' }}>
                     <div>
-                      <label style={{ color: '#4b5563', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                      <label style={{ 
+                        color: '#4b5563', 
+                        fontSize: '0.875rem', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '0.5rem', 
+                        cursor: 'pointer',
+                        width: 'fit-content'
+                      }}>
                         <input
                           type="checkbox"
                           checked={audio.muted}
                           onChange={(e) => setAudio({...audio, muted: e.target.checked})}
-                          style={{ width: '16px', height: '16px', accentColor: '#7c3aed' }}
+                          style={{ 
+                            width: '16px', 
+                            height: '16px', 
+                            accentColor: '#7c3aed',
+                            flexShrink: 0
+                          }}
                         />
-                        Mute Video
+                        <span>Mute Video</span>
                       </label>
                     </div>
 
                     {!audio.muted && (
-                      <div>
-                        <label style={{ color: '#4b5563', fontSize: '0.875rem', display: 'block', marginBottom: '0.5rem' }}>
+                      <div style={{ width: '100%' }}>
+                        <label style={{ 
+                          color: '#4b5563', 
+                          fontSize: '0.875rem', 
+                          display: 'block', 
+                          marginBottom: '0.5rem',
+                          wordWrap: 'break-word'
+                        }}>
                           Volume: {audio.volume}%
                         </label>
                         <input
@@ -936,13 +978,26 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
                           max="100"
                           value={audio.volume}
                           onChange={(e) => setAudio({...audio, volume: parseInt(e.target.value)})}
-                          style={{ width: '100%', cursor: 'pointer', accentColor: '#7c3aed' }}
+                          style={{ 
+                            width: '100%', 
+                            cursor: 'pointer', 
+                            accentColor: '#7c3aed',
+                            boxSizing: 'border-box'
+                          }}
                         />
                       </div>
                     )}
 
-                    <div>
-                      <label style={{ color: '#4b5563', fontSize: '0.875rem', display: 'block', marginBottom: '0.5rem' }}>Background Music (Audio Public ID)</label>
+                    <div style={{ width: '100%' }}>
+                      <label style={{ 
+                        color: '#4b5563', 
+                        fontSize: '0.875rem', 
+                        display: 'block', 
+                        marginBottom: '0.5rem',
+                        wordWrap: 'break-word'
+                      }}>
+                        Background Music (Audio Public ID)
+                      </label>
                       <input
                         type="text"
                         value={audio.backgroundMusic}
@@ -954,11 +1009,18 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
                           color: '#111827', 
                           border: '1px solid #e5e7eb', 
                           borderRadius: '0.375rem',
-                          boxSizing: 'border-box'
+                          boxSizing: 'border-box',
+                          fontSize: '0.875rem'
                         }}
                         placeholder="background_music_id"
                       />
-                      <p style={{ color: '#9ca3af', fontSize: '0.75rem', marginTop: '0.5rem' }}>
+                      <p style={{ 
+                        color: '#9ca3af', 
+                        fontSize: '0.75rem', 
+                        margin: 0,
+                        marginTop: '0.5rem',
+                        wordWrap: 'break-word'
+                      }}>
                         Upload audio files to Cloudinary first
                       </p>
                     </div>

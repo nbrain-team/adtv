@@ -723,8 +723,20 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({ client, onBa
               return import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
             }
             // Extract from video URL as fallback
+            console.log('Extracting cloud name from URL:', editingVideoUrl);
+            console.log('Public ID being used:', editingVideoPublicId);
+            
+            // Try to extract cloud name from URL
             const match = editingVideoUrl.match(/res\.cloudinary\.com\/([^\/]+)\//);
-            return match ? match[1] : 'your-cloud-name';
+            if (match && match[1]) {
+              console.log('Successfully extracted cloud name:', match[1]);
+              return match[1];
+            }
+            
+            // If extraction failed, log warning
+            console.warn('Could not extract cloud name from URL. Using default.');
+            console.warn('Please set VITE_CLOUDINARY_CLOUD_NAME in frontend/.env');
+            return 'your-cloud-name';
           })()}
           onSave={handleSaveEditedVideo}
           onClose={() => setShowVideoEditor(false)}
