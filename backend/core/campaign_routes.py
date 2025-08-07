@@ -346,11 +346,11 @@ async def get_all_campaign_contacts(
                     'is_rsvp': contact.is_rsvp,
                     'rsvp_status': contact.rsvp_status,
                     'rsvp_date': contact.rsvp_date,
-                    # Agreement fields
-                    'agreement_status': contact.agreement_status,
-                    'agreement_sent_at': contact.agreement_sent_at,
-                    'agreement_signed_at': contact.agreement_signed_at,
-                    'agreement_data': contact.agreement_data
+                    # Agreement fields (safe access as they might not exist yet)
+                    'agreement_status': getattr(contact, 'agreement_status', None),
+                    'agreement_sent_at': getattr(contact, 'agreement_sent_at', None),
+                    'agreement_signed_at': getattr(contact, 'agreement_signed_at', None),
+                    'agreement_data': getattr(contact, 'agreement_data', None)
                 }
                 result.append(contact_dict)
             except Exception as e:
@@ -2291,30 +2291,35 @@ def process_agreements_task(campaign_id: str, agreement_data: dict, contact_ids:
                     email_sent = True  # Mark as "sent" even without email so the agreement is still accessible
                 
                 if email_sent:
-                    # Store agreement status in contact
-                    contact.agreement_status = 'sent'
-                    contact.agreement_sent_at = datetime.utcnow()
-                    contact.agreement_data = json.dumps({
-                        'agreement_id': agreement.id,
-                        'start_date': agreement_data['start_date'],
-                        'setup_fee': agreement_data['setup_fee'],
-                        'monthly_fee': agreement_data['monthly_fee'],
-                        'sent_at': datetime.utcnow().isoformat(),
-                        'url': agreement_url
-                    })
+                    # Store agreement status in contact (if fields exist)
+                    if hasattr(contact, 'agreement_status'):
+                        contact.agreement_status = 'sent'
+                    if hasattr(contact, 'agreement_sent_at'):
+                        contact.agreement_sent_at = datetime.utcnow()
+                    if hasattr(contact, 'agreement_data'):
+                        contact.agreement_data = json.dumps({
+                            'agreement_id': agreement.id,
+                            'start_date': agreement_data['start_date'],
+                            'setup_fee': agreement_data['setup_fee'],
+                            'monthly_fee': agreement_data['monthly_fee'],
+                            'sent_at': datetime.utcnow().isoformat(),
+                            'url': agreement_url
+                        })
                     
                     logger.info(f"Agreement email sent to {contact.email}")
                     sent_count += 1
                 else:
                     # Email failed to send
-                    contact.agreement_status = 'failed'
+                    if hasattr(contact, 'agreement_status'):
+                        contact.agreement_status = 'failed'
                     agreement.status = 'failed'
                     logger.error(f"Failed to send agreement email to {contact.email}")
                     failed_count += 1
                 
             except Exception as e:
                 logger.error(f"Error processing agreement for contact {contact.id}: {e}")
-                contact.agreement_status = 'failed'
+                if hasattr(contact, 'agreement_status'):
+                    contact.agreement_status = 'failed'
                 failed_count += 1
         
         db.commit()
@@ -2341,43 +2346,56 @@ async def get_agreements_status(
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
     
-    # Get agreement statistics
-    total_sent = db.query(CampaignContact).filter(
-        CampaignContact.campaign_id == campaign_id,
-        CampaignContact.agreement_status == 'sent'
-    ).count()
-    
-    total_signed = db.query(CampaignContact).filter(
-        CampaignContact.campaign_id == campaign_id,
-        CampaignContact.agreement_status == 'signed'
-    ).count()
-    
-    total_viewed = db.query(CampaignContact).filter(
-        CampaignContact.campaign_id == campaign_id,
-        CampaignContact.agreement_status == 'viewed'
-    ).count()
-    
-    # Get recent agreements
-    recent_agreements = db.query(CampaignContact).filter(
-        CampaignContact.campaign_id == campaign_id,
-        CampaignContact.agreement_status.isnot(None)
-    ).order_by(desc(CampaignContact.agreement_sent_at)).limit(10).all()
-    
-    return {
-        "statistics": {
-            "total_sent": total_sent,
-            "total_signed": total_signed,
-            "total_viewed": total_viewed,
-            "signature_rate": round((total_signed / total_sent * 100) if total_sent > 0 else 0, 1)
-        },
-        "recent_agreements": [
-            {
-                "contact_name": f"{c.first_name} {c.last_name}",
-                "email": c.email,
-                "status": c.agreement_status,
-                "sent_at": c.agreement_sent_at.isoformat() if c.agreement_sent_at else None,
-                "agreement_data": json.loads(c.agreement_data) if c.agreement_data else None
-            }
-            for c in recent_agreements
-        ]
-    }
+    try:
+        # Get agreement statistics
+        total_sent = db.query(CampaignContact).filter(
+            CampaignContact.campaign_id == campaign_id,
+            CampaignContact.agreement_status == 'sent'
+        ).count()
+        
+        total_signed = db.query(CampaignContact).filter(
+            CampaignContact.campaign_id == campaign_id,
+            CampaignContact.agreement_status == 'signed'
+        ).count()
+        
+        total_viewed = db.query(CampaignContact).filter(
+            CampaignContact.campaign_id == campaign_id,
+            CampaignContact.agreement_status == 'viewed'
+        ).count()
+        
+        # Get recent agreements
+        recent_agreements = db.query(CampaignContact).filter(
+            CampaignContact.campaign_id == campaign_id,
+            CampaignContact.agreement_status.isnot(None)
+        ).order_by(desc(CampaignContact.agreement_sent_at)).limit(10).all()
+        
+        return {
+            "statistics": {
+                "total_sent": total_sent,
+                "total_signed": total_signed,
+                "total_viewed": total_viewed,
+                "signature_rate": round((total_signed / total_sent * 100) if total_sent > 0 else 0, 1)
+            },
+            "recent_agreements": [
+                {
+                    "contact_name": f"{c.first_name} {c.last_name}",
+                    "email": c.email,
+                    "status": getattr(c, 'agreement_status', None),
+                    "sent_at": c.agreement_sent_at.isoformat() if hasattr(c, 'agreement_sent_at') and c.agreement_sent_at else None,
+                    "agreement_data": json.loads(c.agreement_data) if hasattr(c, 'agreement_data') and c.agreement_data else None
+                }
+                for c in recent_agreements
+            ]
+        }
+    except Exception as e:
+        # If columns don't exist, return empty stats
+        logger.warning(f"Agreement fields may not exist yet: {e}")
+        return {
+            "statistics": {
+                "total_sent": 0,
+                "total_signed": 0,
+                "total_viewed": 0,
+                "signature_rate": 0
+            },
+            "recent_agreements": []
+        }

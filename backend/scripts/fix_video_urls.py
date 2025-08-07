@@ -6,13 +6,21 @@ import os
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from sqlalchemy import text
+from sqlalchemy import text, inspect
 from core.database import engine
 
 def fix_video_urls():
     """Fix video URLs to use proper URL paths instead of file paths"""
     
     with engine.connect() as conn:
+        # Check if tables and columns exist
+        inspector = inspect(engine)
+        
+        # Check if video_clips table exists
+        if 'video_clips' not in inspector.get_table_names():
+            print("video_clips table does not exist, skipping...")
+            return
+            
         # Start transaction
         trans = conn.begin()
         
@@ -41,28 +49,34 @@ def fix_video_urls():
                 
                 print(f"Fixed video clip {clip_id}: {video_url} -> {new_url}")
             
-            # Also fix campaigns original_video_url
-            result = conn.execute(text("""
-                SELECT id, original_video_url 
-                FROM campaigns 
-                WHERE original_video_url LIKE '%uploads/campaigns/%'
-                AND original_video_url NOT LIKE '/%'
-            """))
+            # Check if campaigns table has original_video_url column
+            campaigns_columns = [col['name'] for col in inspector.get_columns('campaigns')]
             
-            campaigns_to_fix = result.fetchall()
-            print(f"\nFound {len(campaigns_to_fix)} campaigns to fix")
-            
-            for campaign_id, video_url in campaigns_to_fix:
-                # Convert file path to URL path
-                new_url = f"/{video_url}" if not video_url.startswith('/') else video_url
+            if 'original_video_url' in campaigns_columns:
+                # Also fix campaigns original_video_url
+                result = conn.execute(text("""
+                    SELECT id, original_video_url 
+                    FROM campaigns 
+                    WHERE original_video_url LIKE '%uploads/campaigns/%'
+                    AND original_video_url NOT LIKE '/%'
+                """))
                 
-                conn.execute(text("""
-                    UPDATE campaigns 
-                    SET original_video_url = :new_url 
-                    WHERE id = :campaign_id
-                """), {"new_url": new_url, "campaign_id": campaign_id})
+                campaigns_to_fix = result.fetchall()
+                print(f"\nFound {len(campaigns_to_fix)} campaigns to fix")
                 
-                print(f"Fixed campaign {campaign_id}: {video_url} -> {new_url}")
+                for campaign_id, video_url in campaigns_to_fix:
+                    # Convert file path to URL path
+                    new_url = f"/{video_url}" if not video_url.startswith('/') else video_url
+                    
+                    conn.execute(text("""
+                        UPDATE campaigns 
+                        SET original_video_url = :new_url 
+                        WHERE id = :campaign_id
+                    """), {"new_url": new_url, "campaign_id": campaign_id})
+                    
+                    print(f"Fixed campaign {campaign_id}: {video_url} -> {new_url}")
+            else:
+                print("Column 'original_video_url' does not exist in campaigns table, skipping...")
             
             trans.commit()
             print("\n✅ All video URLs fixed successfully!")
