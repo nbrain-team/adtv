@@ -315,6 +315,15 @@ def on_startup():
     except Exception as e:
         logger.warning(f"Could not add agreement fields: {e}, continuing anyway...")
     
+    # Ensure agreements table exists
+    logger.info("Ensuring agreements table exists...")
+    try:
+        from scripts.ensure_agreements_table import ensure_agreements_table
+        ensure_agreements_table()
+        logger.info("Agreements table check completed.")
+    except Exception as e:
+        logger.warning(f"Could not ensure agreements table: {e}, continuing anyway...")
+    
     # Ensure danny@nbrain.ai has ad-traffic permission
     try:
         with SessionLocal() as db:
