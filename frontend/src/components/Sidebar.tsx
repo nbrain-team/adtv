@@ -34,20 +34,23 @@ export const Sidebar = ({ onNewChat }: { onNewChat: () => void }) => {
     return (
         <Flex 
             direction="column" 
-            align="center"
+            align="center" 
+            gap="4"
             style={{ 
+                width: 'var(--sidebar-width)', 
+                height: '100vh', 
+                padding: '1.5rem 0',
+                backgroundColor: 'var(--sidebar-bg)',
+                borderRight: '1px solid var(--border)',
+                boxShadow: 'var(--shadow)',
                 position: 'fixed',
                 left: 0,
                 top: 0,
-                width: 'var(--sidebar-width)', 
-                height: '100vh', 
-                background: 'linear-gradient(180deg, #191970 0%, #000033 100%)', 
-                padding: '40px 0',
-                zIndex: 1000
+                zIndex: 100
             }}
         >
-            <button onClick={() => handleNavigation('/landing')} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginBottom: '10px' }}>
-                <img src="/new-icons/adtv-logo.png" alt="ADTV Logo" style={{ width: '80px', height: 'auto' }} />
+            <button className="sidebar-icon" title="Home" onClick={() => handleNavigation('/home')} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
+                <img src="/new-icons/1.png" alt="ADTV Logo" style={{ width: '60px', height: '60px', marginBottom: '1rem' }} />
             </button>
             
             <Flex direction="column" align="center" gap="8" style={{ marginTop: '125px', flex: 1 }}>
@@ -76,26 +79,11 @@ export const Sidebar = ({ onNewChat }: { onNewChat: () => void }) => {
                         <img src="/new-icons/14.png" alt="Data Lake" />
                     </button>
                 )}
-                {userProfile?.permissions?.['ad-traffic'] && (
-                    <button className="sidebar-icon" title="ADTV Traffic" onClick={() => handleNavigation('/ad-traffic')}>
-                        <img src="/new-icons/5.png" alt="Ad Traffic" />
-                    </button>
-                )}
-                {hasPermission('campaigns') && (
-                    <button className="sidebar-icon" title="Event Campaigns" onClick={() => handleNavigation('/campaigns')}>
-                        <img src="/new-icons/6.png" alt="Campaigns" />
-                    </button>
-                )}
             </Flex>
             
-            <Flex
-                direction="column" 
-                align="center"
-                gap="3"
-                style={{ marginTop: 'auto' }}
-            >
-                <button className="sidebar-icon" title="User Profile" onClick={() => handleNavigation('/profile')}>
-                    <img src="/new-icons/user.png" alt="User Profile" />
+            <Flex direction="column" align="center" gap="8" style={{ marginBottom: '1rem' }}>
+                <button className="sidebar-icon" title="Profile" onClick={() => handleNavigation('/profile')}>
+                    <img src="/new-icons/16.png" alt="Profile" />
                 </button>
             </Flex>
         </Flex>
