@@ -21,7 +21,7 @@ class EmailService:
     def get_base_url(self):
         """Get the correct base URL for production or development"""
         if os.getenv("RENDER"):
-            return "https://adtv-frontend.onrender.com"
+            return "https://adtv.nbrain.ai"  # Use the actual frontend domain
         return os.getenv("APP_BASE_URL", "http://localhost:3000")
     
     def send_email(

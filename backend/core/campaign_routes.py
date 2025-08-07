@@ -2241,26 +2241,46 @@ def process_agreements_task(campaign_id: str, agreement_data: dict, contact_ids:
         
         for contact in contacts:
             try:
-                # Create agreement record
-                agreement = Agreement(
-                    campaign_id=campaign_id,
-                    contact_id=contact.id,
-                    contact_name=f"{contact.first_name or ''} {contact.last_name or ''}".strip(),
-                    contact_email=contact.email,
-                    company=contact.enriched_company or contact.company,
-                    start_date=agreement_data['start_date'],
-                    setup_fee=float(agreement_data['setup_fee']),
-                    monthly_fee=float(agreement_data['monthly_fee']),
-                    campaign_name=campaign.name,
-                    status='pending'
-                )
-                db.add(agreement)
+                # Check if an agreement already exists for this contact and campaign
+                existing_agreement = db.query(Agreement).filter(
+                    Agreement.campaign_id == campaign_id,
+                    Agreement.contact_id == contact.id
+                ).first()
+                
+                if existing_agreement:
+                    # Update the existing agreement with new data
+                    logger.info(f"Updating existing agreement {existing_agreement.id} for contact {contact.id}")
+                    existing_agreement.start_date = agreement_data['start_date']
+                    existing_agreement.setup_fee = float(agreement_data['setup_fee'])
+                    existing_agreement.monthly_fee = float(agreement_data['monthly_fee'])
+                    existing_agreement.status = 'pending'  # Reset status to pending
+                    existing_agreement.signature = None
+                    existing_agreement.signed_at = None
+                    existing_agreement.viewed_at = None
+                    existing_agreement.updated_at = datetime.utcnow()
+                    agreement = existing_agreement
+                else:
+                    # Create new agreement
+                    agreement = Agreement(
+                        campaign_id=campaign_id,
+                        contact_id=contact.id,
+                        contact_name=f"{contact.first_name or ''} {contact.last_name or ''}".strip(),
+                        contact_email=contact.email,
+                        company=contact.enriched_company or contact.company,
+                        start_date=agreement_data['start_date'],
+                        setup_fee=float(agreement_data['setup_fee']),
+                        monthly_fee=float(agreement_data['monthly_fee']),
+                        campaign_name=campaign.name,
+                        status='pending'
+                    )
+                    db.add(agreement)
+                    
                 db.flush()  # Get the agreement ID
                 
-                # Generate agreement URL - use production URL
+                # Generate agreement URL - use correct production URL
                 # Check if we're in production (Render sets RENDER environment variable)
                 if os.getenv("RENDER"):
-                    base_url = "https://adtv-frontend.onrender.com"
+                    base_url = "https://adtv.nbrain.ai"  # Use the actual frontend domain
                 else:
                     base_url = os.getenv("APP_BASE_URL", "http://localhost:3000")
                     
