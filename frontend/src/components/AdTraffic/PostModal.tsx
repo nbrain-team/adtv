@@ -3,6 +3,8 @@ import { Box, Flex, Text, TextArea, Button, Heading, Checkbox, TextField, Badge 
 import { CalendarIcon, ImageIcon, TrashIcon, CheckIcon } from '@radix-ui/react-icons';
 import { Client, SocialPost, PostFormData, Platform, PostStatus } from './types';
 import { api } from '../../services/api';
+import VideoEditor from './VideoEditor';
+import { X, Edit3 } from 'lucide-react';
 
 interface PostModalProps {
   client: Client;
@@ -29,6 +31,10 @@ export const PostModal: React.FC<PostModalProps> = ({
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Add state for video editor
+  const [showVideoEditor, setShowVideoEditor] = useState(false);
+  const [cloudinaryPublicId, setCloudinaryPublicId] = useState('');
 
   useEffect(() => {
     if (post) {
@@ -71,6 +77,35 @@ export const PostModal: React.FC<PostModalProps> = ({
       });
     }
   }, [post]);
+
+  useEffect(() => {
+    if (post && post.video_clip?.video_url) {
+      // Extract public ID from Cloudinary URL
+      // URL format: https://res.cloudinary.com/{cloud_name}/video/upload/v{version}/{public_id}.mp4
+      const urlParts = post.video_clip.video_url.split('/');
+      if (urlParts.includes('upload')) {
+        const uploadIdx = urlParts.indexOf('upload');
+        if (uploadIdx + 2 < urlParts.length) {
+          const publicId = urlParts.slice(uploadIdx + 2).join('/').replace('.mp4', '');
+          setCloudinaryPublicId(publicId);
+        }
+      }
+    }
+  }, [post]);
+
+  const handleSaveEditedVideo = (editedUrl: string, transformations: any) => {
+    // Update the form data with the edited video URL
+    if (post?.video_clip) {
+      // Store the edited URL in a custom field or update the video_clip
+      setFormData(prev => ({
+        ...prev,
+        // Store as a custom field for now
+        edited_video_url: editedUrl,
+        transformations: JSON.stringify(transformations)
+      } as any));
+    }
+    setShowVideoEditor(false);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -217,7 +252,20 @@ export const PostModal: React.FC<PostModalProps> = ({
           {/* Video Preview Section */}
           {((formData.media_urls && formData.media_urls.length > 0) || post?.video_clip) && (
             <Box>
-              <Text size="2" weight="medium">Video Preview</Text>
+              <Flex justify="between" align="center">
+                <Text size="2" weight="medium">Video Preview</Text>
+                {post?.video_clip && (
+                  <Button
+                    type="button"
+                    size="1"
+                    variant="soft"
+                    onClick={() => setShowVideoEditor(true)}
+                  >
+                    <Edit3 size={14} />
+                    Edit Video
+                  </Button>
+                )}
+              </Flex>
               <Box style={{ 
                 backgroundColor: 'var(--gray-2)', 
                 borderRadius: '8px',
@@ -238,7 +286,7 @@ export const PostModal: React.FC<PostModalProps> = ({
                     }}
                   >
                     <source 
-                      src={formData.media_urls?.[0] || post?.video_clip?.video_url} 
+                      src={(formData as any).edited_video_url || formData.media_urls?.[0] || post?.video_clip?.video_url} 
                       type="video/mp4" 
                     />
                     Your browser does not support the video tag.
@@ -322,6 +370,17 @@ export const PostModal: React.FC<PostModalProps> = ({
           </Flex>
         </Flex>
       </form>
+
+      {/* Video Editor Modal */}
+      {showVideoEditor && cloudinaryPublicId && (
+        <VideoEditor
+          videoUrl={post?.video_clip?.video_url || ''}
+          publicId={cloudinaryPublicId}
+          cloudName={process.env.REACT_APP_CLOUDINARY_CLOUD_NAME || 'your-cloud-name'}
+          onSave={handleSaveEditedVideo}
+          onClose={() => setShowVideoEditor(false)}
+        />
+      )}
     </Box>
   );
 };

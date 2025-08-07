@@ -7,6 +7,7 @@ import os
 import shutil
 import asyncio
 import logging
+import json
 
 from core.database import get_db, User
 from core.auth import get_current_active_user
@@ -184,6 +185,54 @@ async def delete_post(
     if not services.delete_post(db, post_id, current_user.id):
         raise HTTPException(status_code=404, detail="Post not found")
     return {"message": "Post deleted successfully"}
+
+
+@router.post("/posts/{post_id}/video-variation")
+async def save_video_variation(
+    post_id: str,
+    edited_url: str = Form(...),
+    transformations: str = Form(...),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Save an edited video variation for a post"""
+    post = db.query(models.SocialPost).filter(
+        models.SocialPost.id == post_id
+    ).first()
+    
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    
+    # Check if user owns the client
+    client = db.query(models.AdTrafficClient).filter(
+        models.AdTrafficClient.id == post.client_id,
+        models.AdTrafficClient.user_id == current_user.id
+    ).first()
+    
+    if not client:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    # Store the edited video URL and transformations
+    if not post.platform_data:
+        post.platform_data = {}
+    
+    post.platform_data['edited_video'] = {
+        'url': edited_url,
+        'transformations': json.loads(transformations),
+        'edited_at': datetime.utcnow().isoformat()
+    }
+    
+    # If there's a video clip, update its URL too
+    if post.video_clip_id:
+        clip = db.query(models.VideoClip).filter(
+            models.VideoClip.id == post.video_clip_id
+        ).first()
+        if clip:
+            clip.video_url = edited_url
+    
+    db.commit()
+    
+    return {"message": "Video variation saved successfully", "edited_url": edited_url}
 
 
 # Campaign endpoints
