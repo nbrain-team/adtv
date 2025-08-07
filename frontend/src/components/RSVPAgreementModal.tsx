@@ -3,7 +3,7 @@ import {
     Dialog, Box, Flex, Text, Button, TextField, 
     TextArea, Separator, Badge, Card
 } from '@radix-ui/themes';
-import { FileTextIcon, PaperPlaneIcon } from '@radix-ui/react-icons';
+import { FileTextIcon, PaperPlaneIcon, InfoCircledIcon } from '@radix-ui/react-icons';
 import api from '../api';
 
 interface Contact {
@@ -35,25 +35,7 @@ export const RSVPAgreementModal: React.FC<RSVPAgreementModalProps> = ({
     const [agreementData, setAgreementData] = useState({
         startDate: new Date().toISOString().split('T')[0],
         setupFee: '1495',
-        monthlyFee: '1595',
-        emailSubject: 'Your ADTV Agreement is Ready for Signature',
-        emailBody: `Hi {{FirstName}},
-
-Thank you for your interest in partnering with ADTV. Your personalized agreement is ready for review and signature.
-
-Please click the link below to review and sign your agreement:
-{{AgreementLink}}
-
-This agreement includes:
-- Start Date: {{StartDate}}
-- One-time Setup Fee: $` + `{{SetupFee}}` + `
-- Monthly Recurring Fee: $` + `{{MonthlyFee}}` + `
-
-If you have any questions, please don't hesitate to reach out.
-
-Best regards,
-The ADTV Team`,
-        agreementTemplate: 'standard' // We can have multiple templates
+        monthlyFee: '1595'
     });
 
     const [isSending, setIsSending] = useState(false);
@@ -79,9 +61,24 @@ The ADTV Team`,
                     start_date: agreementData.startDate,
                     setup_fee: agreementData.setupFee,
                     monthly_fee: agreementData.monthlyFee,
-                    email_subject: agreementData.emailSubject,
-                    email_body: agreementData.emailBody,
-                    template: agreementData.agreementTemplate
+                    email_subject: 'Your ADTV Agreement is Ready for Signature',
+                    email_body: `Hi {{FirstName}},
+
+Thank you for your interest in partnering with ADTV. Your personalized agreement is ready for review and signature.
+
+Please click the link below to review and sign your agreement:
+{{AgreementLink}}
+
+This agreement includes:
+- Start Date: {{StartDate}}
+- One-time Setup Fee: $` + `{{SetupFee}}` + `
+- Monthly Recurring Fee: $` + `{{MonthlyFee}}` + `
+
+If you have any questions, please don't hesitate to reach out.
+
+Best regards,
+The ADTV Team`,
+                    template: 'standard'
                 }
             };
 
@@ -94,10 +91,7 @@ The ADTV Team`,
             setAgreementData({
                 startDate: new Date().toISOString().split('T')[0],
                 setupFee: '1495',
-                monthlyFee: '1595',
-                emailSubject: 'Your ADTV Agreement is Ready for Signature',
-                emailBody: agreementData.emailBody,
-                agreementTemplate: 'standard'
+                monthlyFee: '1595'
             });
             
         } catch (error: any) {
@@ -106,21 +100,6 @@ The ADTV Team`,
         } finally {
             setIsSending(false);
         }
-    };
-
-    const previewMerge = (text: string): string => {
-        const firstContact = selectedContacts[0];
-        if (!firstContact) return text;
-        
-        return text
-            .replace(/{{FirstName}}/g, firstContact.first_name || '[First Name]')
-            .replace(/{{LastName}}/g, firstContact.last_name || '[Last Name]')
-            .replace(/{{Email}}/g, firstContact.email || '[Email]')
-            .replace(/{{Company}}/g, firstContact.company || '[Company]')
-            .replace(/{{StartDate}}/g, agreementData.startDate)
-            .replace(/{{SetupFee}}/g, agreementData.setupFee)
-            .replace(/{{MonthlyFee}}/g, agreementData.monthlyFee)
-            .replace(/{{AgreementLink}}/g, '[Agreement Link Will Be Here]');
     };
 
     return (
@@ -214,68 +193,13 @@ The ADTV Team`,
                         </Flex>
                     </Box>
 
-                    <Separator />
-
-                    {/* Email Configuration */}
-                    <Box>
-                        <Text size="3" weight="bold" mb="3">Email Configuration</Text>
-                        
-                        <Flex direction="column" gap="3">
-                            <Box>
-                                <Text as="label" size="2" weight="medium" mb="1">
-                                    Email Subject
-                                </Text>
-                                <TextField.Root
-                                    value={agreementData.emailSubject}
-                                    onChange={(e) => setAgreementData({
-                                        ...agreementData,
-                                        emailSubject: e.target.value
-                                    })}
-                                />
-                            </Box>
-
-                            <Box>
-                                <Text as="label" size="2" weight="medium" mb="1">
-                                    Email Body
-                                </Text>
-                                <TextArea
-                                    value={agreementData.emailBody}
-                                    onChange={(e) => setAgreementData({
-                                        ...agreementData,
-                                        emailBody: e.target.value
-                                    })}
-                                    rows={8}
-                                    style={{ fontFamily: 'monospace', fontSize: '12px' }}
-                                />
-                                <Text size="1" color="gray" mt="1">
-                                    Available merge fields: {'{{FirstName}}'}, {'{{LastName}}'}, {'{{Email}}'}, 
-                                    {'{{Company}}'}, {'{{StartDate}}'}, {'{{SetupFee}}'}, {'{{MonthlyFee}}'}, {'{{AgreementLink}}'}
-                                </Text>
-                            </Box>
-                        </Flex>
-                    </Box>
-
-                    {/* Preview */}
-                    {selectedContacts.length > 0 && (
-                        <>
-                            <Separator />
-                            <Box>
-                                <Text size="3" weight="bold" mb="3">
-                                    Preview (using first selected contact)
-                                </Text>
-                                <Box style={{ padding: '12px', backgroundColor: 'var(--gray-1)' }}>
-                                    <Text size="2" weight="medium">Subject:</Text>
-                                    <Text size="2" style={{ marginBottom: '8px' }}>
-                                        {previewMerge(agreementData.emailSubject)}
-                                    </Text>
-                                    <Text size="2" weight="medium">Body:</Text>
-                                    <Text size="2" style={{ whiteSpace: 'pre-wrap' }}>
-                                        {previewMerge(agreementData.emailBody)}
-                                    </Text>
-                                </Box>
-                            </Box>
-                        </>
-                    )}
+                    {/* Preview message */}
+                    <Card style={{ padding: '12px', backgroundColor: 'var(--blue-1)' }}>
+                        <Text size="2" color="blue">
+                            <InfoCircledIcon style={{ marginRight: '4px' }} />
+                            A professional email will be sent to each selected contact with their unique agreement link.
+                        </Text>
+                    </Card>
 
                     {/* Actions */}
                     <Flex gap="3" justify="end">

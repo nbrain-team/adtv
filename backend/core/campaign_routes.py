@@ -18,6 +18,7 @@ from .database import get_db, User, Campaign, CampaignContact, CampaignTemplate,
 from contact_enricher.services import ContactEnricher
 from core.llm_handler import generate_text
 from .agreements import Agreement
+from .email_service import email_service
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -2225,6 +2226,8 @@ def process_agreements_task(campaign_id: str, agreement_data: dict, contact_ids:
         ).all()
         
         sent_count = 0
+        failed_count = 0
+        
         for contact in contacts:
             try:
                 # Create agreement record
@@ -2243,58 +2246,51 @@ def process_agreements_task(campaign_id: str, agreement_data: dict, contact_ids:
                 db.add(agreement)
                 db.flush()  # Get the agreement ID
                 
-                # Generate agreement URL
-                agreement_url = f"https://app.adtv.com/agreement/{agreement.id}"
+                # Generate agreement URL - use actual domain in production
+                base_url = os.getenv("APP_BASE_URL", "http://localhost:3000")
+                agreement_url = f"{base_url}/agreement/{agreement.id}"
                 agreement.agreement_url = agreement_url
                 
-                # Replace placeholders in email
-                email_subject = agreement_data['email_subject']
-                email_body = agreement_data['email_body']
+                # Send email using the email service
+                email_sent = email_service.send_agreement_email(
+                    to_email=contact.email,
+                    to_name=f"{contact.first_name or ''} {contact.last_name or ''}".strip() or "Valued Client",
+                    agreement_url=agreement_url,
+                    campaign_name=campaign.name,
+                    start_date=agreement_data['start_date'],
+                    setup_fee=agreement_data['setup_fee'],
+                    monthly_fee=agreement_data['monthly_fee']
+                )
                 
-                # Contact replacements
-                replacements = {
-                    '{{FirstName}}': contact.first_name or '',
-                    '{{LastName}}': contact.last_name or '',
-                    '{{Email}}': contact.email or '',
-                    '{{Company}}': contact.company or '',
-                    '{{StartDate}}': agreement_data['start_date'],
-                    '{{SetupFee}}': agreement_data['setup_fee'],
-                    '{{MonthlyFee}}': agreement_data['monthly_fee'],
-                    '{{AgreementLink}}': agreement_url
-                }
-                
-                for placeholder, value in replacements.items():
-                    email_subject = email_subject.replace(placeholder, value)
-                    email_body = email_body.replace(placeholder, value)
-                
-                # Store agreement status in contact
-                contact.agreement_status = 'sent'
-                contact.agreement_sent_at = datetime.utcnow()
-                contact.agreement_data = json.dumps({
-                    'agreement_id': agreement.id,
-                    'start_date': agreement_data['start_date'],
-                    'setup_fee': agreement_data['setup_fee'],
-                    'monthly_fee': agreement_data['monthly_fee'],
-                    'sent_at': datetime.utcnow().isoformat(),
-                    'url': agreement_url
-                })
-                
-                # Here you would actually send the email
-                # For production, integrate with email service (SendGrid, SES, etc.)
-                logger.info(f"Sending agreement to {contact.email}: {agreement_url}")
-                
-                # For testing, print the URL
-                print(f"Agreement URL for {contact.email}: {agreement_url}")
-                
-                # Mark as sent
-                sent_count += 1
+                if email_sent:
+                    # Store agreement status in contact
+                    contact.agreement_status = 'sent'
+                    contact.agreement_sent_at = datetime.utcnow()
+                    contact.agreement_data = json.dumps({
+                        'agreement_id': agreement.id,
+                        'start_date': agreement_data['start_date'],
+                        'setup_fee': agreement_data['setup_fee'],
+                        'monthly_fee': agreement_data['monthly_fee'],
+                        'sent_at': datetime.utcnow().isoformat(),
+                        'url': agreement_url
+                    })
+                    
+                    logger.info(f"Agreement email sent to {contact.email}")
+                    sent_count += 1
+                else:
+                    # Email failed to send
+                    contact.agreement_status = 'failed'
+                    agreement.status = 'failed'
+                    logger.error(f"Failed to send agreement email to {contact.email}")
+                    failed_count += 1
                 
             except Exception as e:
                 logger.error(f"Error processing agreement for contact {contact.id}: {e}")
                 contact.agreement_status = 'failed'
+                failed_count += 1
         
         db.commit()
-        logger.info(f"Successfully sent {sent_count} agreements for campaign {campaign_id}")
+        logger.info(f"Agreement task completed: {sent_count} sent, {failed_count} failed for campaign {campaign_id}")
         
     except Exception as e:
         logger.error(f"Error in process_agreements_task: {e}")
