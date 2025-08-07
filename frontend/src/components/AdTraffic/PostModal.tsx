@@ -389,7 +389,16 @@ export const PostModal: React.FC<PostModalProps> = ({
         <VideoEditor
           videoUrl={post?.video_clip?.video_url || formData.media_urls?.[0] || ''}
           publicId={cloudinaryPublicId}
-          cloudName={process.env.REACT_APP_CLOUDINARY_CLOUD_NAME || 'your-cloud-name'}
+          cloudName={(() => {
+            // Try to get from environment variable
+            if (import.meta.env.VITE_CLOUDINARY_CLOUD_NAME) {
+              return import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+            }
+            // Extract from video URL as fallback
+            const url = post?.video_clip?.video_url || formData.media_urls?.[0] || '';
+            const match = url.match(/res\.cloudinary\.com\/([^\/]+)\//);
+            return match ? match[1] : 'your-cloud-name';
+          })()}
           onSave={handleSaveEditedVideo}
           onClose={() => setShowVideoEditor(false)}
         />

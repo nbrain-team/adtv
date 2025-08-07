@@ -717,7 +717,15 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({ client, onBa
         <VideoEditor
           videoUrl={editingVideoUrl}
           publicId={editingVideoPublicId}
-          cloudName={process.env.REACT_APP_CLOUDINARY_CLOUD_NAME || 'your-cloud-name'}
+          cloudName={(() => {
+            // Try to get from environment variable
+            if (import.meta.env.VITE_CLOUDINARY_CLOUD_NAME) {
+              return import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+            }
+            // Extract from video URL as fallback
+            const match = editingVideoUrl.match(/res\.cloudinary\.com\/([^\/]+)\//);
+            return match ? match[1] : 'your-cloud-name';
+          })()}
           onSave={handleSaveEditedVideo}
           onClose={() => setShowVideoEditor(false)}
         />
