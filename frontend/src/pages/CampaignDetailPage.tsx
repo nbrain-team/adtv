@@ -114,6 +114,8 @@ interface Contact {
     is_rsvp?: boolean;
     rsvp_status?: string;
     rsvp_date?: string;
+    agreement_data?: string;
+    agreement_status?: string;
 }
 
 interface EmailTemplate {
@@ -2054,59 +2056,114 @@ const CampaignDetailPage = () => {
                                                 <Table.ColumnHeaderCell>Company</Table.ColumnHeaderCell>
                                                 <Table.ColumnHeaderCell>RSVP Date</Table.ColumnHeaderCell>
                                                 <Table.ColumnHeaderCell>RSVP Status</Table.ColumnHeaderCell>
+                                                <Table.ColumnHeaderCell>Agreement</Table.ColumnHeaderCell>
                                                 <Table.ColumnHeaderCell>Actions</Table.ColumnHeaderCell>
                                             </Table.Row>
                                         </Table.Header>
                                         <Table.Body>
-                                            {filteredRsvpContacts.map(contact => (
-                                                <Table.Row key={contact.id}>
-                                                    <Table.Cell style={{ position: 'sticky', left: 0, backgroundColor: 'var(--color-background)', zIndex: 1 }}>
-                                                        <Checkbox
-                                                            checked={selectedContacts.has(contact.id)}
-                                                            onCheckedChange={() => toggleContactSelection(contact.id)}
-                                                        />
-                                                    </Table.Cell>
-                                                    <Table.Cell>{contact.first_name || '-'}</Table.Cell>
-                                                    <Table.Cell>{contact.last_name || '-'}</Table.Cell>
-                                                    <Table.Cell>{contact.email || '-'}</Table.Cell>
-                                                    <Table.Cell>{contact.enriched_phone || contact.phone || '-'}</Table.Cell>
-                                                    <Table.Cell>{contact.enriched_company || contact.company || '-'}</Table.Cell>
-                                                    <Table.Cell>
-                                                        {contact.rsvp_date ? new Date(contact.rsvp_date).toLocaleDateString() : '-'}
-                                                    </Table.Cell>
-                                                    <Table.Cell>
-                                                        <Select.Root 
-                                                            value={contact.rsvp_status || 'none'}
-                                                            onValueChange={(value) => handleUpdateRSVPStatus(contact.id, value)}
-                                                        >
-                                                            <Select.Trigger />
-                                                            <Select.Content>
-                                                                <Select.Item value="none">-</Select.Item>
-                                                                <Select.Item value="attended">Attended</Select.Item>
-                                                                <Select.Item value="no_show">No Show</Select.Item>
-                                                                <Select.Item value="signed_agreement">Signed Agreement</Select.Item>
-                                                                <Select.Item value="cancelled">Cancelled</Select.Item>
-                                                            </Select.Content>
-                                                        </Select.Root>
-                                                    </Table.Cell>
-                                                    <Table.Cell>
-                                                        <Flex gap="2">
-                                                            {contact.personalized_email && (
-                                                                <IconButton 
-                                                                    size="1" 
-                                                                    variant="ghost"
-                                                                    onClick={() => {
-                                                                        setPreviewContact(contact);
-                                                                        setShowEmailPreview(true);
-                                                                    }}
-                                                                >
-                                                                    <EnvelopeClosedIcon />
-                                                                </IconButton>
+                                            {filteredRsvpContacts.map(contact => {
+                                                // Parse agreement data if it exists
+                                                let agreementInfo = null;
+                                                if (contact.agreement_data) {
+                                                    try {
+                                                        agreementInfo = JSON.parse(contact.agreement_data);
+                                                    } catch (e) {
+                                                        console.error('Failed to parse agreement data:', e);
+                                                    }
+                                                }
+                                                
+                                                return (
+                                                    <Table.Row key={contact.id}>
+                                                        <Table.Cell style={{ position: 'sticky', left: 0, backgroundColor: 'var(--color-background)', zIndex: 1 }}>
+                                                            <Checkbox
+                                                                checked={selectedContacts.has(contact.id)}
+                                                                onCheckedChange={() => toggleContactSelection(contact.id)}
+                                                            />
+                                                        </Table.Cell>
+                                                        <Table.Cell>{contact.first_name || '-'}</Table.Cell>
+                                                        <Table.Cell>{contact.last_name || '-'}</Table.Cell>
+                                                        <Table.Cell>{contact.email || '-'}</Table.Cell>
+                                                        <Table.Cell>{contact.enriched_phone || contact.phone || '-'}</Table.Cell>
+                                                        <Table.Cell>{contact.enriched_company || contact.company || '-'}</Table.Cell>
+                                                        <Table.Cell>
+                                                            {contact.rsvp_date ? new Date(contact.rsvp_date).toLocaleDateString() : '-'}
+                                                        </Table.Cell>
+                                                        <Table.Cell>
+                                                            <Select.Root 
+                                                                value={contact.rsvp_status || 'none'}
+                                                                onValueChange={(value) => handleUpdateRSVPStatus(contact.id, value)}
+                                                            >
+                                                                <Select.Trigger />
+                                                                <Select.Content>
+                                                                    <Select.Item value="none">-</Select.Item>
+                                                                    <Select.Item value="attended">Attended</Select.Item>
+                                                                    <Select.Item value="no_show">No Show</Select.Item>
+                                                                    <Select.Item value="signed_agreement">Signed Agreement</Select.Item>
+                                                                    <Select.Item value="cancelled">Cancelled</Select.Item>
+                                                                </Select.Content>
+                                                            </Select.Root>
+                                                        </Table.Cell>
+                                                        <Table.Cell>
+                                                            {contact.agreement_status ? (
+                                                                <Box>
+                                                                    {agreementInfo && agreementInfo.agreement_id ? (
+                                                                        <a 
+                                                                            href={`/agreement/${agreementInfo.agreement_id}`}
+                                                                            target="_blank"
+                                                                            rel="noopener noreferrer"
+                                                                            style={{
+                                                                                textDecoration: 'none',
+                                                                                display: 'inline-flex',
+                                                                                alignItems: 'center',
+                                                                                gap: '4px'
+                                                                            }}
+                                                                        >
+                                                                            <Badge 
+                                                                                color={
+                                                                                    contact.agreement_status === 'signed' ? 'green' :
+                                                                                    contact.agreement_status === 'viewed' ? 'blue' :
+                                                                                    contact.agreement_status === 'sent' ? 'orange' :
+                                                                                    contact.agreement_status === 'failed' ? 'red' :
+                                                                                    'gray'
+                                                                                }
+                                                                                style={{ cursor: 'pointer' }}
+                                                                            >
+                                                                                {contact.agreement_status === 'signed' ? '✓ Signed' :
+                                                                                 contact.agreement_status === 'viewed' ? '👁 Viewed' :
+                                                                                 contact.agreement_status === 'sent' ? '📧 Sent' :
+                                                                                 contact.agreement_status === 'failed' ? '❌ Failed' :
+                                                                                 contact.agreement_status}
+                                                                            </Badge>
+                                                                        </a>
+                                                                    ) : (
+                                                                        <Badge color="gray">
+                                                                            {contact.agreement_status}
+                                                                        </Badge>
+                                                                    )}
+                                                                </Box>
+                                                            ) : (
+                                                                <Text size="1" color="gray">-</Text>
                                                             )}
-                                                        </Flex>
-                                                    </Table.Cell>
-                                                </Table.Row>
-                                            ))}
+                                                        </Table.Cell>
+                                                        <Table.Cell>
+                                                            <Flex gap="2">
+                                                                {contact.personalized_email && (
+                                                                    <IconButton 
+                                                                        size="1" 
+                                                                        variant="ghost"
+                                                                        onClick={() => {
+                                                                            setPreviewContact(contact);
+                                                                            setShowEmailPreview(true);
+                                                                        }}
+                                                                    >
+                                                                        <EnvelopeClosedIcon />
+                                                                    </IconButton>
+                                                                )}
+                                                            </Flex>
+                                                        </Table.Cell>
+                                                    </Table.Row>
+                                                );
+                                            })}
                                         </Table.Body>
                                     </Table.Root>
                                 </Box>

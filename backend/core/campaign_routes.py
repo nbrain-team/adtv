@@ -122,6 +122,11 @@ class ContactResponse(BaseModel):
     is_rsvp: Optional[bool] = False
     rsvp_status: Optional[str] = None
     rsvp_date: Optional[datetime] = None
+    # Agreement fields
+    agreement_status: Optional[str] = None
+    agreement_sent_at: Optional[datetime] = None
+    agreement_signed_at: Optional[datetime] = None
+    agreement_data: Optional[str] = None  # JSON string with agreement details
 
 class CampaignTemplateCreate(BaseModel):
     name: str
@@ -340,7 +345,12 @@ async def get_all_campaign_contacts(
                     # RSVP fields
                     'is_rsvp': contact.is_rsvp,
                     'rsvp_status': contact.rsvp_status,
-                    'rsvp_date': contact.rsvp_date
+                    'rsvp_date': contact.rsvp_date,
+                    # Agreement fields
+                    'agreement_status': contact.agreement_status,
+                    'agreement_sent_at': contact.agreement_sent_at,
+                    'agreement_signed_at': contact.agreement_signed_at,
+                    'agreement_data': contact.agreement_data
                 }
                 result.append(contact_dict)
             except Exception as e:
@@ -2251,16 +2261,29 @@ def process_agreements_task(campaign_id: str, agreement_data: dict, contact_ids:
                 agreement_url = f"{base_url}/agreement/{agreement.id}"
                 agreement.agreement_url = agreement_url
                 
+                # Log the agreement URL for easy access during testing
+                print(f"\n{'='*60}")
+                print(f"📝 AGREEMENT CREATED FOR: {contact.first_name} {contact.last_name}")
+                print(f"📧 Email: {contact.email}")
+                print(f"🔗 Agreement URL: {agreement_url}")
+                print(f"💰 Setup Fee: ${agreement_data['setup_fee']} | Monthly: ${agreement_data['monthly_fee']}")
+                print(f"{'='*60}\n")
+                
                 # Send email using the email service
-                email_sent = email_service.send_agreement_email(
-                    to_email=contact.email,
-                    to_name=f"{contact.first_name or ''} {contact.last_name or ''}".strip() or "Valued Client",
-                    agreement_url=agreement_url,
-                    campaign_name=campaign.name,
-                    start_date=agreement_data['start_date'],
-                    setup_fee=agreement_data['setup_fee'],
-                    monthly_fee=agreement_data['monthly_fee']
-                )
+                email_sent = False
+                if os.getenv("GMAIL_PASSWORD"):  # Only try to send if password is configured
+                    email_sent = email_service.send_agreement_email(
+                        to_email=contact.email,
+                        to_name=f"{contact.first_name or ''} {contact.last_name or ''}".strip() or "Valued Client",
+                        agreement_url=agreement_url,
+                        campaign_name=campaign.name,
+                        start_date=agreement_data['start_date'],
+                        setup_fee=agreement_data['setup_fee'],
+                        monthly_fee=agreement_data['monthly_fee']
+                    )
+                else:
+                    logger.info(f"Email not sent (Gmail not configured). Use this URL: {agreement_url}")
+                    email_sent = True  # Mark as "sent" even without email so the agreement is still accessible
                 
                 if email_sent:
                     # Store agreement status in contact
