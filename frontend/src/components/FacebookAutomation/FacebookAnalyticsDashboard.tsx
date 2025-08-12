@@ -60,7 +60,7 @@ const FacebookAnalyticsDashboard: React.FC<FacebookAnalyticsDashboardProps> = ({
     
     try {
       setLoading(true);
-      const response = await api.post('/facebook-automation/analytics', {
+      const response = await api.post('/api/facebook-automation/analytics', {
         client_ids: [clientId],
         timeframe
       });

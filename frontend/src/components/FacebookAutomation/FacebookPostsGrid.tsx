@@ -53,7 +53,7 @@ const FacebookPostsGrid: React.FC<FacebookPostsGridProps> = ({ clientId }) => {
 
   const handleReviewPost = async (postId: string, status: string) => {
     try {
-      await api.put(`/facebook-automation/posts/${postId}/review`, { status });
+      await api.put(`/api/facebook-automation/posts/${postId}/review`, { status });
       fetchPosts();
     } catch (error) {
       console.error('Failed to review post:', error);

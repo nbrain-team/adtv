@@ -51,7 +51,7 @@ const FacebookCampaignsGrid: React.FC<FacebookCampaignsGridProps> = ({ clientId 
 
   const handleBulkOperation = async (operation: string) => {
     try {
-      await api.post('/facebook-automation/bulk/campaigns', {
+      await api.post('/api/facebook-automation/bulk/campaigns', {
         item_ids: selectedCampaigns,
         operation
       });
@@ -65,13 +65,13 @@ const FacebookCampaignsGrid: React.FC<FacebookCampaignsGridProps> = ({ clientId 
   const handleCampaignAction = async (campaignId: string, action: string) => {
     try {
       if (action === 'delete') {
-        await api.post('/facebook-automation/bulk/campaigns', {
+        await api.post('/api/facebook-automation/bulk/campaigns', {
           item_ids: [campaignId],
           operation: 'delete'
         });
       } else {
         const status = action === 'pause' ? 'PAUSED' : 'ACTIVE';
-        await api.put(`/facebook-automation/campaigns/${campaignId}`, { status });
+        await api.put(`/api/facebook-automation/campaigns/${campaignId}`, { status });
       }
       fetchCampaigns();
     } catch (error) {

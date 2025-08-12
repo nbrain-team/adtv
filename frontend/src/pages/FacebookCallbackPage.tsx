@@ -33,7 +33,7 @@ const FacebookCallbackPage = () => {
     }
 
     try {
-      await api.post('/facebook-automation/facebook/callback', {
+      await api.post('/api/facebook-automation/facebook/callback', {
         code,
         state
       });

@@ -32,7 +32,7 @@ const PostToAdConverter: React.FC<PostToAdConverterProps> = ({ post, onComplete,
     try {
       setLoading(true);
       
-      await api.post('/facebook-automation/campaigns', {
+      await api.post('/api/facebook-automation/campaigns', {
         source_post_id: post.id,
         name: formData.name,
         objective: formData.objective,
