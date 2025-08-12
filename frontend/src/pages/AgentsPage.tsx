@@ -81,6 +81,13 @@ const agents: Agent[] = [
     component: <Box p="4"><Text>Redirecting to Ad Traffic Analyzer...</Text></Box>, // Placeholder component
   },
   {
+    id: 'facebook-automation',
+    name: 'Adtv traffic basic',
+    description: 'Convert realtor Facebook posts into high-performing ads automatically.',
+    icon: <img src="/new-icons/facebook-icon.png" alt="Facebook Automation" style={{ width: '3rem', height: '3rem' }} />,
+    component: <Box p="4"><Text>Redirecting to Facebook Automation...</Text></Box>, // Placeholder component
+  },
+  {
     id: 'more-coming',
     name: 'More Agents Coming Soon',
     description: 'We\'re constantly building new AI agents to help automate your marketing workflows.',
@@ -104,6 +111,9 @@ const AgentsPage = () => {
     } else if (agent && agent.id === 'ad-traffic') {
       // Navigate to ad traffic page
       navigate('/ad-traffic');
+    } else if (agent && agent.id === 'facebook-automation') {
+      // Navigate to facebook automation page
+      navigate('/facebook-automation');
     } else if (agent && agent.id === 'event-campaign') {
       // Navigate to campaigns page
       navigate('/campaigns');
