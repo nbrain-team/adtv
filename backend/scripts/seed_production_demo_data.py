@@ -83,8 +83,10 @@ def seed_demo_data(user_email: str = None):
             mock_posts_data = mock_posts(client.id, count=15)
             
             for post_data in mock_posts_data:
-                # Handle status - production DB may have different enum values
-                if isinstance(post_data.get("status"), str):
+                # Handle status - production DB expects lowercase enum values
+                if "status" in post_data and isinstance(post_data["status"], str):
+                    # Ensure status is lowercase
+                    post_data["status"] = post_data["status"].lower()
                     # Only use status values that exist in production
                     valid_statuses = ["reviewed", "converted", "skipped"]
                     if post_data["status"] not in valid_statuses:
@@ -110,13 +112,15 @@ def seed_demo_data(user_email: str = None):
                 
                 # Convert status
                 if isinstance(campaign_data.get("status"), str):
+                    # Ensure status is lowercase for production
+                    campaign_data["status"] = campaign_data["status"].lower()
                     status_map = {
-                        "active": models.AdStatus.ACTIVE,
-                        "paused": models.AdStatus.PAUSED,
-                        "completed": models.AdStatus.COMPLETED,
-                        "draft": models.AdStatus.DRAFT
+                        "active": "active",
+                        "paused": "paused", 
+                        "completed": "completed",
+                        "draft": "draft"
                     }
-                    campaign_data["status"] = status_map.get(campaign_data["status"], models.AdStatus.DRAFT)
+                    campaign_data["status"] = status_map.get(campaign_data["status"], "draft")
                 
                 # Add required fields
                 campaign = models.FacebookAdCampaign(
