@@ -35,7 +35,7 @@ const FacebookAutomationSettings: React.FC<FacebookAutomationSettingsProps> = ({
   const fetchSettings = async () => {
     try {
       setLoading(true);
-      const response = await api.get(`/facebook-automation/clients/${clientId}`);
+      const response = await api.get(`/api/facebook-automation/clients/${clientId}`);
       setSettings({
         is_active: response.data.is_active,
         auto_convert_posts: response.data.auto_convert_posts,
@@ -55,7 +55,7 @@ const FacebookAutomationSettings: React.FC<FacebookAutomationSettingsProps> = ({
 
     try {
       setSaving(true);
-      await api.put(`/facebook-automation/clients/${clientId}`, settings);
+      await api.put(`/api/facebook-automation/clients/${clientId}`, settings);
       onUpdate();
     } catch (error) {
       console.error('Failed to save settings:', error);
