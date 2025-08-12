@@ -159,11 +159,11 @@ def generate_mock_posts(client_id: str, count: int = 10) -> List[Dict[str, Any]]
         # Generate AI suggestions
         ai_score = random.randint(*template["ai_score"])
         
-        post = {
+        post_data = {
             "id": str(uuid.uuid4()),
             "client_id": client_id,
-            "facebook_post_id": f"mock_fb_post_{i+1}",
-            "post_url": f"https://facebook.com/mock_post_{i+1}",
+            "facebook_post_id": f"mock_fb_post_{client_id}_{i+1}",  # Make unique per client
+            "post_url": f"https://facebook.com/mock_post_{client_id}_{i+1}",
             "message": template["message"],
             "created_time": created_time,
             "post_type": template["post_type"],
@@ -185,7 +185,7 @@ def generate_mock_posts(client_id: str, count: int = 10) -> List[Dict[str, Any]]
             "imported_at": created_time + timedelta(hours=random.randint(1, 24))
         }
         
-        posts.append(post)
+        posts.append(post_data)
     
     return posts
 
