@@ -50,7 +50,7 @@ const FacebookAutomationPage = () => {
 
   const fetchClients = async () => {
     try {
-      const response = await api.get('/facebook-automation/clients');
+      const response = await api.get('/api/facebook-automation/clients');
       const clientsData = response.data;
       
       // Ensure we have an array
@@ -78,7 +78,7 @@ const FacebookAutomationPage = () => {
   const fetchAllClientsStats = async () => {
     try {
       // Fetch campaigns for all clients
-      const campaignsResponse = await api.get('/facebook-automation/campaigns');
+      const campaignsResponse = await api.get('/api/facebook-automation/campaigns');
       const campaigns = Array.isArray(campaignsResponse.data) ? campaignsResponse.data : [];
       
       // Calculate stats
