@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Box, Card, Text, Heading } from '@radix-ui/themes';
+import { Box, Text, Card, Flex, Heading } from '@radix-ui/themes';
 import { MainLayout } from '../components/MainLayout';
-import axios from 'axios';
+import api from '../api';
 
 const FacebookCallbackPage = () => {
   const navigate = useNavigate();
@@ -33,7 +33,7 @@ const FacebookCallbackPage = () => {
     }
 
     try {
-      await axios.post('/api/facebook-automation/facebook/callback', {
+      await api.post('/facebook-automation/facebook/callback', {
         code,
         state
       });

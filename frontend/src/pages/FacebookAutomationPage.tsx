@@ -8,7 +8,7 @@ import FacebookPostsGrid from '../components/FacebookAutomation/FacebookPostsGri
 import FacebookCampaignsGrid from '../components/FacebookAutomation/FacebookCampaignsGrid';
 import FacebookAnalyticsDashboard from '../components/FacebookAutomation/FacebookAnalyticsDashboard';
 import FacebookAutomationSettings from '../components/FacebookAutomation/FacebookAutomationSettings';
-import axios from 'axios';
+import api from '../api';
 
 interface FacebookClient {
   id: string;
@@ -35,7 +35,7 @@ const FacebookAutomationPage = () => {
 
   const fetchClients = async () => {
     try {
-      const response = await axios.get('/api/facebook-automation/clients');
+      const response = await api.get('/facebook-automation/clients');
       const clientsData = response.data;
       
       // Ensure we have an array
@@ -75,7 +75,7 @@ const FacebookAutomationPage = () => {
 
   const handleSyncPosts = async (clientId: string) => {
     try {
-      await axios.post(`/api/facebook-automation/clients/${clientId}/sync-posts`);
+      await api.post(`/facebook-automation/clients/${clientId}/sync-posts`);
       // Show success toast
     } catch (error) {
       console.error('Failed to sync posts:', error);
@@ -115,25 +115,11 @@ const FacebookAutomationPage = () => {
           </Flex>
         </Flex>
 
-        {clients.length === 0 && !loading ? (
+        {/* Always show the main interface */}
+        {loading ? (
           <Card>
             <Flex direction="column" align="center" p="8">
-              <img 
-                src="/new-icons/facebook-icon.png" 
-                alt="Facebook" 
-                style={{ width: 80, height: 80, marginBottom: 24 }}
-              />
-              <Heading size="6" mb="3">Facebook Post-to-Ad Automation Demo</Heading>
-              <Text color="gray" mb="4" style={{ textAlign: 'center', maxWidth: 500 }}>
-                This is a demo of the Facebook automation platform. Click below to load mock data 
-                and explore how the system converts realtor posts into high-performing ads.
-              </Text>
-              <Button size="3" onClick={() => {
-                // Force load mock data
-                window.location.reload();
-              }}>
-                Load Demo Data
-              </Button>
+              <Text size="3">Loading dashboard...</Text>
             </Flex>
           </Card>
         ) : (

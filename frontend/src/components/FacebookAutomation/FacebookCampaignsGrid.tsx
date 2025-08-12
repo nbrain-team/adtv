@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Box, Flex, Text, Card, Button, Badge, Table, IconButton } from '@radix-ui/themes';
-import { PlayIcon, PauseIcon, Cross2Icon } from '@radix-ui/react-icons';
-import axios from 'axios';
+import { Box, Flex, Text, Card, Table, Button, Badge, IconButton } from '@radix-ui/themes';
+import { PauseIcon, PlayIcon, TrashIcon } from '@radix-ui/react-icons';
+import api from '../../api';
 
 interface Campaign {
   id: string;
@@ -38,7 +38,7 @@ const FacebookCampaignsGrid: React.FC<FacebookCampaignsGridProps> = ({ clientId 
   const fetchCampaigns = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('/api/facebook-automation/campaigns', {
+      const response = await api.get('/facebook-automation/campaigns', {
         params: { client_id: clientId }
       });
       setCampaigns(response.data);
@@ -51,7 +51,7 @@ const FacebookCampaignsGrid: React.FC<FacebookCampaignsGridProps> = ({ clientId 
 
   const handleBulkOperation = async (operation: string) => {
     try {
-      await axios.post('/api/facebook-automation/bulk/campaigns', {
+      await api.post('/facebook-automation/bulk/campaigns', {
         item_ids: selectedCampaigns,
         operation
       });
@@ -65,13 +65,13 @@ const FacebookCampaignsGrid: React.FC<FacebookCampaignsGridProps> = ({ clientId 
   const handleCampaignAction = async (campaignId: string, action: string) => {
     try {
       if (action === 'delete') {
-        await axios.post('/api/facebook-automation/bulk/campaigns', {
+        await api.post('/facebook-automation/bulk/campaigns', {
           item_ids: [campaignId],
           operation: 'delete'
         });
       } else {
         const status = action === 'pause' ? 'PAUSED' : 'ACTIVE';
-        await axios.put(`/api/facebook-automation/campaigns/${campaignId}`, { status });
+        await api.put(`/facebook-automation/campaigns/${campaignId}`, { status });
       }
       fetchCampaigns();
     } catch (error) {
@@ -228,7 +228,7 @@ const FacebookCampaignsGrid: React.FC<FacebookCampaignsGridProps> = ({ clientId 
                       color="red"
                       onClick={() => handleCampaignAction(campaign.id, 'delete')}
                     >
-                      <Cross2Icon />
+                      <TrashIcon />
                     </IconButton>
                   </Flex>
                 </Table.Cell>

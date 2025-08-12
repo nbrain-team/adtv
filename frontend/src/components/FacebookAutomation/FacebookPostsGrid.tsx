@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Box, Flex, Text, Card, Button, Badge, Grid, Dialog, Heading, ScrollArea } from '@radix-ui/themes';
-import axios from 'axios';
+import { Box, Flex, Text, Card, Grid, Badge, Button, Dialog } from '@radix-ui/themes';
 import PostToAdConverter from './PostToAdConverter';
+import api from '../../api';
 
 interface FacebookPost {
   id: string;
@@ -40,7 +40,7 @@ const FacebookPostsGrid: React.FC<FacebookPostsGridProps> = ({ clientId }) => {
   const fetchPosts = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('/api/facebook-automation/posts', {
+      const response = await api.get('/facebook-automation/posts', {
         params: { client_id: clientId, limit: 50 }
       });
       setPosts(response.data);
@@ -53,7 +53,7 @@ const FacebookPostsGrid: React.FC<FacebookPostsGridProps> = ({ clientId }) => {
 
   const handleReviewPost = async (postId: string, status: string) => {
     try {
-      await axios.put(`/api/facebook-automation/posts/${postId}/review`, { status });
+      await api.put(`/facebook-automation/posts/${postId}/review`, { status });
       fetchPosts();
     } catch (error) {
       console.error('Failed to review post:', error);

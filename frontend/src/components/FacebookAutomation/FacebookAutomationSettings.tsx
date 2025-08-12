@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Box, Flex, Text, Card, Switch, TextField, Button, Heading } from '@radix-ui/themes';
-import axios from 'axios';
+import { Box, Flex, Text, Card, Button, Slider, Switch, TextField } from '@radix-ui/themes';
+import api from '../../api';
 
 interface ClientSettings {
   is_active: boolean;
@@ -35,7 +35,7 @@ const FacebookAutomationSettings: React.FC<FacebookAutomationSettingsProps> = ({
   const fetchSettings = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`/api/facebook-automation/clients/${clientId}`);
+      const response = await api.get(`/facebook-automation/clients/${clientId}`);
       setSettings({
         is_active: response.data.is_active,
         auto_convert_posts: response.data.auto_convert_posts,
@@ -55,7 +55,7 @@ const FacebookAutomationSettings: React.FC<FacebookAutomationSettingsProps> = ({
 
     try {
       setSaving(true);
-      await axios.put(`/api/facebook-automation/clients/${clientId}`, settings);
+      await api.put(`/facebook-automation/clients/${clientId}`, settings);
       onUpdate();
     } catch (error) {
       console.error('Failed to save settings:', error);
@@ -79,114 +79,80 @@ const FacebookAutomationSettings: React.FC<FacebookAutomationSettingsProps> = ({
       {/* General Settings */}
       <Card mb="4">
         <Box p="4">
-          <Heading size="4" mb="4">General Settings</Heading>
-          
-          <Flex direction="column" gap="4">
-            <Flex justify="between" align="center">
-              <Box>
-                <Text size="3" weight="bold">Account Active</Text>
-                <Text size="2" color="gray">Enable or disable this Facebook connection</Text>
-              </Box>
-              <Switch
-                checked={settings.is_active}
-                onCheckedChange={(checked) => setSettings({ ...settings, is_active: checked })}
-              />
-            </Flex>
+          <Text size="3" weight="bold" mb="2">Account Active</Text>
+          <Switch
+            checked={settings.is_active}
+            onCheckedChange={(checked) => setSettings({ ...settings, is_active: checked })}
+          />
 
-            <Flex justify="between" align="center">
-              <Box>
-                <Text size="3" weight="bold">Auto Convert Posts</Text>
-                <Text size="2" color="gray">Automatically convert high-quality posts to ads</Text>
-              </Box>
-              <Switch
-                checked={settings.auto_convert_posts}
-                onCheckedChange={(checked) => setSettings({ ...settings, auto_convert_posts: checked })}
-              />
-            </Flex>
+          <Text size="3" weight="bold" mb="2">Auto Convert Posts</Text>
+          <Switch
+            checked={settings.auto_convert_posts}
+            onCheckedChange={(checked) => setSettings({ ...settings, auto_convert_posts: checked })}
+          />
 
-            <Box>
-              <Text size="3" weight="bold" mb="2">Default Daily Budget</Text>
-              <TextField.Root
-                type="number"
-                value={settings.default_daily_budget.toString()}
-                onChange={(e) => setSettings({ 
-                  ...settings, 
-                  default_daily_budget: parseFloat(e.target.value) || 0 
-                })}
-              />
-            </Box>
+          <Text size="3" weight="bold" mb="2">Default Daily Budget</Text>
+          <TextField.Root
+            type="number"
+            value={settings.default_daily_budget.toString()}
+            onChange={(e) => setSettings({ 
+              ...settings, 
+              default_daily_budget: parseFloat(e.target.value) || 0 
+            })}
+          />
 
-            <Box>
-              <Text size="3" weight="bold" mb="2">Default Campaign Duration (days)</Text>
-              <TextField.Root
-                type="number"
-                value={settings.default_campaign_duration.toString()}
-                onChange={(e) => setSettings({ 
-                  ...settings, 
-                  default_campaign_duration: parseInt(e.target.value) || 7 
-                })}
-              />
-            </Box>
-          </Flex>
+          <Text size="3" weight="bold" mb="2">Default Campaign Duration (days)</Text>
+          <TextField.Root
+            type="number"
+            value={settings.default_campaign_duration.toString()}
+            onChange={(e) => setSettings({ 
+              ...settings, 
+              default_campaign_duration: parseInt(e.target.value) || 7 
+            })}
+          />
         </Box>
       </Card>
 
       {/* Automation Rules */}
       <Card mb="4">
         <Box p="4">
-          <Heading size="4" mb="4">Automation Rules</Heading>
-          
-          <Flex direction="column" gap="4">
-            <Box>
-              <Text size="3" weight="bold" mb="2">Minimum Text Length</Text>
-              <TextField.Root
-                type="number"
-                value={settings.automation_rules.min_text_length.toString()}
-                onChange={(e) => setSettings({ 
-                  ...settings, 
-                  automation_rules: {
-                    ...settings.automation_rules,
-                    min_text_length: parseInt(e.target.value) || 50
-                  }
-                })}
-              />
-              <Text size="1" color="gray" mt="1">Posts shorter than this won't be auto-converted</Text>
-            </Box>
+          <Text size="3" weight="bold" mb="2">Minimum Text Length</Text>
+          <TextField.Root
+            type="number"
+            value={settings.automation_rules.min_text_length.toString()}
+            onChange={(e) => setSettings({ 
+              ...settings, 
+              automation_rules: {
+                ...settings.automation_rules,
+                min_text_length: parseInt(e.target.value) || 50
+              }
+            })}
+          />
+          <Text size="1" color="gray" mt="1">Posts shorter than this won't be auto-converted</Text>
 
-            <Flex justify="between" align="center">
-              <Box>
-                <Text size="3" weight="bold">Require Image</Text>
-                <Text size="2" color="gray">Only convert posts that have images</Text>
-              </Box>
-              <Switch
-                checked={settings.automation_rules.require_image}
-                onCheckedChange={(checked) => setSettings({ 
-                  ...settings, 
-                  automation_rules: {
-                    ...settings.automation_rules,
-                    require_image: checked
-                  }
-                })}
-              />
-            </Flex>
+          <Text size="3" weight="bold" mb="2">Require Image</Text>
+          <Switch
+            checked={settings.automation_rules.require_image}
+            onCheckedChange={(checked) => setSettings({ 
+              ...settings, 
+              automation_rules: {
+                ...settings.automation_rules,
+                require_image: checked
+              }
+            })}
+          />
 
-            <Flex justify="between" align="center">
-              <Box>
-                <Text size="3" weight="bold">Auto Approve</Text>
-                <Text size="2" color="gray">Launch ads without manual approval</Text>
-              </Box>
-              <Switch
-                checked={settings.automation_rules.auto_approve}
-                onCheckedChange={(checked) => setSettings({ 
-                  ...settings, 
-                  automation_rules: {
-                    ...settings.automation_rules,
-                    auto_approve: checked
-                  }
-                })}
-              />
-            </Flex>
-          </Flex>
+          <Text size="3" weight="bold" mb="2">Auto Approve</Text>
+          <Switch
+            checked={settings.automation_rules.auto_approve}
+            onCheckedChange={(checked) => setSettings({ 
+              ...settings, 
+              automation_rules: {
+                ...settings.automation_rules,
+                auto_approve: checked
+              }
+            })}
+          />
         </Box>
       </Card>
 

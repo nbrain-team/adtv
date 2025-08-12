@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Box, Flex, Text, Heading, Button } from '@radix-ui/themes';
-import axios from 'axios';
+import api from '../../api';
 
 interface FacebookConnectFlowProps {
   onComplete: () => void;
@@ -17,7 +17,7 @@ const FacebookConnectFlow: React.FC<FacebookConnectFlowProps> = ({ onComplete })
       const redirectUri = `${window.location.origin}/facebook-callback`;
       
       // Get the auth URL from backend
-      const response = await axios.get('/api/facebook-automation/facebook/auth', {
+      const response = await api.get('/facebook-automation/facebook/auth', {
         params: { redirect_uri: redirectUri }
       });
 

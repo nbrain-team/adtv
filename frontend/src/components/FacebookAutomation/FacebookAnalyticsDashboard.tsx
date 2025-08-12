@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Box, Flex, Text, Card, Select, Grid, Heading } from '@radix-ui/themes';
-import axios from 'axios';
+import { Box, Flex, Text, Card, Grid, Select } from '@radix-ui/themes';
+import api from '../../api';
 
 interface Analytics {
   total_spend: number;
@@ -40,7 +40,7 @@ const FacebookAnalyticsDashboard: React.FC<FacebookAnalyticsDashboardProps> = ({
   const fetchAnalytics = async () => {
     try {
       setLoading(true);
-      const response = await axios.post('/api/facebook-automation/analytics', {
+      const response = await api.post('/facebook-automation/analytics', {
         client_ids: [clientId],
         timeframe
       });
@@ -83,7 +83,7 @@ const FacebookAnalyticsDashboard: React.FC<FacebookAnalyticsDashboardProps> = ({
     <Box>
       {/* Time Period Selector */}
       <Flex justify="between" align="center" mb="4">
-        <Heading size="5">Performance Overview</Heading>
+        <Text size="5" weight="bold">Performance Overview</Text>
         <Select.Root value={timeframe} onValueChange={setTimeframe}>
           <Select.Trigger />
           <Select.Content>
