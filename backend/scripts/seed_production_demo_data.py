@@ -83,8 +83,12 @@ def seed_demo_data(user_email: str = None):
             mock_posts_data = mock_posts(client.id, count=15)
             
             for post_data in mock_posts_data:
+                # Handle status - production DB may have different enum values
                 if isinstance(post_data.get("status"), str):
-                    post_data["status"] = getattr(models.PostStatus, post_data["status"].upper())
+                    # Only use status values that exist in production
+                    valid_statuses = ["reviewed", "converted", "skipped"]
+                    if post_data["status"] not in valid_statuses:
+                        post_data["status"] = "reviewed"  # Safe default
                 
                 post = models.FacebookPost(**post_data)
                 db.add(post)

@@ -173,7 +173,7 @@ def generate_mock_posts(client_id: str, count: int = 10) -> List[Dict[str, Any]]
             "comments_count": comments,
             "shares_count": shares,
             "reach": reach,
-            "status": random.choice(["imported", "imported", "reviewed", "converted", "skipped"]),
+            "status": random.choice(["reviewed", "reviewed", "converted", "skipped"]),
             "ai_quality_score": ai_score,
             "ai_suggestions": {
                 "improved_headline": "Don't Miss This Opportunity!",
