@@ -38,7 +38,7 @@ const FacebookCampaignsGrid: React.FC<FacebookCampaignsGridProps> = ({ clientId 
   const fetchCampaigns = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/facebook-automation/campaigns', {
+      const response = await api.get('/api/facebook-automation/campaigns', {
         params: { client_id: clientId }
       });
       setCampaigns(response.data);

@@ -40,7 +40,7 @@ const FacebookPostsGrid: React.FC<FacebookPostsGridProps> = ({ clientId }) => {
   const fetchPosts = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/facebook-automation/posts', {
+      const response = await api.get('/api/facebook-automation/posts', {
         params: { client_id: clientId, limit: 50 }
       });
       setPosts(response.data);
