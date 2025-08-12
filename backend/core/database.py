@@ -55,6 +55,7 @@ class User(Base):
     email_templates = relationship("EmailTemplate", back_populates="creator", cascade="all, delete-orphan")
     campaigns = relationship("Campaign", back_populates="user", cascade="all, delete-orphan")
     campaign_templates = relationship("CampaignTemplate", back_populates="user", cascade="all, delete-orphan")
+    facebook_clients = relationship("FacebookClient", back_populates="user", cascade="all, delete-orphan")
     # Note: ad_traffic_clients relationship is defined on the AdTrafficClient model to avoid circular imports
 
 

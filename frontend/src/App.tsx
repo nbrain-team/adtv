@@ -16,9 +16,10 @@ import ProfilePage from './pages/ProfilePage';
 import CampaignsPage from './pages/CampaignsPage';
 import CampaignDetailPage from './pages/CampaignDetailPage';
 import TemplateManagerPage from './pages/TemplateManagerPage';
-import AdTrafficPage from './pages/AdTrafficPage';
 import ContactEnricherPage from './pages/ContactEnricherPage';
 import { AgreementSigningPage } from './pages/AgreementSigningPage';
+import FacebookAutomationPage from './pages/FacebookAutomationPage';
+import FacebookCallbackPage from './pages/FacebookCallbackPage';
 
 // Define the structure for a message
 interface Message {
@@ -91,17 +92,14 @@ function App() {
                 <TemplateManagerPage />
               </ProtectedRoute>
             } />
-            <Route path="/ad-traffic" element={
-              <ProtectedRoute requiredPermission="ad-traffic">
-                <AdTrafficPage />
-              </ProtectedRoute>
-            } />
             <Route path="/contact-enricher" element={
               <ProtectedRoute requiredPermission="contact-enricher">
                 <ContactEnricherPage />
               </ProtectedRoute>
             } />
             <Route path="/agreement/:agreementId" element={<AgreementSigningPage />} />
+            <Route path="/facebook-automation" element={<FacebookAutomationPage />} />
+            <Route path="/facebook-callback" element={<FacebookCallbackPage />} />
           </Routes>
         </Router>
       </QueryClientProvider>

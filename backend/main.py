@@ -31,6 +31,7 @@ from ad_traffic.api import router as ad_traffic_router
 from contact_enricher.api import router as contact_enricher_router
 from core.campaign_routes import router as campaign_routes
 from core.agreements import router as agreements_router
+from facebook_automation.api import router as facebook_automation_router
 
 
 load_dotenv()
@@ -357,6 +358,7 @@ app.include_router(personalizer_router, prefix="/api/personalizer", tags=["perso
 app.include_router(contact_enricher_router, prefix="/api/contact-enricher", tags=["contact-enricher"])
 app.include_router(campaign_routes, prefix="/api/campaigns", tags=["campaigns"])
 app.include_router(agreements_router, prefix="/api/agreements", tags=["agreements"])
+app.include_router(facebook_automation_router, prefix="/api/facebook-automation", tags=["facebook-automation"])
 
 # Mount uploads directory for static file serving
 import os

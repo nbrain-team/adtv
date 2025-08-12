@@ -42,6 +42,13 @@ const LandingPage = () => {
             description: "View, filter, and manage your data records in one centralized location.",
             path: "/data-lake",
             permission: "data-lake"
+        },
+        {
+            icon: "/new-icons/facebook-icon.png",
+            title: "Facebook Automation",
+            description: "Convert organic posts into high-performing ads automatically.",
+            path: "/facebook-automation",
+            permission: "facebook-automation"
         }
     ];
 
