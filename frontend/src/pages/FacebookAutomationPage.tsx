@@ -27,6 +27,7 @@ const FacebookAutomationPage = () => {
   const [loading, setLoading] = useState(true);
   const [showConnectDialog, setShowConnectDialog] = useState(false);
   const [activeTab, setActiveTab] = useState('posts');
+  const [isMockMode, setIsMockMode] = useState(false);
 
   useEffect(() => {
     fetchClients();
@@ -36,6 +37,16 @@ const FacebookAutomationPage = () => {
     try {
       const response = await axios.get('/api/facebook-automation/clients');
       setClients(response.data);
+      
+      // Check if we're in mock mode (all clients have mock IDs)
+      const mockMode = response.data.length > 0 && 
+        response.data.every((client: FacebookClient) => 
+          client.page_name.includes('Sarah Johnson') || 
+          client.page_name.includes('Mike Chen') || 
+          client.page_name.includes('Davis Team')
+        );
+      setIsMockMode(mockMode);
+      
       if (response.data.length > 0 && !selectedClient) {
         setSelectedClient(response.data[0].id);
       }
@@ -78,6 +89,19 @@ const FacebookAutomationPage = () => {
   return (
     <MainLayout onNewChat={() => navigate('/home')}>
       <Box p="6">
+        {isMockMode && (
+          <Card mb="4" style={{ backgroundColor: 'var(--amber-3)', borderColor: 'var(--amber-6)' }}>
+            <Flex align="center" gap="2" p="3">
+              <Text size="2" weight="bold" style={{ color: 'var(--amber-11)' }}>
+                🧪 Mock Mode Active
+              </Text>
+              <Text size="2" style={{ color: 'var(--amber-11)' }}>
+                You're viewing test data. Connect to Facebook to see real data.
+              </Text>
+            </Flex>
+          </Card>
+        )}
+        
         <Flex justify="between" align="center" mb="6">
           <Box>
             <Heading size="8" mb="2">Facebook Automation</Heading>

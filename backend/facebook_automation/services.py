@@ -28,6 +28,42 @@ class FacebookAutomationService:
     ) -> models.FacebookClient:
         """Connect a Facebook account using OAuth code"""
         try:
+            # Check if Facebook API is configured
+            use_mock_data = not facebook_service.app_id or not facebook_service.app_secret
+            
+            if use_mock_data:
+                # Use mock data for testing
+                from .mock_data import mock_clients
+                logger.info("Using mock data - Facebook API not configured")
+                
+                # Find or create mock client
+                client = db.query(models.FacebookClient).filter_by(
+                    user_id=user_id,
+                    facebook_page_id="mock_page_1"
+                ).first()
+                
+                if not client:
+                    mock_client_data = mock_clients[0]
+                    client = models.FacebookClient(
+                        user_id=user_id,
+                        facebook_user_id=mock_client_data["facebook_user_id"],
+                        facebook_page_id=mock_client_data["facebook_page_id"],
+                        page_name=mock_client_data["page_name"],
+                        page_access_token="mock_token",
+                        is_active=mock_client_data["is_active"],
+                        auto_convert_posts=mock_client_data["auto_convert_posts"],
+                        default_daily_budget=mock_client_data["default_daily_budget"],
+                        default_campaign_duration=mock_client_data["default_campaign_duration"],
+                        automation_rules=mock_client_data["automation_rules"],
+                        token_expires_at=datetime.utcnow() + timedelta(days=60)
+                    )
+                    db.add(client)
+                    db.commit()
+                    db.refresh(client)
+                
+                return client
+            
+            # Original implementation for real Facebook API
             # Exchange auth code for access token
             token_data = await facebook_service.exchange_token(auth_code)
             access_token = token_data["access_token"]
@@ -98,7 +134,36 @@ class FacebookAutomationService:
         if not since:
             since = client.last_sync or datetime.utcnow() - timedelta(days=7)
         
+        # Check if using mock data
+        use_mock_data = not facebook_service.app_id or not facebook_service.app_secret
+        
+        if use_mock_data:
+            # Use mock data for testing
+            from .mock_data import mock_posts
+            logger.info("Using mock posts data - Facebook API not configured")
+            
+            # Check if we already have mock posts
+            existing_count = db.query(models.FacebookPost).filter_by(client_id=client_id).count()
+            
+            if existing_count == 0:
+                # Generate and save mock posts
+                mock_posts_data = mock_posts(client_id, count=15)
+                
+                for post_data in mock_posts_data:
+                    post = models.FacebookPost(**post_data)
+                    db.add(post)
+                
+                client.last_sync = datetime.utcnow()
+                db.commit()
+                
+                # Return newly created posts
+                return db.query(models.FacebookPost).filter_by(client_id=client_id).all()
+            else:
+                # Return existing posts
+                return db.query(models.FacebookPost).filter_by(client_id=client_id).all()
+        
         try:
+            # Original implementation for real Facebook API
             # Get posts from Facebook
             fb_posts = await facebook_service.get_page_posts(
                 client.facebook_page_id,
@@ -324,6 +389,23 @@ class FacebookAutomationService:
         request: schemas.AnalyticsRequest
     ) -> schemas.AnalyticsResponse:
         """Get analytics summary for campaigns"""
+        # Check if using mock data
+        use_mock_data = not facebook_service.app_id or not facebook_service.app_secret
+        
+        if use_mock_data:
+            from .mock_data import mock_analytics
+            logger.info("Using mock analytics data - Facebook API not configured")
+            
+            # Get client IDs for the user
+            client_ids = request.client_ids
+            if not client_ids:
+                clients = db.query(models.FacebookClient).filter_by(user_id=user_id).all()
+                client_ids = [c.id for c in clients]
+            
+            # Return mock analytics
+            return schemas.AnalyticsResponse(**mock_analytics(client_ids))
+        
+        # Original implementation
         query = db.query(models.FacebookAdCampaign).join(
             models.FacebookClient
         ).filter(

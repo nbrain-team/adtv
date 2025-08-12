@@ -40,6 +40,11 @@ const FacebookCallbackPage = () => {
 
       setStatus('success');
       
+      // Add a success message for mock mode
+      if (code === 'mock_auth_code') {
+        console.log('Mock mode: Successfully connected mock Facebook account');
+      }
+      
       // Redirect to Facebook automation page after success
       setTimeout(() => {
         navigate('/facebook-automation');

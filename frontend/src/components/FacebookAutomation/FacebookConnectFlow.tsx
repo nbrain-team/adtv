@@ -21,8 +21,14 @@ const FacebookConnectFlow: React.FC<FacebookConnectFlowProps> = ({ onComplete })
         params: { redirect_uri: redirectUri }
       });
 
-      // Redirect to Facebook OAuth
-      window.location.href = response.data.auth_url;
+      // Check if we're in mock mode
+      if (response.data.mock_mode) {
+        // In mock mode, directly go to the callback URL
+        window.location.href = response.data.auth_url;
+      } else {
+        // Redirect to real Facebook OAuth
+        window.location.href = response.data.auth_url;
+      }
     } catch (error) {
       console.error('Failed to initiate Facebook auth:', error);
       setLoading(false);

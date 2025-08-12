@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
 from urllib.parse import urlencode
 
@@ -32,7 +32,10 @@ async def facebook_auth(
     
     app_id = facebook_service.app_id
     if not app_id:
-        raise HTTPException(status_code=500, detail="Facebook app not configured")
+        # Return mock auth URL for testing
+        logger.info("Facebook app not configured - using mock mode")
+        mock_auth_url = f"{redirect_uri}?code=mock_auth_code&state={current_user.id}"
+        return {"auth_url": mock_auth_url, "mock_mode": True}
     
     # Required permissions
     scopes = [
@@ -92,7 +95,36 @@ async def get_clients(
     if is_active is not None:
         query = query.filter_by(is_active=is_active)
     
-    return query.all()
+    clients = query.all()
+    
+    # If no clients and Facebook API not configured, create mock clients
+    if not clients and (not facebook_service.app_id or not facebook_service.app_secret):
+        from .mock_data import mock_clients
+        logger.info("Creating mock clients for testing")
+        
+        # Create all mock clients for this user
+        for mock_data in mock_clients[:3]:  # Use first 3 mock clients
+            client = models.FacebookClient(
+                user_id=current_user.id,
+                facebook_user_id=mock_data["facebook_user_id"],
+                facebook_page_id=mock_data["facebook_page_id"],
+                page_name=mock_data["page_name"],
+                page_access_token="mock_token",
+                is_active=mock_data["is_active"],
+                auto_convert_posts=mock_data["auto_convert_posts"],
+                default_daily_budget=mock_data["default_daily_budget"],
+                default_campaign_duration=mock_data["default_campaign_duration"],
+                automation_rules=mock_data["automation_rules"],
+                created_at=mock_data["created_at"],
+                last_sync=mock_data["last_sync"],
+                token_expires_at=datetime.utcnow() + timedelta(days=60)
+            )
+            db.add(client)
+        
+        db.commit()
+        clients = query.all()
+    
+    return clients
 
 
 @router.get("/clients/{client_id}", response_model=schemas.FacebookClient)
@@ -298,7 +330,50 @@ async def get_campaigns(
     
     query = query.order_by(models.FacebookAdCampaign.created_at.desc())
     
-    return query.offset(skip).limit(limit).all()
+    campaigns = query.offset(skip).limit(limit).all()
+    
+    # If no campaigns and Facebook API not configured, generate mock campaigns
+    if not campaigns and (not facebook_service.app_id or not facebook_service.app_secret):
+        from .mock_data import mock_campaigns
+        
+        # Get all clients for current user
+        user_clients = db.query(models.FacebookClient).filter_by(user_id=current_user.id).all()
+        
+        if user_clients and (not client_id or client_id == user_clients[0].id):
+            logger.info("Generating mock campaigns for testing")
+            
+            # Generate campaigns for first client or specified client
+            target_client_id = client_id or user_clients[0].id
+            mock_campaigns_data = mock_campaigns(target_client_id, count=8)
+            
+            for campaign_data in mock_campaigns_data:
+                # Convert string dates to datetime objects
+                if isinstance(campaign_data.get("created_at"), str):
+                    campaign_data["created_at"] = datetime.fromisoformat(campaign_data["created_at"])
+                if isinstance(campaign_data.get("launched_at"), str):
+                    campaign_data["launched_at"] = datetime.fromisoformat(campaign_data["launched_at"])
+                
+                campaign = models.FacebookAdCampaign(
+                    **campaign_data,
+                    source_post_id=None,
+                    created_by=current_user.id,
+                    description="",
+                    call_to_action="LEARN_MORE",
+                    link_url="https://example.com",
+                    creative_urls=["https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=800"],
+                    targeting={
+                        "geo_locations": {"countries": ["US"]},
+                        "age_min": 25,
+                        "age_max": 55,
+                        "interests": ["Real Estate", "Home Buyers"]
+                    }
+                )
+                db.add(campaign)
+            
+            db.commit()
+            campaigns = query.offset(skip).limit(limit).all()
+    
+    return campaigns
 
 
 @router.get("/campaigns/{campaign_id}", response_model=schemas.FacebookAdCampaign)
