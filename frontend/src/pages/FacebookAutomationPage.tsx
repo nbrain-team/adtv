@@ -26,7 +26,7 @@ const FacebookAutomationPage = () => {
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showConnectDialog, setShowConnectDialog] = useState(false);
-  const [activeTab, setActiveTab] = useState('posts');
+  const [activeTab, setActiveTab] = useState('dashboard');
   const [isMockMode, setIsMockMode] = useState(false);
 
   useEffect(() => {
@@ -156,6 +156,7 @@ const FacebookAutomationPage = () => {
             {/* Main Content Tabs */}
             <Tabs.Root value={activeTab} onValueChange={setActiveTab}>
               <Tabs.List size="2">
+                <Tabs.Trigger value="dashboard">Dashboard</Tabs.Trigger>
                 <Tabs.Trigger value="posts">Posts</Tabs.Trigger>
                 <Tabs.Trigger value="campaigns">Campaigns</Tabs.Trigger>
                 <Tabs.Trigger value="analytics">Analytics</Tabs.Trigger>
@@ -163,6 +164,131 @@ const FacebookAutomationPage = () => {
               </Tabs.List>
 
               <Box mt="4">
+                <Tabs.Content value="dashboard">
+                  {/* Overview Cards */}
+                  <Grid columns="4" gap="4" mb="6">
+                    <Card>
+                      <Box p="4">
+                        <Text size="2" color="gray">Total Clients</Text>
+                        <Heading size="7">{clients.length}</Heading>
+                      </Box>
+                    </Card>
+                    <Card>
+                      <Box p="4">
+                        <Text size="2" color="gray">Active Campaigns</Text>
+                        <Heading size="7">12</Heading>
+                      </Box>
+                    </Card>
+                    <Card>
+                      <Box p="4">
+                        <Text size="2" color="gray">Total Spend</Text>
+                        <Heading size="7">$3,847</Heading>
+                      </Box>
+                    </Card>
+                    <Card>
+                      <Box p="4">
+                        <Text size="2" color="gray">Avg ROAS</Text>
+                        <Heading size="7">3.4x</Heading>
+                      </Box>
+                    </Card>
+                  </Grid>
+
+                  {/* Client Cards */}
+                  <Heading size="6" mb="4">Connected Pages</Heading>
+                  <Grid columns="3" gap="4">
+                    {clients.map(client => (
+                      <Card 
+                        key={client.id}
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => {
+                          setSelectedClient(client.id);
+                          setActiveTab('posts');
+                        }}
+                      >
+                        <Box p="4">
+                          <Flex justify="between" align="start" mb="3">
+                            <Box>
+                              <Heading size="5">{client.page_name}</Heading>
+                              <Text size="2" color="gray">
+                                Budget: ${client.default_daily_budget}/day
+                              </Text>
+                            </Box>
+                            <Badge color={client.is_active ? 'green' : 'gray'}>
+                              {client.is_active ? 'Active' : 'Inactive'}
+                            </Badge>
+                          </Flex>
+                          
+                          <Grid columns="2" gap="2" mb="3">
+                            <Box>
+                              <Text size="1" color="gray">Posts</Text>
+                              <Text size="3" weight="bold">15</Text>
+                            </Box>
+                            <Box>
+                              <Text size="1" color="gray">Campaigns</Text>
+                              <Text size="3" weight="bold">8</Text>
+                            </Box>
+                          </Grid>
+
+                          <Flex gap="2" mb="2">
+                            <Badge variant="soft" color="blue">
+                              CTR: 2.3%
+                            </Badge>
+                            <Badge variant="soft" color="green">
+                              ROAS: 3.2x
+                            </Badge>
+                          </Flex>
+
+                          <Text size="1" color="gray">
+                            Last sync: {new Date(client.last_sync || '').toLocaleDateString()}
+                          </Text>
+                          
+                          {client.auto_convert_posts && (
+                            <Badge color="orange" size="1" mt="2">
+                              Auto-convert enabled
+                            </Badge>
+                          )}
+                        </Box>
+                      </Card>
+                    ))}
+                  </Grid>
+
+                  {/* Recent Activity */}
+                  <Heading size="6" mt="6" mb="4">Recent Activity</Heading>
+                  <Card>
+                    <Box p="4">
+                      <Flex direction="column" gap="3">
+                        <Flex justify="between" align="center">
+                          <Flex gap="2" align="center">
+                            <Badge color="green">New Post</Badge>
+                            <Text size="2">
+                              "JUST LISTED! Stunning 4BR/3BA..." imported from Sarah Johnson
+                            </Text>
+                          </Flex>
+                          <Text size="1" color="gray">2 hours ago</Text>
+                        </Flex>
+                        <Flex justify="between" align="center">
+                          <Flex gap="2" align="center">
+                            <Badge color="blue">Campaign Started</Badge>
+                            <Text size="2">
+                              "Spring Home Buyers Campaign #1" launched
+                            </Text>
+                          </Flex>
+                          <Text size="1" color="gray">5 hours ago</Text>
+                        </Flex>
+                        <Flex justify="between" align="center">
+                          <Flex gap="2" align="center">
+                            <Badge color="orange">Auto-Convert</Badge>
+                            <Text size="2">
+                              Post converted to ad for The Davis Team
+                            </Text>
+                          </Flex>
+                          <Text size="1" color="gray">1 day ago</Text>
+                        </Flex>
+                      </Flex>
+                    </Box>
+                  </Card>
+                </Tabs.Content>
+
                 <Tabs.Content value="posts">
                   <FacebookPostsGrid clientId={selectedClient} />
                 </Tabs.Content>
