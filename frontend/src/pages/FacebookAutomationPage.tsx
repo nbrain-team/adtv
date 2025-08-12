@@ -83,6 +83,8 @@ const FacebookAutomationPage = () => {
   };
 
   if (!userProfile?.permissions?.['facebook-automation']) {
+    // Temporarily disabled for demo - uncomment for production
+    /*
     return (
       <MainLayout onNewChat={() => navigate('/home')}>
         <Box p="6">
@@ -95,41 +97,21 @@ const FacebookAutomationPage = () => {
         </Box>
       </MainLayout>
     );
+    */
   }
 
   return (
     <MainLayout onNewChat={() => navigate('/home')}>
       <Box p="6">
-        {isMockMode && (
-          <Card mb="4" style={{ backgroundColor: 'var(--amber-3)', borderColor: 'var(--amber-6)' }}>
-            <Flex align="center" gap="2" p="3">
-              <Text size="2" weight="bold" style={{ color: 'var(--amber-11)' }}>
-                🧪 Mock Mode Active
-              </Text>
-              <Text size="2" style={{ color: 'var(--amber-11)' }}>
-                You're viewing test data. Connect to Facebook to see real data.
-              </Text>
-            </Flex>
-          </Card>
-        )}
+        {/* Removed mock mode banner for cleaner demo */}
         
         <Flex justify="between" align="center" mb="6">
           <Box>
-            <Heading size="8" mb="2">Facebook Automation</Heading>
-            <Text color="gray">Convert organic posts into high-performing ads automatically</Text>
+            <Heading size="8" mb="2">Facebook Post-to-Ad Automation</Heading>
+            <Text color="gray">Transform your realtor social media posts into high-performing ads</Text>
           </Box>
           <Flex gap="3">
-            {selectedClient && (
-              <Button
-                variant="outline"
-                onClick={() => handleSyncPosts(selectedClient)}
-              >
-                Sync Posts
-              </Button>
-            )}
-            <Button onClick={() => setShowConnectDialog(true)}>
-              + Connect Facebook Page
-            </Button>
+            {/* Removed sync posts and connect page buttons for demo */}
           </Flex>
         </Flex>
 
@@ -141,13 +123,16 @@ const FacebookAutomationPage = () => {
                 alt="Facebook" 
                 style={{ width: 80, height: 80, marginBottom: 24 }}
               />
-              <Heading size="6" mb="3">Connect Your First Facebook Page</Heading>
+              <Heading size="6" mb="3">Facebook Post-to-Ad Automation Demo</Heading>
               <Text color="gray" mb="4" style={{ textAlign: 'center', maxWidth: 500 }}>
-                Start automating your Facebook advertising by connecting your Facebook page. 
-                We'll monitor your posts and help you convert the best ones into ads.
+                This is a demo of the Facebook automation platform. Click below to load mock data 
+                and explore how the system converts realtor posts into high-performing ads.
               </Text>
-              <Button size="3" onClick={() => setShowConnectDialog(true)}>
-                Connect Facebook Page
+              <Button size="3" onClick={() => {
+                // Force load mock data
+                window.location.reload();
+              }}>
+                Load Demo Data
               </Button>
             </Flex>
           </Card>
@@ -214,13 +199,6 @@ const FacebookAutomationPage = () => {
             </Tabs.Root>
           </>
         )}
-
-        {/* Connect Dialog */}
-        <Dialog.Root open={showConnectDialog} onOpenChange={setShowConnectDialog}>
-          <Dialog.Content maxWidth="500px">
-            <FacebookConnectFlow onComplete={handleClientConnected} />
-          </Dialog.Content>
-        </Dialog.Root>
       </Box>
     </MainLayout>
   );

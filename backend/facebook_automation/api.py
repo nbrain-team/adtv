@@ -27,8 +27,9 @@ async def facebook_auth(
     current_user: User = Depends(get_current_active_user)
 ):
     """Initiate Facebook OAuth flow"""
-    if not current_user.permissions.get("facebook-automation", False):
-        raise HTTPException(status_code=403, detail="Facebook automation not enabled for user")
+    # Permission check disabled for demo
+    # if not current_user.permissions.get("facebook-automation", False):
+    #     raise HTTPException(status_code=403, detail="Facebook automation not enabled for user")
     
     app_id = facebook_service.app_id
     if not app_id:
@@ -97,10 +98,10 @@ async def get_clients(
     
     clients = query.all()
     
-    # If no clients and Facebook API not configured, create mock clients
-    if not clients and (not facebook_service.app_id or not facebook_service.app_secret):
+    # For demo: Always ensure we have mock clients
+    if not clients:  # Removed Facebook API check - always create mock data for demo
         from .mock_data import mock_clients
-        logger.info("Creating mock clients for testing")
+        logger.info("Creating mock clients for demo")
         
         # Create all mock clients for this user
         for mock_data in mock_clients[:3]:  # Use first 3 mock clients
@@ -332,15 +333,15 @@ async def get_campaigns(
     
     campaigns = query.offset(skip).limit(limit).all()
     
-    # If no campaigns and Facebook API not configured, generate mock campaigns
-    if not campaigns and (not facebook_service.app_id or not facebook_service.app_secret):
+    # For demo: Always ensure we have mock campaigns
+    if not campaigns:  # Removed Facebook API check - always create mock data for demo
         from .mock_data import mock_campaigns
         
         # Get all clients for current user
         user_clients = db.query(models.FacebookClient).filter_by(user_id=current_user.id).all()
         
         if user_clients and (not client_id or client_id == user_clients[0].id):
-            logger.info("Generating mock campaigns for testing")
+            logger.info("Generating mock campaigns for demo")
             
             # Generate campaigns for first client or specified client
             target_client_id = client_id or user_clients[0].id

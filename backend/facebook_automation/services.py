@@ -29,7 +29,7 @@ class FacebookAutomationService:
         """Connect a Facebook account using OAuth code"""
         try:
             # Check if Facebook API is configured
-            use_mock_data = not facebook_service.app_id or not facebook_service.app_secret
+            use_mock_data = True  # Always use mock data for demo
             
             if use_mock_data:
                 # Use mock data for testing
@@ -135,7 +135,7 @@ class FacebookAutomationService:
             since = client.last_sync or datetime.utcnow() - timedelta(days=7)
         
         # Check if using mock data
-        use_mock_data = not facebook_service.app_id or not facebook_service.app_secret
+        use_mock_data = True  # Always use mock data for demo
         
         if use_mock_data:
             # Use mock data for testing
@@ -390,7 +390,7 @@ class FacebookAutomationService:
     ) -> schemas.AnalyticsResponse:
         """Get analytics summary for campaigns"""
         # Check if using mock data
-        use_mock_data = not facebook_service.app_id or not facebook_service.app_secret
+        use_mock_data = True  # Always use mock data for demo
         
         if use_mock_data:
             from .mock_data import mock_analytics
