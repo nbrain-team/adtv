@@ -333,13 +333,27 @@ def on_startup():
                 permissions = user.permissions.copy() if user.permissions else {}
                 # Always set ad-traffic to True, regardless of current value
                 permissions['ad-traffic'] = True
+                permissions['facebook-automation'] = True  # Add facebook-automation permission
                 user.permissions = permissions
                 db.commit()
-                logger.info(f"Set ad-traffic permission to True for danny@nbrain.ai. All permissions: {permissions}")
+                logger.info(f"Set ad-traffic and facebook-automation permissions to True for danny@nbrain.ai. All permissions: {permissions}")
             else:
                 logger.warning("User danny@nbrain.ai not found")
     except Exception as e:
         logger.error(f"Error updating ad-traffic permission: {e}")
+    
+    # Also update all admin users to have facebook-automation permission
+    try:
+        with SessionLocal() as db:
+            admin_users = db.query(User).filter(User.role == "admin").all()
+            for user in admin_users:
+                permissions = user.permissions.copy() if user.permissions else {}
+                permissions['facebook-automation'] = True
+                user.permissions = permissions
+                db.commit()
+                logger.info(f"Added facebook-automation permission for admin user {user.email}")
+    except Exception as e:
+        logger.error(f"Error updating facebook-automation permissions: {e}")
 
     # Import ad_traffic_router after startup
     # from ad_traffic.api import router as ad_traffic_router
@@ -460,7 +474,8 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
             "ad-traffic": True,  # Add this permission!
             "template-manager": True,  # Add template manager permission
             "contact-enricher": True,  # Add contact enricher permission
-            "campaigns": True  # Add campaigns permission
+            "campaigns": True,  # Add campaigns permission
+            "facebook-automation": True  # Add facebook automation permission
         }
         db.commit()
         db.refresh(user)

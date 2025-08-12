@@ -36,22 +36,33 @@ const FacebookAutomationPage = () => {
   const fetchClients = async () => {
     try {
       const response = await axios.get('/api/facebook-automation/clients');
-      setClients(response.data);
+      const clientsData = response.data;
+      
+      // Ensure we have an array
+      if (!Array.isArray(clientsData)) {
+        console.error('Expected array of clients, got:', clientsData);
+        setClients([]);
+        setLoading(false);
+        return;
+      }
+      
+      setClients(clientsData);
       
       // Check if we're in mock mode (all clients have mock IDs)
-      const mockMode = response.data.length > 0 && 
-        response.data.every((client: FacebookClient) => 
+      const mockMode = clientsData.length > 0 && 
+        clientsData.every((client: FacebookClient) => 
           client.page_name.includes('Sarah Johnson') || 
           client.page_name.includes('Mike Chen') || 
           client.page_name.includes('Davis Team')
         );
       setIsMockMode(mockMode);
       
-      if (response.data.length > 0 && !selectedClient) {
-        setSelectedClient(response.data[0].id);
+      if (clientsData.length > 0 && !selectedClient) {
+        setSelectedClient(clientsData[0].id);
       }
     } catch (error) {
       console.error('Failed to fetch clients:', error);
+      setClients([]);
     } finally {
       setLoading(false);
     }
