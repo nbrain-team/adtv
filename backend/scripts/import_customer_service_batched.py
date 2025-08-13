@@ -108,7 +108,7 @@ def process_keys_batch(bucket: str, batch_keys: List[str]) -> int:
 	"""Download and process a batch of S3 object keys. Returns imported count."""
 	# Build local map for this batch
 	by_stem: Dict[str, Dict[str, Path]] = {}
-	for key in batch_keys:
+	for i, key in enumerate(batch_keys, 1):
 		filename = key.split("/")[-1]
 		stem = Path(filename).stem
 		ext = Path(filename).suffix.lower()
@@ -117,10 +117,12 @@ def process_keys_batch(bucket: str, batch_keys: List[str]) -> int:
 		if stem not in by_stem:
 			by_stem[stem] = {}
 		by_stem[stem][ext] = local_path
+		if i % 10 == 0:
+			print(f"  - Downloaded {i}/{len(batch_keys)} objects in this batch...", flush=True)
 
 	db = SessionLocal()
 	imported = 0
-	for stem, files in by_stem.items():
+	for j, (stem, files) in enumerate(by_stem.items(), 1):
 		# Prefer a text file; else flatten JSON
 		text_file = None
 		for ext in SUPPORTED_TEXT_EXTS:
@@ -201,6 +203,8 @@ def process_keys_batch(bucket: str, batch_keys: List[str]) -> int:
 		}
 		pinecone_manager.upsert_chunks(chunks, metadata)
 		imported += 1
+		if imported % 10 == 0:
+			print(f"  - Imported {imported}/{len(by_stem)} records in this batch...", flush=True)
 
 	db.close()
 	return imported
