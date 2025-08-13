@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 
 from core.database import SessionLocal, CustomerServiceCommunication, Base, engine
 from core import pinecone_manager, processor
+from facebook_automation.models import FacebookClient  # Register ORM model for relationship resolution
 
 SUPPORTED_TEXT_EXTS = {".txt", ".pdf", ".docx"}
 SUPPORTED_META_EXTS = {".json", ".csv"}
