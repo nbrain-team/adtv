@@ -20,6 +20,7 @@ import ContactEnricherPage from './pages/ContactEnricherPage';
 import { AgreementSigningPage } from './pages/AgreementSigningPage';
 import FacebookAutomationPage from './pages/FacebookAutomationPage';
 import FacebookCallbackPage from './pages/FacebookCallbackPage';
+import CustomerServicePage from './pages/CustomerServicePage';
 
 // Define the structure for a message
 interface Message {
@@ -70,6 +71,11 @@ function App() {
             <Route path="/data-lake" element={
               <ProtectedRoute requiredPermission="data-lake">
                 <DataLakePage />
+              </ProtectedRoute>
+            } />
+            <Route path="/customer-service" element={
+              <ProtectedRoute requiredPermission="customer-service">
+                <CustomerServicePage />
               </ProtectedRoute>
             } />
             <Route path="/campaigns" element={

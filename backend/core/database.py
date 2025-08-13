@@ -344,6 +344,26 @@ class EmailTemplate(Base):
     # Relationship
     creator = relationship("User", back_populates="email_templates")
 
+class CustomerServiceCommunication(Base):
+    __tablename__ = "customer_service_communications"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    title = Column(String, nullable=True)
+    content = Column(Text, nullable=False)
+    category = Column(String, nullable=True)  # e.g., Billing, Technical, Onboarding
+    status = Column(String, nullable=True)    # e.g., Open, Resolved, Archived
+    channel = Column(String, nullable=True)   # e.g., Email, Chat, Phone, Podio
+    tags = Column(JSON, default=list)
+    podio_item_id = Column(String, nullable=True)
+    source_file = Column(String, nullable=True)
+    author = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Optional linkage to user who imported/owns the record
+    user_id = Column(String, ForeignKey("users.id"), nullable=True)
+    user = relationship("User")
+
 
 def get_db():
     """Dependency to get a DB session."""

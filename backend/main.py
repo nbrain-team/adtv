@@ -32,6 +32,7 @@ from contact_enricher.api import router as contact_enricher_router
 from core.campaign_routes import router as campaign_routes
 from core.agreements import router as agreements_router
 from facebook_automation.api import router as facebook_automation_router
+from core.customer_service_routes import router as customer_service_router
 
 
 load_dotenv()
@@ -66,6 +67,9 @@ class ConversationDetail(ConversationSummary):
 class ChatRequest(BaseModel):
     query: str
     history: List[dict] = []
+    file_names: Optional[List[str]] = None
+    doc_type: Optional[str] = None
+    prioritize_recent: bool = False
 
 class UserCreate(BaseModel):
     email: EmailStr
@@ -373,6 +377,7 @@ app.include_router(contact_enricher_router, prefix="/api/contact-enricher", tags
 app.include_router(campaign_routes, prefix="/api/campaigns", tags=["campaigns"])
 app.include_router(agreements_router, prefix="/api/agreements", tags=["agreements"])
 app.include_router(facebook_automation_router, prefix="/api/facebook-automation", tags=["facebook-automation"])
+app.include_router(customer_service_router, prefix="/api/customer-service", tags=["customer-service"])
 
 # Mount uploads directory for static file serving
 import os
@@ -475,7 +480,8 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
             "template-manager": True,  # Add template manager permission
             "contact-enricher": True,  # Add contact enricher permission
             "campaigns": True,  # Add campaigns permission
-            "facebook-automation": True  # Add facebook automation permission
+            "facebook-automation": True,  # Add facebook automation permission
+            "customer-service": True
         }
         db.commit()
         db.refresh(user)
@@ -644,7 +650,13 @@ async def chat_stream(req: ChatRequest, current_user: User = Depends(auth.get_cu
 
         try:
             # First, query the index to get relevant documents
-            matches = pinecone_manager.query_index(req.query, top_k=5)
+            matches = pinecone_manager.query_index(
+                req.query,
+                top_k=5,
+                file_names=req.file_names,
+                doc_type=req.doc_type,
+                prioritize_recent=req.prioritize_recent
+            )
             source_documents = [{"source": m.get('metadata', {}).get('source')} for m in matches]
 
             # Now, stream the answer from the LLM with context

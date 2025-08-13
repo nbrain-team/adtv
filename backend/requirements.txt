@@ -35,3 +35,4 @@ moviepy
 reportlab
 httpx
 # Rebuild triggered at 2025-07-23T13:46:23.332901
+boto3

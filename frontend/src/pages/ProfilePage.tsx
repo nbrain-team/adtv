@@ -38,6 +38,7 @@ const MODULES = [
     { key: 'knowledge', name: 'Knowledge Base' },
     { key: 'agents', name: 'Agents' },
     { key: 'data-lake', name: 'Data Lake' },
+    { key: 'customer-service', name: 'Customer Service' },
     { key: 'campaigns', name: 'Marketing Campaigns' },
 ];
 

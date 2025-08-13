@@ -44,6 +44,13 @@ const LandingPage = () => {
             permission: "data-lake"
         },
         {
+            icon: "/new-icons/15.png",
+            title: "Customer Service",
+            description: "Search and manage customer service communications and answers.",
+            path: "/customer-service",
+            permission: "customer-service"
+        },
+        {
             icon: "/new-icons/facebook-icon.png",
             title: "Facebook Automation",
             description: "Convert organic posts into high-performing ads automatically.",

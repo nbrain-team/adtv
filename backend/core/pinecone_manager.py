@@ -2,7 +2,9 @@ import os
 from pinecone import Pinecone
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_pinecone import Pinecone as LangchainPinecone
-from typing import List
+from typing import List, Optional
+from datetime import datetime, timezone
+import math
 
 # --- Environment Setup ---
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
@@ -43,6 +45,8 @@ def upsert_chunks(chunks: List[str], metadata: dict):
     for i, chunk in enumerate(chunks):
         doc_metadata = metadata.copy()
         doc_metadata["text"] = chunk
+        if "created_at" not in doc_metadata:
+            doc_metadata["created_at"] = datetime.now(timezone.utc).isoformat()
         docs_with_metadata.append(doc_metadata)
 
     LangchainPinecone.from_texts(
@@ -89,20 +93,33 @@ def delete_document(file_name: str):
     index = _get_pinecone_index()
     index.delete(filter={"source": file_name})
 
-def query_index(query: str, top_k: int = 10, file_names: List[str] = None):
+def query_index(
+    query: str,
+    top_k: int = 10,
+    file_names: List[str] = None,
+    doc_type: Optional[str] = None,
+    prioritize_recent: bool = False,
+    recency_half_life_days: int = 180
+):
     """
     Queries the index with a question and returns the most relevant text chunks
-    and their source documents.
-    Initializes clients on-the-fly for stability.
+    and their source documents. Supports optional filtering by doc_type and
+    an optional recency boost that favors newer content.
     """
     index = _get_pinecone_index()
     embeddings = _get_embedding_model()
     
     query_embedding = embeddings.embed_query(query)
     
+    # Build filter
     filter_metadata = None
     if file_names:
         filter_metadata = {"source": {"$in": file_names}}
+    if doc_type:
+        if filter_metadata is None:
+            filter_metadata = {"doc_type": doc_type}
+        else:
+            filter_metadata["doc_type"] = doc_type
 
     results = index.query(
         vector=query_embedding,
@@ -110,5 +127,38 @@ def query_index(query: str, top_k: int = 10, file_names: List[str] = None):
         include_metadata=True,
         filter=filter_metadata
     )
-    
-    return results.get('matches', []) 
+    matches = results.get('matches', [])
+
+    if not prioritize_recent or not matches:
+        return matches
+
+    # Recency boost: exponential decay by age in days; newer gets higher boost
+    now = datetime.now(timezone.utc)
+    half_life = max(1, recency_half_life_days)
+    lambda_decay = math.log(2) / (half_life)
+
+    def parse_date(meta_value):
+        try:
+            # Accept ISO strings; fallback to naive datetime parsed as UTC
+            if isinstance(meta_value, str):
+                return datetime.fromisoformat(meta_value.replace('Z', '+00:00'))
+            return meta_value
+        except Exception:
+            return None
+
+    boosted = []
+    for m in matches:
+        score = m.get('score', 0.0)
+        meta = m.get('metadata', {}) or {}
+        dt = parse_date(meta.get('created_at') or meta.get('updated_at'))
+        if isinstance(dt, datetime):
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            age_days = max(0.0, (now - dt).total_seconds() / 86400.0)
+            recency = math.exp(-lambda_decay * age_days)
+        else:
+            recency = 1.0
+        boosted.append((score * (0.7 + 0.3 * recency), m))
+
+    boosted.sort(key=lambda x: x[0], reverse=True)
+    return [m for _, m in boosted] 
