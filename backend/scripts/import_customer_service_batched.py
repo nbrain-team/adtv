@@ -13,6 +13,7 @@ from core.database import SessionLocal, CustomerServiceCommunication, Base, engi
 from core import pinecone_manager, processor
 from facebook_automation.models import FacebookClient  # Register ORM model for relationship resolution
 
+VECTORIZE = os.getenv("VECTORIZE", "0").lower() in {"1", "true", "yes", "y"}
 SUPPORTED_TEXT_EXTS = {".txt", ".pdf", ".docx"}
 SUPPORTED_META_EXTS = {".json", ".csv"}
 DOWNLOAD_DIR = Path(__file__).parent.parent / "uploads" / "customer_service"
@@ -202,7 +203,17 @@ def process_keys_batch(bucket: str, batch_keys: List[str]) -> int:
 			"status": status,
 			"tags": tags,
 		}
-		pinecone_manager.upsert_chunks(chunks, metadata)
+		if VECTORIZE:
+			# Sanitize metadata for Pinecone (no nulls; lists must be list of strings)
+			meta_sanitized = dict(metadata)
+			if meta_sanitized.get("category") is None:
+				meta_sanitized["category"] = ""
+			if meta_sanitized.get("status") is None:
+				meta_sanitized["status"] = ""
+			if meta_sanitized.get("tags") is None:
+				meta_sanitized["tags"] = []
+			meta_sanitized["tags"] = [str(t) for t in meta_sanitized.get("tags", [])]
+			pinecone_manager.upsert_chunks(chunks, meta_sanitized)
 		imported += 1
 		if imported % 10 == 0:
 			print(f"  - Imported {imported}/{len(by_stem)} records in this batch...", flush=True)

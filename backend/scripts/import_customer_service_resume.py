@@ -13,6 +13,7 @@ from core.database import SessionLocal, CustomerServiceCommunication, Base, engi
 from core import pinecone_manager, processor
 from facebook_automation.models import FacebookClient  # Ensure model registration for relationships
 
+VECTORIZE = os.getenv("VECTORIZE", "0").lower() in {"1", "true", "yes", "y"}
 SUPPORTED_TEXT_EXTS = {".txt", ".pdf", ".docx"}
 SUPPORTED_META_EXTS = {".json", ".csv"}
 DOWNLOAD_DIR = Path(__file__).parent.parent / "uploads" / "customer_service"
@@ -232,7 +233,16 @@ def process_stem(bucket: str, stem: str, files: Dict[str, str]) -> bool:
 		"status": status,
 		"tags": tags,
 	}
-	pinecone_manager.upsert_chunks(chunks, metadata)
+	if VECTORIZE:
+		meta_sanitized = dict(metadata)
+		if meta_sanitized.get("category") is None:
+			meta_sanitized["category"] = ""
+		if meta_sanitized.get("status") is None:
+			meta_sanitized["status"] = ""
+		if meta_sanitized.get("tags") is None:
+			meta_sanitized["tags"] = []
+		meta_sanitized["tags"] = [str(t) for t in meta_sanitized.get("tags", [])]
+		pinecone_manager.upsert_chunks(chunks, meta_sanitized)
 	return True
 
 
