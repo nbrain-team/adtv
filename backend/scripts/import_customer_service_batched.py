@@ -166,7 +166,17 @@ def process_keys_batch(bucket: str, batch_keys: List[str]) -> int:
 		tags = meta.get("tags") or []
 		if isinstance(tags, str):
 			tags = [t.strip() for t in tags.split(",") if t.strip()]
+		# Normalize tags to list of strings
+		tags = [(
+			t.get("name") if isinstance(t, dict) and "name" in t else (
+				t.get("text") if isinstance(t, dict) and "text" in t else str(t)
+			)
+		) for t in tags]
 		author = meta.get("author") or meta.get("created_by")
+		if isinstance(author, dict):
+			author = author.get("name") or author.get("id") or author.get("email") or json.dumps(author, ensure_ascii=False)[:255]
+		elif author is not None and not isinstance(author, str):
+			author = str(author)
 		podio_item_id = str(meta.get("item_id") or meta.get("podio_id") or "") or None
 
 		created_at = None
