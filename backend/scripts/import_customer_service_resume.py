@@ -108,17 +108,33 @@ def flatten_json_to_text(data: dict, prefix: str = "") -> List[str]:
 	return lines
 
 
-def build_stem_map(keys: List[str]) -> Dict[str, Dict[str, str]]:
-	"""Return mapping: stem -> {ext: s3_key}"""
-	stem_map: Dict[str, Dict[str, str]] = {}
-	for key in keys:
-		filename = key.split("/")[-1]
-		stem = Path(filename).stem
-		ext = Path(filename).suffix.lower()
-		if stem not in stem_map:
-			stem_map[stem] = {}
-		stem_map[stem][ext] = key
-	return stem_map
+def build_stem_map(keys: List[str], prefix: str) -> Dict[str, Dict[str, str]]:
+    """Return mapping: dir-stem (immediate folder under prefix) -> {ext: s3_key}
+    Example: output/1312892502/record.json and output/1312892502/activity.json -> stem '1312892502'
+    """
+    # Normalize prefix to ensure trailing slash logic
+    norm_prefix = prefix if prefix.endswith('/') else prefix + '/'
+    stem_map: Dict[str, Dict[str, str]] = {}
+    for key in keys:
+        # Compute relative path after prefix
+        rel = key[len(norm_prefix):] if key.startswith(norm_prefix) else key
+        rel = rel.lstrip('/')
+        parts = rel.split('/')
+        if len(parts) >= 2:
+            stem = parts[0]  # immediate directory name under prefix
+            filename = parts[-1]
+        else:
+            # Fallback to filename-based stem
+            filename = parts[-1]
+            stem = Path(filename).stem
+        ext = Path(filename).suffix.lower()
+        # Skip hidden/system files
+        if filename == '.DS_Store':
+            continue
+        if stem not in stem_map:
+            stem_map[stem] = {}
+        stem_map[stem][ext] = key
+    return stem_map
 
 
 def load_processed_stems(state_file: Path) -> set:
@@ -271,7 +287,7 @@ def main():
 
 	print(f"Listing S3 objects from s3://{bucket}/{prefix} ...", flush=True)
 	keys = list_objects(bucket, prefix)
-	stem_map = build_stem_map(keys)
+	stem_map = build_stem_map(keys, prefix)
 	stems_sorted = sorted(stem_map.keys())
 	print(f"Found {len(stems_sorted)} stems total", flush=True)
 
