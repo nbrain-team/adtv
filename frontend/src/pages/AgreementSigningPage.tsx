@@ -2,9 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import {
     Box, Card, Flex, Text, Button, TextField, Checkbox,
-    Heading, Separator, Badge, Container
+    Heading, Container
 } from '@radix-ui/themes';
-import { CheckCircledIcon, FileTextIcon, CalendarIcon } from '@radix-ui/react-icons';
+import { CheckCircledIcon, FileTextIcon } from '@radix-ui/react-icons';
 import api from '../api';
 import SignatureCanvas from 'react-signature-canvas';
 const SigCanvas: any = SignatureCanvas as unknown as any;
@@ -180,218 +180,58 @@ export const AgreementSigningPage: React.FC = () => {
     }
 
     return (
-        <div style={{
-            minHeight: '100vh',
-            backgroundImage: 'url(/esign-template-images/background.jpg)',
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            backgroundRepeat: 'no-repeat'
-        }}>
-        <Container size="3" style={{ padding: '2rem' }}>
-            <Card>
-                {/* Header */}
-                <Box style={{ padding: '2rem', backgroundColor: 'rgba(10, 46, 94, 0.85)', color: 'white', borderBottom: '1px solid var(--gray-4)' }}>
-                    <Flex align="center" justify="between">
-                        <Box>
-                            <img src="/esign-template-images/logo.png" alt="Logo" style={{ height: 48, marginBottom: '0.5rem' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                            <Heading size="7" style={{ color: 'white' }}>Service Agreement</Heading>
-                            <Text size="3" style={{ marginTop: '0.5rem', color: 'rgba(255,255,255,0.85)' }}>
-                                {agreement.campaign_name}
-                            </Text>
-                        </Box>
-                        <Badge size="2" color="indigo">
-                            <CalendarIcon />
-                            {agreement.start_date}
-                        </Badge>
-                    </Flex>
-                </Box>
-
-                {/* Agreement Content */}
-                <Box style={{ padding: '2rem' }}>
-                    <Flex direction="column" gap="4">
-                        {/* Party Information */}
-                        <Box>
-                            <Heading size="4" mb="3">Agreement Between</Heading>
-                            <Card style={{ backgroundColor: 'var(--gray-1)' }}>
-                                <Flex direction="column" gap="2">
-                                    <Flex justify="between">
-                                        <Text weight="medium">Service Provider:</Text>
-                                        <Text>ADTV Corporation</Text>
+        <div style={{ minHeight: '100vh' }}>
+            <div style={{ position: 'relative' }}>
+                <iframe
+                    title="agreement-template"
+                    src="/agreements/template.html"
+                    style={{ width: '100%', height: '1800px', border: 'none', background: 'transparent' }}
+                />
+                {/* Overlay signature controls at the bottom to match template flow */}
+                <div style={{ position: 'absolute', left: 0, right: 0, bottom: 24, display: 'flex', justifyContent: 'center' }}>
+                    <Card style={{ maxWidth: 900, width: '95%', padding: 16 }}>
+                        <Flex direction="column" gap="3">
+                            <Flex gap="2">
+                                <Button variant={signatureType === 'typed' ? 'solid' : 'soft'} onClick={() => setSignatureType('typed')}>Type</Button>
+                                <Button variant={signatureType === 'drawn' ? 'solid' : 'soft'} onClick={() => setSignatureType('drawn')}>Draw</Button>
+                            </Flex>
+                            {signatureType === 'typed' ? (
+                                <TextField.Root
+                                    size="3"
+                                    placeholder="Type your full legal name"
+                                    value={signature}
+                                    onChange={(e) => setSignature(e.target.value)}
+                                    style={{ fontFamily: 'cursive', fontSize: '1.5rem', fontStyle: 'italic' }}
+                                />
+                            ) : (
+                                <Box style={{ backgroundColor: 'white', border: '1px solid var(--gray-5)', borderRadius: 8, padding: 8 }}>
+                                    <SigCanvas
+                                        ref={sigPad}
+                                        penColor="#111"
+                                        canvasProps={{ width: 800, height: 200, style: { width: '100%', height: 200 } }}
+                                    />
+                                    <Flex mt="2" gap="2">
+                                        <Button variant="soft" onClick={() => sigPad.current?.clear()}>Clear</Button>
                                     </Flex>
-                                    <Flex justify="between">
-                                        <Text weight="medium">Client:</Text>
-                                        <Text>{agreement.contact_name}</Text>
-                                    </Flex>
-                                    <Flex justify="between">
-                                        <Text weight="medium">Company:</Text>
-                                        <Text>{agreement.company || 'N/A'}</Text>
-                                    </Flex>
-                                    <Flex justify="between">
-                                        <Text weight="medium">Email:</Text>
-                                        <Text>{agreement.contact_email}</Text>
-                                    </Flex>
-                                </Flex>
-                            </Card>
-                        </Box>
-
-                        <Separator />
-
-                        {/* Service Details */}
-                        <Box>
-                            <Heading size="4" mb="3">Service Details</Heading>
-                            <Card style={{ backgroundColor: 'var(--gray-1)' }}>
-                                <Flex direction="column" gap="3">
-                                    <Box>
-                                        <Text size="2" weight="medium" color="gray">Service Type</Text>
-                                        <Text size="3">ADTV Marketing & Advertising Services</Text>
-                                    </Box>
-                                    <Box>
-                                        <Text size="2" weight="medium" color="gray">Service Start Date</Text>
-                                        <Text size="3">{agreement.start_date}</Text>
-                                    </Box>
-                                </Flex>
-                            </Card>
-                        </Box>
-
-                        <Separator />
-
-                        {/* Pricing */}
-                        <Box>
-                            <Heading size="4" mb="3">Investment</Heading>
-                            <Card style={{ backgroundColor: 'var(--blue-1)' }}>
-                                <Flex direction="column" gap="3">
-                                    <Flex justify="between" align="center">
-                                        <Box>
-                                            <Text weight="medium">One-time Setup Fee</Text>
-                                            <Text size="1" color="gray">Due upon signing</Text>
-                                        </Box>
-                                        <Text size="5" weight="bold">${agreement.setup_fee}</Text>
-                                    </Flex>
-                                    <Separator />
-                                    <Flex justify="between" align="center">
-                                        <Box>
-                                            <Text weight="medium">Monthly Service Fee</Text>
-                                            <Text size="1" color="gray">Recurring monthly charge</Text>
-                                        </Box>
-                                        <Text size="5" weight="bold">${agreement.monthly_fee}/mo</Text>
-                                    </Flex>
-                                </Flex>
-                            </Card>
-                        </Box>
-
-                        <Separator />
-
-                        {/* Terms & Conditions */}
-                        <Box>
-                            <Heading size="4" mb="3">Terms & Conditions</Heading>
-                            <Card style={{ backgroundColor: 'var(--gray-1)', maxHeight: '300px', overflow: 'auto' }}>
-                                <Text size="2" style={{ lineHeight: 1.6 }}>
-                                    <strong>1. Services:</strong> ADTV Corporation ("Provider") agrees to provide marketing and advertising services as outlined in the campaign details.<br/><br/>
-                                    
-                                    <strong>2. Payment Terms:</strong> Client agrees to pay the one-time setup fee upon signing this agreement and the monthly service fee on a recurring basis. Payments are due on the same date each month.<br/><br/>
-                                    
-                                    <strong>3. Term:</strong> This agreement shall commence on the Start Date specified above and continue on a month-to-month basis until terminated by either party with 30 days written notice.<br/><br/>
-                                    
-                                    <strong>4. Cancellation:</strong> Either party may cancel this agreement with 30 days written notice. Setup fees are non-refundable. Monthly fees are prorated based on the cancellation date.<br/><br/>
-                                    
-                                    <strong>5. Confidentiality:</strong> Both parties agree to maintain confidentiality of proprietary information shared during the course of this agreement.<br/><br/>
-                                    
-                                    <strong>6. Liability:</strong> Provider's liability is limited to the amount of fees paid by Client in the preceding month.<br/><br/>
-                                    
-                                    <strong>7. Governing Law:</strong> This agreement shall be governed by the laws of the state in which the Provider is incorporated.
-                                </Text>
-                            </Card>
-                        </Box>
-
-                        <Separator />
-
-                        {/* Signature Section */}
-                        <Box>
-                            <Heading size="4" mb="3">Electronic Signature</Heading>
-                            <Card style={{ backgroundColor: 'var(--gray-1)' }}>
-                                <Flex direction="column" gap="3">
-                                    <Flex gap="2">
-                                        <Button variant={signatureType === 'typed' ? 'solid' : 'soft'} onClick={() => setSignatureType('typed')}>Type</Button>
-                                        <Button variant={signatureType === 'drawn' ? 'solid' : 'soft'} onClick={() => setSignatureType('drawn')}>Draw</Button>
-                                    </Flex>
-
-                                    {signatureType === 'typed' ? (
-                                        <Box>
-                                            <Text size="2" weight="medium" mb="2">
-                                                Type your full legal name to sign this agreement
-                                            </Text>
-                                            <TextField.Root
-                                                size="3"
-                                                placeholder="Enter your full name"
-                                                value={signature}
-                                                onChange={(e) => setSignature(e.target.value)}
-                                                style={{ 
-                                                    fontFamily: 'cursive', 
-                                                    fontSize: '1.5rem',
-                                                    fontStyle: 'italic'
-                                                }}
-                                            />
-                                        </Box>
-                                    ) : (
-                                        <Box>
-                                            <Text size="2" weight="medium" mb="2">
-                                                Draw your signature below
-                                            </Text>
-                                            <Box style={{ backgroundColor: 'white', border: '1px solid var(--gray-5)', borderRadius: 8, padding: 8 }}>
-                                                <SigCanvas
-                                                    ref={sigPad}
-                                                    penColor="#111"
-                                                    canvasProps={{ width: 640, height: 200, style: { width: '100%', height: 200 } }}
-                                                />
-                                            </Box>
-                                            <Flex mt="2" gap="2">
-                                                <Button variant="soft" onClick={() => sigPad.current?.clear()}>Clear</Button>
-                                            </Flex>
-                                        </Box>
-                                    )}
-                                    
-                                    <Box>
-                                        <Text size="2" color="gray">
-                                            Signing Date: {signatureDate}
-                                        </Text>
-                                    </Box>
-
-                                    <Box>
-                                        <Flex align="center" gap="2">
-                                            <Checkbox 
-                                                checked={termsAccepted}
-                                                onCheckedChange={(checked) => setTermsAccepted(checked as boolean)}
-                                            />
-                                            <Text size="2">
-                                                I have read and agree to the terms and conditions of this agreement
-                                            </Text>
-                                        </Flex>
-                                    </Box>
-                                </Flex>
-                            </Card>
-                        </Box>
-
-                        {/* Action Buttons */}
-                        <Flex gap="3" justify="end" mt="4">
-                            <Button 
-                                size="3"
-                                variant="soft"
-                                onClick={() => window.print()}
-                            >
-                                Print Agreement
-                            </Button>
-                            <Button 
-                                size="3"
-                                disabled={(!termsAccepted) || (signatureType === 'typed' && !signature) || (signatureType === 'drawn' && !!sigPad.current && sigPad.current.isEmpty()) || signing}
-                                onClick={handleSign}
-                            >
-                                {signing ? 'Signing...' : 'Sign Agreement'}
-                            </Button>
+                                </Box>
+                            )}
+                            <Flex align="center" gap="2">
+                                <Checkbox checked={termsAccepted} onCheckedChange={(c) => setTermsAccepted(c as boolean)} />
+                                <Text size="2">I agree to the terms and conditions</Text>
+                            </Flex>
+                            <Flex justify="end" gap="3">
+                                <Button variant="soft" onClick={() => window.print()}>Print</Button>
+                                <Button
+                                    disabled={(!termsAccepted) || (signatureType === 'typed' && !signature) || (signatureType === 'drawn' && !!sigPad.current && sigPad.current.isEmpty()) || signing}
+                                    onClick={handleSign}
+                                >
+                                    {signing ? 'Signing...' : 'Sign Agreement'}
+                                </Button>
+                            </Flex>
                         </Flex>
-                    </Flex>
-                </Box>
-            </Card>
-        </Container>
+                    </Card>
+                </div>
+            </div>
         </div>
     );
 }; 
