@@ -19,7 +19,8 @@ import base64
 
 from .database import get_db, Base, engine
 
-router = APIRouter(prefix="/api/agreements", tags=["agreements"])
+# Define router without a prefix; the app includes it with "/api/agreements"
+router = APIRouter(tags=["agreements"])
 
 # Database Model
 class Agreement(Base):
@@ -108,6 +109,16 @@ async def mark_agreement_viewed(
     if agreement.status == "pending":
         agreement.status = "viewed"
         agreement.viewed_at = datetime.utcnow()
+        
+        # Update related campaign contact if available
+        try:
+            from .database import CampaignContact
+            contact = db.query(CampaignContact).filter(CampaignContact.id == agreement.contact_id).first()
+            if contact and getattr(contact, 'agreement_status', None) is not None:
+                contact.agreement_status = 'viewed'
+        except Exception:
+            pass
+        
         db.commit()
     
     return {"status": "viewed"}
@@ -137,6 +148,17 @@ async def sign_agreement(
     # Generate PDF
     pdf_buffer = generate_agreement_pdf(agreement)
     agreement.pdf_data = base64.b64encode(pdf_buffer.getvalue()).decode('utf-8')
+    
+    # Update related campaign contact if available
+    try:
+        from .database import CampaignContact
+        contact = db.query(CampaignContact).filter(CampaignContact.id == agreement.contact_id).first()
+        if contact and getattr(contact, 'agreement_status', None) is not None:
+            contact.agreement_status = 'signed'
+            if hasattr(contact, 'agreement_signed_at'):
+                contact.agreement_signed_at = agreement.signed_at
+    except Exception:
+        pass
     
     db.commit()
     
