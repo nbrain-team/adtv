@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { useParams } from 'react-router-dom';
 import {
     Box, Card, Flex, Text, Button, TextField, Checkbox,
     Heading, Separator, Badge, Container
 } from '@radix-ui/themes';
 import { CheckCircledIcon, FileTextIcon, CalendarIcon } from '@radix-ui/react-icons';
 import api from '../api';
+import SignatureCanvas from 'react-signature-canvas';
+const SigCanvas: any = SignatureCanvas as unknown as any;
 
 interface AgreementData {
     id: string;
@@ -23,16 +25,16 @@ interface AgreementData {
 
 export const AgreementSigningPage: React.FC = () => {
     const { agreementId } = useParams<{ agreementId: string }>();
-    const navigate = useNavigate();
     
     const [agreement, setAgreement] = useState<AgreementData | null>(null);
     const [loading, setLoading] = useState(true);
     const [signing, setSigning] = useState(false);
     const [signature, setSignature] = useState('');
-    const [signatureDate, setSignatureDate] = useState(new Date().toLocaleDateString());
+    const signatureDate = new Date().toLocaleDateString();
     const [termsAccepted, setTermsAccepted] = useState(false);
     const [signatureType, setSignatureType] = useState<'typed' | 'drawn'>('typed');
     const [showSuccess, setShowSuccess] = useState(false);
+    const sigPad = useRef<SignatureCanvas | null>(null);
 
     useEffect(() => {
         if (agreementId) {
@@ -58,21 +60,36 @@ export const AgreementSigningPage: React.FC = () => {
     };
 
     const handleSign = async () => {
-        if (!signature || !termsAccepted) {
-            alert('Please provide your signature and accept the terms.');
+        // Validate
+        if (!termsAccepted) {
+            alert('Please accept the terms to continue.');
             return;
+        }
+        if (signatureType === 'typed' && !signature) {
+            alert('Please type your full name as your signature.');
+            return;
+        }
+        if (signatureType === 'drawn' && (!sigPad.current || sigPad.current.isEmpty())) {
+            alert('Please draw your signature.');
+            return;
+        }
+
+        // Prepare payload
+        let signaturePayload = signature;
+        if (signatureType === 'drawn' && sigPad.current) {
+            signaturePayload = sigPad.current.getTrimmedCanvas().toDataURL('image/png');
         }
 
         setSigning(true);
         try {
-            const response = await api.post(`/api/agreements/${agreementId}/sign`, {
-                signature,
+            await api.post(`/api/agreements/${agreementId}/sign`, {
+                signature: signaturePayload,
                 signature_type: signatureType,
                 signed_date: signatureDate
             });
 
             setShowSuccess(true);
-            setAgreement({ ...agreement!, status: 'signed', signature });
+            setAgreement({ ...agreement!, status: 'signed', signature: signaturePayload });
 
             // Download PDF automatically
             const pdfResponse = await api.get(`/api/agreements/${agreementId}/pdf`, {
@@ -163,18 +180,26 @@ export const AgreementSigningPage: React.FC = () => {
     }
 
     return (
+        <div style={{
+            minHeight: '100vh',
+            backgroundImage: 'url(/esign-template-images/background.jpg)',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat'
+        }}>
         <Container size="3" style={{ padding: '2rem' }}>
             <Card>
                 {/* Header */}
-                <Box style={{ padding: '2rem', backgroundColor: 'var(--blue-2)', borderBottom: '1px solid var(--gray-4)' }}>
+                <Box style={{ padding: '2rem', backgroundColor: 'rgba(10, 46, 94, 0.85)', color: 'white', borderBottom: '1px solid var(--gray-4)' }}>
                     <Flex align="center" justify="between">
                         <Box>
-                            <Heading size="7">Service Agreement</Heading>
-                            <Text size="3" color="gray" style={{ marginTop: '0.5rem' }}>
+                            <img src="/esign-template-images/logo.png" alt="Logo" style={{ height: 48, marginBottom: '0.5rem' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                            <Heading size="7" style={{ color: 'white' }}>Service Agreement</Heading>
+                            <Text size="3" style={{ marginTop: '0.5rem', color: 'rgba(255,255,255,0.85)' }}>
                                 {agreement.campaign_name}
                             </Text>
                         </Box>
-                        <Badge size="2" color="blue">
+                        <Badge size="2" color="indigo">
                             <CalendarIcon />
                             {agreement.start_date}
                         </Badge>
@@ -285,22 +310,45 @@ export const AgreementSigningPage: React.FC = () => {
                             <Heading size="4" mb="3">Electronic Signature</Heading>
                             <Card style={{ backgroundColor: 'var(--gray-1)' }}>
                                 <Flex direction="column" gap="3">
-                                    <Box>
-                                        <Text size="2" weight="medium" mb="2">
-                                            Type your full legal name to sign this agreement
-                                        </Text>
-                                        <TextField.Root
-                                            size="3"
-                                            placeholder="Enter your full name"
-                                            value={signature}
-                                            onChange={(e) => setSignature(e.target.value)}
-                                            style={{ 
-                                                fontFamily: 'cursive', 
-                                                fontSize: '1.5rem',
-                                                fontStyle: 'italic'
-                                            }}
-                                        />
-                                    </Box>
+                                    <Flex gap="2">
+                                        <Button variant={signatureType === 'typed' ? 'solid' : 'soft'} onClick={() => setSignatureType('typed')}>Type</Button>
+                                        <Button variant={signatureType === 'drawn' ? 'solid' : 'soft'} onClick={() => setSignatureType('drawn')}>Draw</Button>
+                                    </Flex>
+
+                                    {signatureType === 'typed' ? (
+                                        <Box>
+                                            <Text size="2" weight="medium" mb="2">
+                                                Type your full legal name to sign this agreement
+                                            </Text>
+                                            <TextField.Root
+                                                size="3"
+                                                placeholder="Enter your full name"
+                                                value={signature}
+                                                onChange={(e) => setSignature(e.target.value)}
+                                                style={{ 
+                                                    fontFamily: 'cursive', 
+                                                    fontSize: '1.5rem',
+                                                    fontStyle: 'italic'
+                                                }}
+                                            />
+                                        </Box>
+                                    ) : (
+                                        <Box>
+                                            <Text size="2" weight="medium" mb="2">
+                                                Draw your signature below
+                                            </Text>
+                                            <Box style={{ backgroundColor: 'white', border: '1px solid var(--gray-5)', borderRadius: 8, padding: 8 }}>
+                                                <SigCanvas
+                                                    ref={sigPad}
+                                                    penColor="#111"
+                                                    canvasProps={{ width: 640, height: 200, style: { width: '100%', height: 200 } }}
+                                                />
+                                            </Box>
+                                            <Flex mt="2" gap="2">
+                                                <Button variant="soft" onClick={() => sigPad.current?.clear()}>Clear</Button>
+                                            </Flex>
+                                        </Box>
+                                    )}
                                     
                                     <Box>
                                         <Text size="2" color="gray">
@@ -334,7 +382,7 @@ export const AgreementSigningPage: React.FC = () => {
                             </Button>
                             <Button 
                                 size="3"
-                                disabled={!signature || !termsAccepted || signing}
+                                disabled={(!termsAccepted) || (signatureType === 'typed' && !signature) || (signatureType === 'drawn' && !!sigPad.current && sigPad.current.isEmpty()) || signing}
                                 onClick={handleSign}
                             >
                                 {signing ? 'Signing...' : 'Sign Agreement'}
@@ -344,5 +392,6 @@ export const AgreementSigningPage: React.FC = () => {
                 </Box>
             </Card>
         </Container>
+        </div>
     );
 }; 

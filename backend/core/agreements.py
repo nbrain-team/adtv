@@ -314,25 +314,60 @@ def generate_agreement_pdf(agreement: Agreement) -> io.BytesIO:
     # Signature Section
     if agreement.status == "signed":
         elements.append(Paragraph("ELECTRONIC SIGNATURE", heading_style))
-        sig_data = [
-            ['Signed By:', agreement.signature or ''],
-            ['Date:', agreement.signed_date or ''],
-            ['Timestamp:', agreement.signed_at.strftime('%Y-%m-%d %H:%M:%S UTC') if agreement.signed_at else '']
-        ]
-        sig_table = Table(sig_data, colWidths=[2*inch, 4*inch])
-        sig_table.setStyle(TableStyle([
-            ('FONT', (0, 0), (0, -1), 'Helvetica-Bold', 10),
-            ('FONT', (1, 0), (1, -1), 'Helvetica', 10),
-            ('FONT', (1, 0), (1, 0), 'Helvetica-Oblique', 14),  # Signature in italic
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#d4f4dd')),
-            ('LEFTPADDING', (0, 0), (-1, -1), 10),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 10),
-            ('TOPPADDING', (0, 0), (-1, -1), 5),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-        ]))
-        elements.append(sig_table)
+        # If the signature was drawn, embed the image into the PDF
+        if getattr(agreement, 'signature_type', 'typed') == 'drawn' and isinstance(agreement.signature, str) and agreement.signature.startswith('data:image'):
+            # Metadata table first
+            sig_meta = [
+                ['Signed By:', agreement.contact_name or ''],
+                ['Date:', agreement.signed_date or ''],
+                ['Timestamp:', agreement.signed_at.strftime('%Y-%m-%d %H:%M:%S UTC') if agreement.signed_at else '']
+            ]
+            sig_meta_table = Table(sig_meta, colWidths=[2*inch, 4*inch])
+            sig_meta_table.setStyle(TableStyle([
+                ('FONT', (0, 0), (0, -1), 'Helvetica-Bold', 10),
+                ('FONT', (1, 0), (1, -1), 'Helvetica', 10),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#d4f4dd')),
+                ('LEFTPADDING', (0, 0), (-1, -1), 10),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 10),
+                ('TOPPADDING', (0, 0), (-1, -1), 5),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+            ]))
+            elements.append(sig_meta_table)
+            elements.append(Spacer(1, 0.15*inch))
+            # Decode data URI to image
+            try:
+                header, b64data = agreement.signature.split(',', 1)
+                img_bytes = base64.b64decode(b64data)
+                img_buf = io.BytesIO(img_bytes)
+                # Reasonable size for signature image
+                sig_img = Image(img_buf, width=3.5*inch, height=1.1*inch)
+                elements.append(sig_img)
+            except Exception:
+                # Fallback to printing a placeholder if image decode fails
+                elements.append(Paragraph("[Signature Image]", normal_style))
+        else:
+            # Typed signature: render the typed name in italic
+            sig_data = [
+                ['Signed By:', (agreement.signature or '').strip() or (agreement.contact_name or '')],
+                ['Date:', agreement.signed_date or ''],
+                ['Timestamp:', agreement.signed_at.strftime('%Y-%m-%d %H:%M:%S UTC') if agreement.signed_at else '']
+            ]
+            sig_table = Table(sig_data, colWidths=[2*inch, 4*inch])
+            sig_table.setStyle(TableStyle([
+                ('FONT', (0, 0), (0, -1), 'Helvetica-Bold', 10),
+                ('FONT', (1, 0), (1, -1), 'Helvetica', 10),
+                ('FONT', (1, 0), (1, 0), 'Helvetica-Oblique', 14),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#d4f4dd')),
+                ('LEFTPADDING', (0, 0), (-1, -1), 10),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 10),
+                ('TOPPADDING', (0, 0), (-1, -1), 5),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+            ]))
+            elements.append(sig_table)
     else:
         elements.append(Paragraph("UNSIGNED AGREEMENT - PREVIEW ONLY", heading_style))
     
