@@ -30,6 +30,9 @@ class FacebookAutomationService:
         try:
             # Check if Facebook API is configured
             use_mock_data = not facebook_service.app_id or not facebook_service.app_secret
+            # If a marketing API token is configured, prefer real mode
+            if facebook_service.marketing_api_token:
+                use_mock_data = False
             
             if use_mock_data:
                 # Use mock data for testing
@@ -64,10 +67,14 @@ class FacebookAutomationService:
                 return client
             
             # Original implementation for real Facebook API
-            # Exchange auth code for access token
-            token_data = await facebook_service.exchange_token(auth_code)
-            access_token = token_data["access_token"]
-            expires_in = token_data.get("expires_in", 5184000)  # 60 days default
+            # If we have a marketing API token, use it; otherwise exchange code
+            if facebook_service.marketing_api_token:
+                access_token = facebook_service.marketing_api_token
+                expires_in = 5184000
+            else:
+                token_data = await facebook_service.exchange_token(auth_code)
+                access_token = token_data["access_token"]
+                expires_in = token_data.get("expires_in", 5184000)  # 60 days default
             
             # Get user pages
             pages = await facebook_service.get_user_pages(access_token)
@@ -88,18 +95,22 @@ class FacebookAutomationService:
             ).first()
             
             if not client:
+                # If page access token is not present and we used a system token, fetch it
+                page_access_token = page.get("access_token")
+                if not page_access_token and facebook_service.marketing_api_token:
+                    page_access_token = await facebook_service.get_page_access_token(page["id"], access_token)
                 client = models.FacebookClient(
                     user_id=user_id,
                     facebook_user_id=page["id"],  # Using page ID as user ID for now
                     facebook_page_id=page["id"],
                     page_name=page["name"],
-                    page_access_token=page["access_token"],
+                    page_access_token=page_access_token or page["access_token"],
                     ad_account_id=ad_account["id"] if ad_account else None,
                     token_expires_at=datetime.utcnow() + timedelta(seconds=expires_in)
                 )
                 db.add(client)
             else:
-                client.page_access_token = page["access_token"]
+                client.page_access_token = page.get("access_token") or client.page_access_token
                 client.token_expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
                 client.is_active = True
             

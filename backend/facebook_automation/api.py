@@ -32,6 +32,13 @@ async def facebook_auth(
     #     raise HTTPException(status_code=403, detail="Facebook automation not enabled for user")
     
     app_id = facebook_service.app_id
+    # If a Marketing API token is configured, we can skip OAuth for service accounts
+    if facebook_service.marketing_api_token:
+        return {
+            "auth_url": None,
+            "mock_mode": False,
+            "service_token_mode": True
+        }
     if not app_id:
         # Return mock auth URL for testing
         logger.info("Facebook app not configured - using mock mode")
@@ -80,6 +87,25 @@ async def facebook_callback(
         return schemas.FacebookClient.from_orm(client)
     except Exception as e:
         logger.error(f"Facebook OAuth failed: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/facebook/connect-with-token", response_model=schemas.FacebookClient)
+async def connect_with_service_token(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Connect using a configured Marketing API token without OAuth."""
+    if not facebook_service.marketing_api_token:
+        raise HTTPException(status_code=400, detail="FACEBOOK_MARKETING_API_TOKEN not configured")
+    try:
+        # Reuse the same flow with a dummy code; service will switch to token mode
+        client = await facebook_automation_service.connect_facebook_account(
+            db, current_user.id, auth_code="service_token"
+        )
+        return schemas.FacebookClient.from_orm(client)
+    except Exception as e:
+        logger.error(f"Facebook token connect failed: {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
 

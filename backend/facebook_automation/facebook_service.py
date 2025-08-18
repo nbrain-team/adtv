@@ -27,6 +27,8 @@ class FacebookService:
         self.app_id = os.getenv("FACEBOOK_APP_ID")
         self.app_secret = os.getenv("FACEBOOK_APP_SECRET")
         self.webhook_token = os.getenv("FACEBOOK_WEBHOOK_VERIFY_TOKEN")
+        # Optional long-lived Marketing API token (user/system token)
+        self.marketing_api_token = os.getenv("FACEBOOK_MARKETING_API_TOKEN")
         
     async def exchange_token(self, short_token: str) -> Dict[str, Any]:
         """Exchange short-lived token for long-lived token"""
@@ -54,7 +56,7 @@ class FacebookService:
             response = await client.get(
                 f"{self.BASE_URL}/me/accounts",
                 params={
-                    "access_token": access_token,
+                    "access_token": access_token or self.marketing_api_token,
                     "fields": "id,name,access_token,category,tasks"
                 }
             )
@@ -71,7 +73,7 @@ class FacebookService:
             response = await client.get(
                 f"{self.BASE_URL}/me/adaccounts",
                 params={
-                    "access_token": access_token,
+                    "access_token": access_token or self.marketing_api_token,
                     "fields": "id,name,account_status,currency,business"
                 }
             )
@@ -91,7 +93,7 @@ class FacebookService:
     ) -> List[Dict[str, Any]]:
         """Get posts from a Facebook page"""
         params = {
-            "access_token": access_token,
+            "access_token": access_token or self.marketing_api_token,
             "fields": "id,message,created_time,type,full_picture,permalink_url,shares,reactions.summary(true),comments.summary(true)",
             "limit": limit
         }
@@ -110,6 +112,25 @@ class FacebookService:
                 
             data = response.json()
             return data.get("data", [])
+
+    async def get_page_access_token(self, page_id: str, user_access_token: Optional[str] = None) -> Optional[str]:
+        """Fetch a page access token using a user/system access token"""
+        token = user_access_token or self.marketing_api_token
+        if not token:
+            return None
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{self.BASE_URL}/{page_id}",
+                params={
+                    "access_token": token,
+                    "fields": "access_token"
+                }
+            )
+            if response.status_code != 200:
+                logger.warning(f"Failed to get page access token: {response.text}")
+                return None
+            data = response.json()
+            return data.get("access_token")
     
     async def get_post_insights(
         self, 

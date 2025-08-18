@@ -264,10 +264,8 @@ async def get_campaigns(
     current_user: User = Depends(auth.get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """Get all campaigns for the current user"""
-    campaigns = db.query(Campaign).filter(
-        Campaign.user_id == current_user.id
-    ).order_by(desc(Campaign.created_at)).offset(skip).limit(limit).all()
+    """Get all campaigns (visible to all users)"""
+    campaigns = db.query(Campaign).order_by(desc(Campaign.created_at)).offset(skip).limit(limit).all()
     
     return [safe_campaign_response(campaign) for campaign in campaigns]
 
@@ -276,14 +274,12 @@ async def get_all_campaign_contacts(
     current_user: User = Depends(auth.get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """Get all contacts from all campaigns for the current user"""
+    """Get all contacts from all campaigns (visible to all users)"""
     try:
-        logger.info(f"Fetching all contacts for user: {current_user.id}")
+        logger.info("Fetching all contacts across all campaigns")
         
-        # Get all campaigns for the user
-        campaigns = db.query(Campaign).filter(
-            Campaign.user_id == current_user.id
-        ).all()
+        # Get all campaigns (no owner restriction)
+        campaigns = db.query(Campaign).all()
         
         logger.info(f"Found {len(campaigns)} campaigns for user {current_user.id}")
         
@@ -421,9 +417,9 @@ async def get_campaign(
     db: Session = Depends(get_db)
 ):
     """Get a specific campaign"""
+    # Visible to all users
     campaign = db.query(Campaign).filter(
-        Campaign.id == campaign_id,
-        Campaign.user_id == current_user.id
+        Campaign.id == campaign_id
     ).first()
     
     if not campaign:
@@ -674,9 +670,9 @@ async def export_incomplete_contacts(
     db: Session = Depends(get_db)
 ):
     """Export contacts with missing email or phone fields as CSV"""
+    # Visible to all users
     campaign = db.query(Campaign).filter(
-        Campaign.id == campaign_id,
-        Campaign.user_id == current_user.id
+        Campaign.id == campaign_id
     ).first()
     
     if not campaign:
@@ -767,9 +763,9 @@ async def export_all_contacts(
     db: Session = Depends(get_db)
 ):
     """Export all contacts as CSV"""
+    # Visible to all users
     campaign = db.query(Campaign).filter(
-        Campaign.id == campaign_id,
-        Campaign.user_id == current_user.id
+        Campaign.id == campaign_id
     ).first()
     
     if not campaign:
@@ -950,9 +946,9 @@ async def get_contact_stats(
     db: Session = Depends(get_db)
 ):
     """Get statistics about campaign contacts"""
+    # Visible to all users
     campaign = db.query(Campaign).filter(
-        Campaign.id == campaign_id,
-        Campaign.user_id == current_user.id
+        Campaign.id == campaign_id
     ).first()
     
     if not campaign:
@@ -1010,9 +1006,9 @@ async def get_contact_diagnostic(
     db: Session = Depends(get_db)
 ):
     """Get detailed diagnostic information about contacts"""
+    # Visible to all users
     campaign = db.query(Campaign).filter(
-        Campaign.id == campaign_id,
-        Campaign.user_id == current_user.id
+        Campaign.id == campaign_id
     ).first()
     
     if not campaign:
@@ -1093,9 +1089,9 @@ async def get_campaign_contacts(
         excluded: Filter by excluded status
         fetch_all: If true, ignores limit and returns all contacts
     """
+    # Visible to all users
     campaign = db.query(Campaign).filter(
-        Campaign.id == campaign_id,
-        Campaign.user_id == current_user.id
+        Campaign.id == campaign_id
     ).first()
     
     if not campaign:
@@ -2045,9 +2041,9 @@ def get_rsvp_contacts(
     db: Session = Depends(get_db)
 ):
     """Get all RSVP contacts for a campaign"""
+    # Visible to all users
     campaign = db.query(Campaign).filter(
-        Campaign.id == campaign_id,
-        Campaign.user_id == current_user.id
+        Campaign.id == campaign_id
     ).first()
     
     if not campaign:
@@ -2302,15 +2298,33 @@ def process_agreements_task(campaign_id: str, agreement_data: dict, contact_ids:
                 # Send email using the email service
                 email_sent = False
                 if os.getenv("GMAIL_PASSWORD"):  # Only try to send if password is configured
-                    email_sent = email_service.send_agreement_email(
-                        to_email=contact.email,
-                        to_name=f"{contact.first_name or ''} {contact.last_name or ''}".strip() or "Valued Client",
-                        agreement_url=agreement_url,
-                        campaign_name=campaign.name,
-                        start_date=agreement_data['start_date'],
-                        setup_fee=agreement_data['setup_fee'],
-                        monthly_fee=agreement_data['monthly_fee']
-                    )
+                    # If a custom subject/body was provided, use generic send_email; else, use templated helper
+                    custom_subject = agreement_data.get('email_subject') if isinstance(agreement_data, dict) else getattr(agreements, 'agreement_data', {}).get('email_subject')
+                    custom_body = agreement_data.get('email_body') if isinstance(agreement_data, dict) else getattr(agreements, 'agreement_data', {}).get('email_body')
+                    if custom_subject and custom_body:
+                        from .email_service import email_service
+                        html_body = custom_body.replace('{{AgreementLink}}', agreement_url)
+                        html_body = html_body.replace('{{FirstName}}', contact.first_name or '')
+                        html_body = html_body.replace('{{StartDate}}', agreement_data['start_date'])
+                        html_body = html_body.replace('{{SetupFee}}', str(agreement_data['setup_fee']))
+                        html_body = html_body.replace('{{MonthlyFee}}', str(agreement_data['monthly_fee']))
+                        text_body = html_body
+                        email_sent = email_service.send_email(
+                            to_email=contact.email,
+                            subject=custom_subject,
+                            html_body=html_body,
+                            text_body=text_body
+                        )
+                    else:
+                        email_sent = email_service.send_agreement_email(
+                            to_email=contact.email,
+                            to_name=f"{contact.first_name or ''} {contact.last_name or ''}".strip() or "Valued Client",
+                            agreement_url=agreement_url,
+                            campaign_name=campaign.name,
+                            start_date=agreement_data['start_date'],
+                            setup_fee=agreement_data['setup_fee'],
+                            monthly_fee=agreement_data['monthly_fee']
+                        )
                 else:
                     logger.info(f"Email not sent (Gmail not configured). Use this URL: {agreement_url}")
                     email_sent = True  # Mark as "sent" even without email so the agreement is still accessible
