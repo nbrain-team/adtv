@@ -106,6 +106,7 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
     const [uploadedImages, setUploadedImages] = useState<{url: string, name: string}[]>([]);
     const [isUploadingImage, setIsUploadingImage] = useState(false);
     const imageInputRef = React.useRef<HTMLInputElement>(null);
+    const [showHelp, setShowHelp] = useState(false);
 
     useEffect(() => {
         fetchTemplates();
@@ -843,6 +844,11 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
                     </Button>
                 </Flex>
 
+                {/* Help link */}
+                <Flex justify="end" mb="3">
+                    <Button variant="ghost" onClick={() => setShowHelp(true)}>How to use the Email Template Creator</Button>
+                </Flex>
+
                 {/* Step 1: Select Contacts */}
                 <Box>
                     <Text size="3" weight="bold" mb="3">
@@ -1360,6 +1366,22 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
                     </Flex>
                 </Dialog.Content>
             </Dialog.Root>
+
+            {/* Help video modal */}
+            {showHelp && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+                    <div style={{ background: 'white', padding: '1rem', borderRadius: 8, width: '90%', maxWidth: 900 }}>
+                        <Flex justify="between" align="center" mb="2">
+                            <Text size="4" weight="bold">Email Template Creator - Guide</Text>
+                            <Button variant="soft" color="gray" onClick={() => setShowHelp(false)}>Close</Button>
+                        </Flex>
+                        <video controls style={{ width: '100%', height: 'auto', borderRadius: 6 }}>
+                            <source src="/api/assets/email-template-creator" type="video/mp4" />
+                            Your browser does not support the video tag.
+                        </video>
+                    </div>
+                </div>
+            )}
         </Card>
     );
 }; 

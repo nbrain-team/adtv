@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, Form, BackgroundTasks, UploadFile, File, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse, Response
+from fastapi.responses import StreamingResponse, Response, FileResponse
 from fastapi.staticfiles import StaticFiles
 from typing import List, Optional, AsyncGenerator
 from pydantic import BaseModel, Field, EmailStr
@@ -412,6 +412,16 @@ def get_my_permissions(current_user: User = Depends(auth.get_current_active_user
         "is_active": current_user.is_active,
         "id": current_user.id
     }
+
+# Serve Email Template Creator help video from project root
+@app.get("/api/assets/email-template-creator")
+def get_email_template_creator_video():
+    try:
+        project_root = os.path.dirname(os.path.dirname(__file__))
+        file_path = os.path.join(project_root, "Email Template Creator.mp4")
+        return FileResponse(file_path, media_type="video/mp4", filename="Email Template Creator.mp4")
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=f"Help video not found: {e}")
 
 # --- Background Processing ---
 def process_and_index_files(temp_file_paths: List[str], original_file_names: List[str]):
