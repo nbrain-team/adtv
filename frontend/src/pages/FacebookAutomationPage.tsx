@@ -57,7 +57,25 @@ const FacebookAutomationPage = () => {
         return;
       }
       
-      setClients(clientsData);
+      // If no client exists yet but env targets are set, try to connect automatically
+      if (clientsData.length === 0 && ONLY_PAGE_ID && ONLY_AD_ACCOUNT_ID) {
+        try {
+          await api.post('/api/facebook-automation/facebook/manual-connect', {
+            page_id: ONLY_PAGE_ID,
+            ad_account_id: ONLY_AD_ACCOUNT_ID
+          });
+          const refetch = await api.get('/api/facebook-automation/clients', { params });
+          setClients(refetch.data || []);
+          if (Array.isArray(refetch.data) && refetch.data.length > 0 && !selectedClient) {
+            setSelectedClient(refetch.data[0].id);
+          }
+        } catch (e) {
+          console.error('Auto-connect failed:', e);
+          setClients([]);
+        }
+      } else {
+        setClients(clientsData);
+      }
       
       // Auto-select first (and only) client if none selected
       if (clientsData.length > 0 && !selectedClient) setSelectedClient(clientsData[0].id);
