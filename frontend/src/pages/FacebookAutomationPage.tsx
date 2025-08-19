@@ -64,7 +64,8 @@ const FacebookAutomationPage = () => {
         try {
           await api.post('/api/facebook-automation/facebook/manual-connect', {
             page_id: ONLY_PAGE_ID,
-            ad_account_id: ONLY_AD_ACCOUNT_ID
+            ad_account_id: ONLY_AD_ACCOUNT_ID,
+            page_name: undefined
           });
           const refetch = await api.get('/api/facebook-automation/clients', { params });
           setClients(refetch.data || []);

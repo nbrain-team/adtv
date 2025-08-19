@@ -70,6 +70,11 @@ class FacebookClient(BaseModel):
     class Config:
         from_attributes = True
 
+class ManualConnectRequest(BaseModel):
+    page_id: str
+    ad_account_id: str
+    page_name: Optional[str] = None
+
 
 class PostStatus(str, Enum):
     """Post processing status"""
