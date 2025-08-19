@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Box, Flex, Text, Heading, Card, Button, Badge, Tabs, Grid, Dialog, IconButton, Select, TextField } from '@radix-ui/themes';
-import { PlusIcon, CalendarIcon, ChevronLeftIcon, ChevronRightIcon, MagnifyingGlassIcon } from '@radix-ui/react-icons';
+import { Box, Flex, Text, Heading, Card, Button, Badge, Dialog, Select } from '@radix-ui/themes';
+import { PlusIcon, CalendarIcon } from '@radix-ui/react-icons';
 import { MainLayout } from '../components/MainLayout';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+// import { useAuth } from '../context/AuthContext';
 import FacebookConnectFlow from '../components/FacebookAutomation/FacebookConnectFlow';
 import FacebookVisualCalendar from '../components/FacebookAutomation/FacebookVisualCalendar';
 import FacebookCampaignCards from '../components/FacebookAutomation/FacebookCampaignCards';
+import FacebookPostsGrid from '../components/FacebookAutomation/FacebookPostsGrid';
 import FacebookAnalyticsOverview from '../components/FacebookAutomation/FacebookAnalyticsOverview';
 import FacebookAutomationSettings from '../components/FacebookAutomation/FacebookAutomationSettings';
 import api from '../api';
@@ -23,13 +24,12 @@ interface FacebookClient {
 
 const FacebookAutomationPage = () => {
   const navigate = useNavigate();
-  const { userProfile } = useAuth();
+  // const { userProfile } = useAuth(); // reserved for future permissions gating
   const [clients, setClients] = useState<FacebookClient[]>([]);
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showConnectDialog, setShowConnectDialog] = useState(false);
-  const [activeView, setActiveView] = useState<'calendar' | 'campaigns' | 'analytics' | 'settings'>('calendar');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [activeView, setActiveView] = useState<'calendar' | 'posts' | 'ads' | 'analytics' | 'settings'>('calendar');
   const [dateRange, setDateRange] = useState({
     start: new Date(),
     end: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
@@ -145,19 +145,12 @@ const FacebookAutomationPage = () => {
               </Select.Root>
             </Flex>
 
-            <Flex align="center" gap="3">
-              {/* Search */}
-              <TextField.Root placeholder="Search posts..." style={{ width: 300 }}>
-                <TextField.Slot>
-                  <MagnifyingGlassIcon height="16" width="16" />
-                </TextField.Slot>
-              </TextField.Root>
-
+            <Flex align="center" gap="4">
               {/* View Toggles */}
-              <Flex gap="1" style={{ 
+              <Flex gap="2" style={{ 
                 background: 'var(--gray-3)', 
-                padding: 2,
-                borderRadius: 6 
+                padding: 4,
+                borderRadius: 8 
               }}>
                 <Button 
                   size="2" 
@@ -169,10 +162,17 @@ const FacebookAutomationPage = () => {
                 </Button>
                 <Button 
                   size="2" 
-                  variant={activeView === 'campaigns' ? 'solid' : 'ghost'}
-                  onClick={() => setActiveView('campaigns')}
+                  variant={activeView === 'posts' ? 'solid' : 'ghost'}
+                  onClick={() => setActiveView('posts')}
                 >
-                  Campaigns
+                  Posts
+                </Button>
+                <Button 
+                  size="2" 
+                  variant={activeView === 'ads' ? 'solid' : 'ghost'}
+                  onClick={() => setActiveView('ads')}
+                >
+                  Ads
                 </Button>
                 <Button 
                   size="2" 
@@ -225,7 +225,10 @@ const FacebookAutomationPage = () => {
                 />
               )}
               
-              {activeView === 'campaigns' && selectedClient && (
+              {activeView === 'posts' && selectedClient && (
+                <FacebookPostsGrid clientId={selectedClient} hideConverted={true} />
+              )}
+              {activeView === 'ads' && selectedClient && (
                 <FacebookCampaignCards clientId={selectedClient} />
               )}
               

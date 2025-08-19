@@ -23,9 +23,10 @@ interface FacebookPost {
 
 interface FacebookPostsGridProps {
   clientId: string | null;
+  hideConverted?: boolean;
 }
 
-const FacebookPostsGrid: React.FC<FacebookPostsGridProps> = ({ clientId }) => {
+const FacebookPostsGrid: React.FC<FacebookPostsGridProps> = ({ clientId, hideConverted }) => {
   const [posts, setPosts] = useState<FacebookPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPost, setSelectedPost] = useState<FacebookPost | null>(null);
@@ -43,7 +44,8 @@ const FacebookPostsGrid: React.FC<FacebookPostsGridProps> = ({ clientId }) => {
       const response = await api.get('/api/facebook-automation/posts', {
         params: { client_id: clientId, limit: 50 }
       });
-      setPosts(response.data);
+      const data: FacebookPost[] = response.data || [];
+      setPosts(hideConverted ? data.filter(p => p.status !== 'converted') : data);
     } catch (error) {
       console.error('Failed to fetch posts:', error);
     } finally {
@@ -75,11 +77,7 @@ const FacebookPostsGrid: React.FC<FacebookPostsGridProps> = ({ clientId }) => {
     }
   };
 
-  const formatEngagement = (post: FacebookPost) => {
-    const total = post.likes_count + post.comments_count + post.shares_count;
-    if (total > 1000) return `${(total / 1000).toFixed(1)}k`;
-    return total.toString();
-  };
+  // placeholder for future engagement formatting
 
   if (loading) {
     return (
