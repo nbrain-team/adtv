@@ -111,6 +111,7 @@ async def connect_with_service_token(
 async def manual_connect(
     page_id: str,
     ad_account_id: str,
+    page_name: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
@@ -127,6 +128,11 @@ async def manual_connect(
             page_id_override=page_id,
             ad_account_id_override=ad_account_id
         )
+        # If page_name provided, persist/update it
+        if page_name and getattr(client, "page_name", None) != page_name:
+            client.page_name = page_name
+            db.commit()
+            db.refresh(client)
         return schemas.FacebookClient.from_orm(client)
     except Exception as e:
         logger.error(f"Facebook manual connect failed: {e}")
