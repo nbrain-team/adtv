@@ -70,6 +70,16 @@ const CampaignsPage = () => {
         fetchCampaigns();
     }, []);
 
+    // Auto-refresh while any campaign is actively processing
+    useEffect(() => {
+        const needsPolling = campaigns.some(c => c.status === 'enriching' || c.status === 'generating_emails');
+        if (!needsPolling) return;
+        const intervalId = setInterval(() => {
+            fetchCampaigns();
+        }, 10000);
+        return () => clearInterval(intervalId);
+    }, [campaigns]);
+
     const fetchCampaigns = async () => {
         try {
             const response = await api.get('/api/campaigns');
