@@ -30,6 +30,7 @@ const FacebookAutomationPage = () => {
   const [loading, setLoading] = useState(true);
   const [showConnectDialog, setShowConnectDialog] = useState(false);
   const [activeView, setActiveView] = useState<'calendar' | 'posts' | 'ads' | 'analytics' | 'settings'>('calendar');
+  const [syncing, setSyncing] = useState(false);
   const [dateRange, setDateRange] = useState({
     start: new Date(),
     end: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
@@ -189,7 +190,23 @@ const FacebookAutomationPage = () => {
                   Settings
                 </Button>
               </Flex>
-
+              <Button
+                disabled={!selectedClient || syncing}
+                variant="soft"
+                onClick={async () => {
+                  if (!selectedClient) return;
+                  try {
+                    setSyncing(true);
+                    await api.post(`/api/facebook-automation/clients/${selectedClient}/sync-posts`);
+                  } catch (e) {
+                    console.error('Failed to start sync:', e);
+                  } finally {
+                    setSyncing(false);
+                  }
+                }}
+              >
+                {syncing ? 'Syncing…' : 'Sync Posts'}
+              </Button>
               <Button onClick={() => setShowConnectDialog(true)} size="3">
                 <PlusIcon />
                 Connect Page
