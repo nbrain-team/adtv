@@ -166,6 +166,7 @@ async def get_clients(
     current_user: User = Depends(get_current_active_user)
 ):
     """Get connected Facebook clients"""
+    # Show only current user's clients by default
     query = db.query(models.FacebookClient).filter_by(user_id=current_user.id)
     
     if is_active is not None:

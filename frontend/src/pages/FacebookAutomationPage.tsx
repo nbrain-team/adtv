@@ -20,6 +20,8 @@ interface FacebookClient {
   auto_convert_posts: boolean;
   default_daily_budget: number;
   last_sync: string;
+  ad_account_id?: string;
+  facebook_page_id?: string;
 }
 
 const FacebookAutomationPage = () => {
@@ -135,7 +137,7 @@ const FacebookAutomationPage = () => {
               
               {/* Client Selector */}
               <Select.Root value={selectedClient || ''} onValueChange={setSelectedClient}>
-                <Select.Trigger style={{ minWidth: 200 }}>
+                <Select.Trigger style={{ minWidth: 260 }}>
                   <Flex align="center" gap="2">
                     {getSelectedClientData()?.page_profile_pic && (
                       <img 
@@ -144,7 +146,10 @@ const FacebookAutomationPage = () => {
                         style={{ width: 20, height: 20, borderRadius: '50%' }}
                       />
                     )}
-                    <Text>{getSelectedClientData()?.page_name || 'Select Page'}</Text>
+                    <Text>
+                      {getSelectedClientData()?.page_name || 'Select Page'}
+                      {getSelectedClientData()?.ad_account_id ? ` (${getSelectedClientData()?.ad_account_id.replace('act_', '')})` : ''}
+                    </Text>
                   </Flex>
                 </Select.Trigger>
                 <Select.Content>
@@ -158,7 +163,10 @@ const FacebookAutomationPage = () => {
                             style={{ width: 20, height: 20, borderRadius: '50%' }}
                           />
                         )}
-                        <Text>{client.page_name}</Text>
+                        <Text>
+                          {client.page_name}
+                          {client.ad_account_id ? ` (${client.ad_account_id.replace('act_', '')})` : ''}
+                        </Text>
                         {client.is_active && <Badge color="green" size="1">Active</Badge>}
                       </Flex>
                     </Select.Item>
