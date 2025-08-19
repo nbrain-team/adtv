@@ -40,7 +40,7 @@ const FacebookConnectFlow: React.FC<FacebookConnectFlowProps> = ({ onComplete })
                 link_url: window.location.origin
               },
               daily_budget: 50,
-              status: 'draft'
+              status: 'active'
             });
           } catch (e) {
             console.warn('Starter campaign creation skipped:', e);
