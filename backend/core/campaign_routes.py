@@ -520,8 +520,8 @@ async def delete_campaign(
 @router.post("/{campaign_id}/upload-contacts")
 async def upload_contacts(
     campaign_id: str,
-    file: UploadFile = File(...),
     background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
     current_user: User = Depends(auth.get_current_active_user),
     db: Session = Depends(get_db)
 ):
@@ -1352,7 +1352,7 @@ async def pause_enrichment(
 async def resume_enrichment(
     campaign_id: str,
     reset_processing: bool = True,
-    background_tasks: BackgroundTasks = BackgroundTasks(),
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(auth.get_current_active_user),
     db: Session = Depends(get_db)
 ):
