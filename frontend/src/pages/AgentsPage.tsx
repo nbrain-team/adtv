@@ -7,14 +7,7 @@ import { RealtorImporterWorkflow } from '../components/RealtorImporter/RealtorIm
 import { TemplateAgentCreator } from '../components/TemplateAgentCreator';
 import { MainLayout } from '../components/MainLayout';
 import { useNavigate } from 'react-router-dom';
-import { 
-    ChatBubbleIcon, 
-    FileTextIcon, 
-    RocketIcon, 
-    EnvelopeClosedIcon,
-    MagicWandIcon,
-    TargetIcon
-} from '@radix-ui/react-icons';
+ 
 
 // Define the structure for an agent
 interface Agent {
@@ -84,16 +77,9 @@ const agents: Agent[] = [
     id: 'facebook-automation',
     name: 'Adtv traffic basic',
     description: 'Convert realtor Facebook posts into high-performing ads automatically.',
-    icon: <img src="/new-icons/facebook-icon.png" alt="Facebook Automation" style={{ width: '3rem', height: '3rem' }} />,
+    icon: <Rocket {...iconProps} />,
     component: <Box p="4"><Text>Redirecting to Facebook Automation...</Text></Box>, // Placeholder component
   },
-  {
-    id: 'more-coming',
-    name: 'More Agents Coming Soon',
-    description: 'We\'re constantly building new AI agents to help automate your marketing workflows.',
-    icon: <Rocket {...iconProps} />,
-    component: <Box p="4"><Text>This agent is under construction.</Text></Box>,
-  }
 ];
 
 const AgentsPage = () => {
@@ -117,11 +103,8 @@ const AgentsPage = () => {
     } else if (agent && agent.id === 'event-campaign') {
       // Navigate to campaigns page
       navigate('/campaigns');
-    } else if (agent && agent.id !== 'more-coming') {
+    } else if (agent) {
       setSelectedAgent(agent);
-    } else if (agent?.id === 'more-coming') {
-      // Optionally, show an alert or do nothing for disabled agents
-      alert('This agent is coming soon!');
     }
   };
 
@@ -179,9 +162,8 @@ const AgentsPage = () => {
                   key={agent.id} 
                   onClick={() => handleSelectAgent(agent.id)}
                   style={{ 
-                    cursor: agent.id === 'more-coming' ? 'not-allowed' : 'pointer', 
-                    transition: 'all 0.2s',
-                    opacity: agent.id === 'more-coming' ? 0.6 : 1
+                    cursor: 'pointer', 
+                    transition: 'all 0.2s'
                   }}
                   className="agent-card"
                 >

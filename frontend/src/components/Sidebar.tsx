@@ -79,11 +79,7 @@ export const Sidebar = ({ onNewChat }: { onNewChat: () => void }) => {
                         <img src="/new-icons/14.png" alt="Data Lake" />
                     </button>
                 )}
-                {hasPermission('customer-service') && (
-                    <button className="sidebar-icon" title="Customer Service" onClick={() => handleNavigation('/customer-service')}>
-                        <img src="/new-icons/15.png" alt="Customer Service" />
-                    </button>
-                )}
+                
             </Flex>
             
             <Flex direction="column" align="center" gap="8" style={{ marginBottom: '1rem' }}>
