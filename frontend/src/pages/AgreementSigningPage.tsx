@@ -35,12 +35,38 @@ export const AgreementSigningPage: React.FC = () => {
     const [signatureType, setSignatureType] = useState<'typed' | 'drawn'>('typed');
     const [showSuccess, setShowSuccess] = useState(false);
     const sigPad = useRef<SignatureCanvas | null>(null);
+    const iframeRef = useRef<HTMLIFrameElement | null>(null);
+    const [overlayTop, setOverlayTop] = useState<number | null>(null);
 
     useEffect(() => {
         if (agreementId) {
             fetchAgreement();
         }
     }, [agreementId]);
+
+    const positionOverlayNearSignature = () => {
+        try {
+            const iframe = iframeRef.current;
+            if (!iframe) return;
+            const doc = iframe.contentDocument || iframe.contentWindow?.document;
+            if (!doc) return;
+            // Try to find the signature canvas container from the template
+            const target = doc.querySelector('.cog-signature__canvas-container') || doc.querySelector('.cog-signature');
+            if (!target) return;
+            const rect = (target as HTMLElement).getBoundingClientRect();
+            const bodyRect = doc.body.getBoundingClientRect();
+            const top = rect.top - bodyRect.top; // position within the iframe document
+            // Add a small offset and clamp within iframe height
+            const adjusted = Math.max(0, Math.min(top - 20, iframe.clientHeight - 220));
+            setOverlayTop(adjusted);
+        } catch {}
+    };
+
+    const handleIframeLoad = () => {
+        positionOverlayNearSignature();
+        // Recompute on resize to keep alignment
+        window.addEventListener('resize', positionOverlayNearSignature);
+    };
 
     const fetchAgreement = async () => {
         try {
@@ -185,10 +211,12 @@ export const AgreementSigningPage: React.FC = () => {
                 <iframe
                     title="agreement-template"
                     src="/agreements/template.html"
+                    ref={iframeRef}
+                    onLoad={handleIframeLoad}
                     style={{ width: '100%', height: '1800px', border: 'none', background: 'transparent', pointerEvents: 'none' }}
                 />
                 {/* Overlay signature controls at the bottom to match template flow */}
-                <div style={{ position: 'absolute', left: 0, right: 0, bottom: 24, display: 'flex', justifyContent: 'center', zIndex: 10, pointerEvents: 'auto' }}>
+                <div style={{ position: 'absolute', left: 0, right: 0, top: overlayTop ?? 1550, display: 'flex', justifyContent: 'center', zIndex: 10, pointerEvents: 'auto' }}>
                     <Card style={{ maxWidth: 900, width: '95%', padding: 16 }}>
                         <Flex direction="column" gap="3">
                             <Flex gap="2">
