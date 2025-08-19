@@ -521,7 +521,7 @@ async def delete_campaign(
 async def upload_contacts(
     campaign_id: str,
     file: UploadFile = File(...),
-    background_tasks: BackgroundTasks = BackgroundTasks(),
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(auth.get_current_active_user),
     db: Session = Depends(get_db)
 ):
@@ -1487,15 +1487,15 @@ def enrich_campaign_contacts(campaign_id: str, user_id: str):
 async def enrich_contacts_concurrently(contacts, campaign_id, enricher, db, SessionLocal):
     """
     Enrich multiple contacts concurrently with rate limiting.
-    Process up to 20 contacts at once - database pool now supports 50 connections.
+    Process up to 30 contacts at once - database pool now supports 50 connections.
     SERP API supports 300 queries/second, so API is not the bottleneck.
     """
     import asyncio
     
-    # Now we can safely process 20 concurrent with our increased database pool
+    # Now we can safely process 30 concurrent with our increased database pool
     # Database pool: 20 permanent + 30 overflow = 50 total connections
-    # We use 20 concurrent to leave room for other operations
-    MAX_CONCURRENT = 20  # Increased from 5 after expanding database pool
+    # We use 30 concurrent to leave room for other operations
+    MAX_CONCURRENT = 30  # Increased from 20 to 30 per request
     semaphore = asyncio.Semaphore(MAX_CONCURRENT)
     
     enriched_count = 0
