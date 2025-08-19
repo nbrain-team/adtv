@@ -169,7 +169,7 @@ async def get_clients(
     if is_active is not None:
         query = query.filter_by(is_active=is_active)
     
-    clients = query.all()
+    clients = query.order_by(models.FacebookClient.created_at.desc()).all()
     
     # Don't auto-create mock data - return actual DB data
     return clients
