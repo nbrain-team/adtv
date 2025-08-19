@@ -16,7 +16,19 @@ const FacebookConnectFlow: React.FC<FacebookConnectFlowProps> = ({ onComplete })
       // Get the redirect URI based on current location
       const redirectUri = `${window.location.origin}/facebook-callback`;
       
-      // Get the auth URL from backend
+      // Prefer manual-connect when env IDs are present
+      const ONLY_PAGE_ID = (import.meta as any).env?.VITE_ONLY_FACEBOOK_PAGE_ID as string | undefined;
+      const ONLY_AD_ACCOUNT_ID = (import.meta as any).env?.VITE_ONLY_FACEBOOK_AD_ACCOUNT_ID as string | undefined;
+      if (ONLY_PAGE_ID && ONLY_AD_ACCOUNT_ID) {
+        await api.post('/api/facebook-automation/facebook/manual-connect', {
+          page_id: ONLY_PAGE_ID,
+          ad_account_id: ONLY_AD_ACCOUNT_ID
+        });
+        onComplete();
+        return;
+      }
+
+      // Fallback to backend-provided auth flow
       const response = await api.get('/api/facebook-automation/facebook/auth', {
         params: { redirect_uri: redirectUri }
       });

@@ -46,10 +46,10 @@ const FacebookAutomationPage = () => {
     try {
       const ONLY_PAGE_ID = (import.meta as any).env?.VITE_ONLY_FACEBOOK_PAGE_ID as string | undefined;
       const ONLY_AD_ACCOUNT_ID = (import.meta as any).env?.VITE_ONLY_FACEBOOK_AD_ACCOUNT_ID as string | undefined;
-      const params: Record<string, string> = {};
-      if (ONLY_PAGE_ID) params.page_id = ONLY_PAGE_ID;
-      if (ONLY_AD_ACCOUNT_ID) params.ad_account_id = ONLY_AD_ACCOUNT_ID;
-      const response = await api.get('/api/facebook-automation/clients', { params });
+      const paramsPrimary: Record<string, string> = {};
+      if (ONLY_PAGE_ID) paramsPrimary.page_id = ONLY_PAGE_ID;
+      if (ONLY_AD_ACCOUNT_ID) paramsPrimary.ad_account_id = ONLY_AD_ACCOUNT_ID;
+      const response = await api.get('/api/facebook-automation/clients', { params: paramsPrimary });
       const clientsData = response.data;
       
       if (!Array.isArray(clientsData)) {
@@ -67,7 +67,8 @@ const FacebookAutomationPage = () => {
             ad_account_id: ONLY_AD_ACCOUNT_ID,
             page_name: undefined
           });
-          const refetch = await api.get('/api/facebook-automation/clients', { params });
+          // Refetch with page filter only to avoid excluding if ad account differs
+          const refetch = await api.get('/api/facebook-automation/clients', { params: { page_id: ONLY_PAGE_ID } });
           setClients(refetch.data || []);
           if (Array.isArray(refetch.data) && refetch.data.length > 0 && !selectedClient) {
             setSelectedClient(refetch.data[0].id);
@@ -77,7 +78,13 @@ const FacebookAutomationPage = () => {
           setClients([]);
         }
       } else {
-        setClients(clientsData);
+        // If primary query returned nothing but ad_account filter was applied, retry with page filter only
+        if (clientsData.length === 0 && ONLY_PAGE_ID && ONLY_AD_ACCOUNT_ID) {
+          const fallback = await api.get('/api/facebook-automation/clients', { params: { page_id: ONLY_PAGE_ID } });
+          setClients(Array.isArray(fallback.data) ? fallback.data : []);
+        } else {
+          setClients(clientsData);
+        }
       }
       
       // Auto-select first (and only) client if none selected
