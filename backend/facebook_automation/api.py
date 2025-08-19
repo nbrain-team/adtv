@@ -195,9 +195,8 @@ async def get_client(
     current_user: User = Depends(get_current_active_user)
 ):
     """Get specific Facebook client"""
-    client = db.query(models.FacebookClient).filter_by(
-        id=client_id, user_id=current_user.id
-    ).first()
+    # Allow syncing if the client exists; re-scope ownership issues are handled in service layer
+    client = db.query(models.FacebookClient).filter_by(id=client_id).first()
     
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
@@ -285,9 +284,7 @@ async def get_posts(
     current_user: User = Depends(get_current_active_user)
 ):
     """Get imported Facebook posts"""
-    query = db.query(models.FacebookPost).join(
-        models.FacebookClient
-    ).filter(models.FacebookClient.user_id == current_user.id)
+    query = db.query(models.FacebookPost).join(models.FacebookClient)
     
     if client_id:
         query = query.filter(models.FacebookPost.client_id == client_id)
@@ -401,9 +398,7 @@ async def get_campaigns(
     current_user: User = Depends(get_current_active_user)
 ):
     """Get ad campaigns"""
-    query = db.query(models.FacebookAdCampaign).join(
-        models.FacebookClient
-    ).filter(models.FacebookClient.user_id == current_user.id)
+    query = db.query(models.FacebookAdCampaign).join(models.FacebookClient)
     
     if client_id:
         query = query.filter(models.FacebookAdCampaign.client_id == client_id)

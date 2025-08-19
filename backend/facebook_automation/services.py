@@ -106,7 +106,8 @@ class FacebookAutomationService:
                 ad_account = next((a for a in ad_accounts if a.get("id") in wanted_ids), None)
             ad_account = ad_account or (ad_accounts[0] if ad_accounts else None)
             
-            # Create or update Facebook client
+            # Create or update Facebook client. If an existing client is found but owned by a different
+            # user, reassign ownership to the current user so they can manage it.
             client = db.query(models.FacebookClient).filter_by(
                 facebook_page_id=page["id"]
             ).first()
@@ -140,6 +141,9 @@ class FacebookAutomationService:
                 )
                 db.add(client)
             else:
+                # Reassign to current user if needed
+                if getattr(client, "user_id", None) != user_id:
+                    client.user_id = user_id
                 client.page_access_token = page_access_token or page.get("access_token") or client.page_access_token
                 client.token_expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
                 client.is_active = True
