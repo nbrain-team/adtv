@@ -429,7 +429,8 @@ class FacebookService:
                 f"{self.BASE_URL}/{page_id}/subscribed_apps",
                 data={
                     "access_token": page_access_token,
-                    "subscribed_fields": "feed,ads_insights"
+                    # 'ads_insights' is not a valid page webhook field; subscribe to 'feed' only
+                    "subscribed_fields": "feed"
                 }
             )
             

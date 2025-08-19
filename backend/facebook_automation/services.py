@@ -149,14 +149,17 @@ class FacebookAutomationService:
             db.commit()
             db.refresh(client)
             
-            # Subscribe to webhooks
+            # Subscribe to webhooks (non-blocking on failure)
             # Final fallback: use client's stored token
             token_for_webhook = page_access_token or page.get("access_token") or client.page_access_token
             if token_for_webhook:
-                await facebook_service.subscribe_page_to_webhook(
-                    page["id"], 
-                    token_for_webhook
-                )
+                try:
+                    await facebook_service.subscribe_page_to_webhook(
+                        page["id"], 
+                        token_for_webhook
+                    )
+                except Exception as e:
+                    logger.warning(f"Webhook subscription failed; continuing connect: {e}")
             
             return client
             
