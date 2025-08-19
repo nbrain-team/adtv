@@ -117,7 +117,10 @@ async def manual_connect(
     Requires FACEBOOK_MARKETING_API_TOKEN to be set.
     """
     if not facebook_service.marketing_api_token:
-        raise HTTPException(status_code=400, detail="FACEBOOK_MARKETING_API_TOKEN not configured")
+        raise HTTPException(status_code=400, detail={
+            "error": "FACEBOOK_MARKETING_API_TOKEN not configured",
+            "hint": "Set this env on the backend service and redeploy"
+        })
     try:
         client = await facebook_automation_service.connect_facebook_account(
             db,
@@ -134,7 +137,10 @@ async def manual_connect(
         return schemas.FacebookClient.from_orm(client)
     except Exception as e:
         logger.error(f"Facebook manual connect failed: {e}")
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail={
+            "error": "manual_connect_failed",
+            "message": str(e)
+        })
 
 @router.post("/campaigns/manual", response_model=schemas.FacebookAdCampaign)
 async def create_campaign_manual(
