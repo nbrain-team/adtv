@@ -1,4 +1,5 @@
 import { Box, Flex, Text, Heading, Card, Grid } from '@radix-ui/themes';
+import { Rocket } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { MainLayout } from '../components/MainLayout';
 import { useAuth } from '../context/AuthContext';
@@ -51,7 +52,8 @@ const LandingPage = () => {
             permission: "customer-service"
         },
         {
-            icon: "/new-icons/facebook-icon.png",
+            // Use the new Rocket icon for ADTV Traffic Basic (Facebook Automation)
+            iconNode: <Rocket style={{ color: 'var(--gray-11)', width: '40px', height: '40px' }} />,
             title: "Facebook Automation",
             description: "Convert organic posts into high-performing ads automatically.",
             path: "/facebook-automation",
@@ -90,7 +92,11 @@ const LandingPage = () => {
                             }}
                         >
                             <Flex direction="column" align="center" gap="3">
-                                <img src={module.icon} alt={`${module.title} icon`} style={{ width: '40px', height: '40px' }} />
+                                {module.iconNode ? (
+                                    module.iconNode
+                                ) : (
+                                    <img src={module.icon} alt={`${module.title} icon`} style={{ width: '40px', height: '40px' }} />
+                                )}
                                 <Heading size="4" style={{ width: '100%', textAlign: 'center' }}>{module.title}</Heading>
                                 <Text as="p" size="2" color="gray" style={{ textAlign: 'center' }}>{module.description}</Text>
                             </Flex>
