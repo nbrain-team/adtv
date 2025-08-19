@@ -435,9 +435,9 @@ async def update_campaign(
     db: Session = Depends(get_db)
 ):
     """Update a campaign"""
+    # Allow any logged-in user to upload contacts to any campaign
     campaign = db.query(Campaign).filter(
-        Campaign.id == campaign_id,
-        Campaign.user_id == current_user.id
+        Campaign.id == campaign_id
     ).first()
     
     if not campaign:
@@ -526,9 +526,9 @@ async def upload_contacts(
     db: Session = Depends(get_db)
 ):
     """Upload contacts CSV for a campaign"""
+    # Allow any logged-in user to reimport contacts for any campaign
     campaign = db.query(Campaign).filter(
-        Campaign.id == campaign_id,
-        Campaign.user_id == current_user.id
+        Campaign.id == campaign_id
     ).first()
     
     if not campaign:
