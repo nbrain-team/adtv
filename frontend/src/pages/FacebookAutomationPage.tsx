@@ -43,9 +43,11 @@ const FacebookAutomationPage = () => {
   const fetchClients = async () => {
     try {
       const ONLY_PAGE_ID = (import.meta as any).env?.VITE_ONLY_FACEBOOK_PAGE_ID as string | undefined;
-      const response = await api.get('/api/facebook-automation/clients', {
-        params: ONLY_PAGE_ID ? { page_id: ONLY_PAGE_ID } : {}
-      });
+      const ONLY_AD_ACCOUNT_ID = (import.meta as any).env?.VITE_ONLY_FACEBOOK_AD_ACCOUNT_ID as string | undefined;
+      const params: Record<string, string> = {};
+      if (ONLY_PAGE_ID) params.page_id = ONLY_PAGE_ID;
+      if (ONLY_AD_ACCOUNT_ID) params.ad_account_id = ONLY_AD_ACCOUNT_ID;
+      const response = await api.get('/api/facebook-automation/clients', { params });
       const clientsData = response.data;
       
       if (!Array.isArray(clientsData)) {
@@ -57,10 +59,8 @@ const FacebookAutomationPage = () => {
       
       setClients(clientsData);
       
-      // Auto-select first client if none selected
-      if (clientsData.length > 0 && !selectedClient) {
-        setSelectedClient(clientsData[0].id);
-      }
+      // Auto-select first (and only) client if none selected
+      if (clientsData.length > 0 && !selectedClient) setSelectedClient(clientsData[0].id);
     } catch (error) {
       console.error('Failed to fetch clients:', error);
       setClients([]);

@@ -161,6 +161,7 @@ async def create_campaign_manual(
 async def get_clients(
     is_active: Optional[bool] = None,
     page_id: Optional[str] = None,
+    ad_account_id: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
@@ -171,6 +172,10 @@ async def get_clients(
         query = query.filter_by(is_active=is_active)
     if page_id:
         query = query.filter(models.FacebookClient.facebook_page_id == page_id)
+    if ad_account_id:
+        # Accept both raw id and act_<id> forms
+        variants = [ad_account_id, f"act_{ad_account_id}"]
+        query = query.filter(models.FacebookClient.ad_account_id.in_(variants))
     
     clients = query.order_by(models.FacebookClient.created_at.desc()).all()
     

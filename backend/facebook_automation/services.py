@@ -33,7 +33,7 @@ class FacebookAutomationService:
         try:
             # Check if Facebook API is configured
             use_mock_data = not facebook_service.app_id or not facebook_service.app_secret
-            # If a marketing API token is configured, prefer real mode
+            # If a marketing API token is configured, force real mode (no mocks)
             if facebook_service.marketing_api_token:
                 use_mock_data = False
             
@@ -239,31 +239,14 @@ class FacebookAutomationService:
         
         # Check if using mock data
         use_mock_data = not facebook_service.app_id or not facebook_service.app_secret
+        # If a marketing API token is configured, force real mode
+        if facebook_service.marketing_api_token:
+            use_mock_data = False
         
         if use_mock_data:
-            # Use mock data for testing
-            from .mock_data import mock_posts
-            logger.info("Using mock posts data - Facebook API not configured")
-            
-            # Check if we already have mock posts
-            existing_count = db.query(models.FacebookPost).filter_by(client_id=client_id).count()
-            
-            if existing_count == 0:
-                # Generate and save mock posts
-                mock_posts_data = mock_posts(client_id, count=15)
-                
-                for post_data in mock_posts_data:
-                    post = models.FacebookPost(**post_data)
-                    db.add(post)
-                
-                client.last_sync = datetime.utcnow()
-                db.commit()
-                
-                # Return newly created posts
-                return db.query(models.FacebookPost).filter_by(client_id=client_id).all()
-            else:
-                # Return existing posts
-                return db.query(models.FacebookPost).filter_by(client_id=client_id).all()
+            # In strict mode for this deployment we do not generate or return mock posts
+            logger.info("Facebook API not configured; returning empty posts without mocks")
+            return db.query(models.FacebookPost).filter_by(client_id=client_id).all()
         
         try:
             # Original implementation for real Facebook API
