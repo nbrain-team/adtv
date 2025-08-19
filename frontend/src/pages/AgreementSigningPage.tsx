@@ -185,10 +185,10 @@ export const AgreementSigningPage: React.FC = () => {
                 <iframe
                     title="agreement-template"
                     src="/agreements/template.html"
-                    style={{ width: '100%', height: '1800px', border: 'none', background: 'transparent' }}
+                    style={{ width: '100%', height: '1800px', border: 'none', background: 'transparent', pointerEvents: 'none' }}
                 />
                 {/* Overlay signature controls at the bottom to match template flow */}
-                <div style={{ position: 'absolute', left: 0, right: 0, bottom: 24, display: 'flex', justifyContent: 'center' }}>
+                <div style={{ position: 'absolute', left: 0, right: 0, bottom: 24, display: 'flex', justifyContent: 'center', zIndex: 10, pointerEvents: 'auto' }}>
                     <Card style={{ maxWidth: 900, width: '95%', padding: 16 }}>
                         <Flex direction="column" gap="3">
                             <Flex gap="2">
@@ -208,7 +208,7 @@ export const AgreementSigningPage: React.FC = () => {
                                     <SigCanvas
                                         ref={sigPad}
                                         penColor="#111"
-                                        canvasProps={{ width: 800, height: 200, style: { width: '100%', height: 200 } }}
+                                        canvasProps={{ width: 800, height: 200, style: { width: '100%', height: 200, touchAction: 'none', userSelect: 'none' } }}
                                     />
                                     <Flex mt="2" gap="2">
                                         <Button variant="soft" onClick={() => sigPad.current?.clear()}>Clear</Button>
