@@ -245,6 +245,18 @@ def on_startup():
     except Exception as e:
         logger.error(f"Error running migrations: {e}")
     
+    # Safeguard: If server restarted during enrichment, mark campaigns as paused and reset in-flight contacts
+    try:
+        with SessionLocal() as db:
+            from core.database import Campaign, CampaignContact
+            paused_count = db.query(Campaign).filter(Campaign.status == 'enriching').update({Campaign.status: 'paused'}, synchronize_session=False)
+            reset_count = db.query(CampaignContact).filter(CampaignContact.enrichment_status == 'processing').update({CampaignContact.enrichment_status: 'pending'}, synchronize_session=False)
+            db.commit()
+            if paused_count or reset_count:
+                logger.info(f"Startup recovery: paused {paused_count} campaigns and reset {reset_count} contacts from 'processing' to 'pending'.")
+    except Exception as e:
+        logger.warning(f"Startup recovery step failed: {e}")
+    
     # Add campaign fields
     try:
         from scripts.add_campaign_fields import add_campaign_fields

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Box, Flex, Heading, Text, Card, Button, Badge, Dialog, TextField, Select, TextArea, Callout, IconButton, AlertDialog } from '@radix-ui/themes';
-import { PlusIcon, CalendarIcon, PersonIcon, EnvelopeClosedIcon, BarChartIcon, InfoCircledIcon, TrashIcon, Cross2Icon } from '@radix-ui/react-icons';
+import { Box, Flex, Heading, Text, Card, Button, Dialog, TextField, Select, TextArea, Callout, IconButton, AlertDialog } from '@radix-ui/themes';
+import { PlusIcon, CalendarIcon, PersonIcon, InfoCircledIcon, TrashIcon, Cross2Icon } from '@radix-ui/react-icons';
 import { MainLayout } from '../components/MainLayout';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
@@ -37,32 +37,6 @@ const CAMPAIGN_OWNERS = [
     { value: 'amy_dodsworth', label: 'Amy Dodsworth', email: 'amy@adtvmedia.com', phone: '619-259-0014' },
     { value: 'bailey_jacobs', label: 'Bailey Jacobs', email: 'bailey@adtvmedia.com', phone: '619-333-0342' }
 ];
-
-const getStatusColor = (status: string) => {
-    const statusColors: Record<string, any> = {
-        'draft': 'gray',
-        'enriching': 'blue',
-        'ready_for_personalization': 'yellow',
-        'generating_emails': 'blue',
-        'ready_to_send': 'green',
-        'sending': 'blue',
-        'sent': 'green'
-    };
-    return statusColors[status] || 'gray';
-};
-
-const getStatusLabel = (status: string) => {
-    const statusLabels: Record<string, string> = {
-        'draft': 'Draft',
-        'enriching': 'Enriching Contacts',
-        'ready_for_personalization': 'Ready for Personalization',
-        'generating_emails': 'Generating Emails',
-        'ready_to_send': 'Ready to Send',
-        'sending': 'Sending',
-        'sent': 'Sent'
-    };
-    return statusLabels[status] || status;
-};
 
 const CampaignsPage = () => {
     const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -121,56 +95,25 @@ const CampaignsPage = () => {
                 name: formData.name,
                 owner_name: selectedOwner.label,
                 owner_email: selectedOwner.email,
-                owner_phone: formData.owner_phone || selectedOwner.phone,
+                owner_phone: formData.owner_phone,
                 video_link: formData.video_link,
                 event_link: formData.event_link,
                 city: formData.city,
                 state: formData.state,
-                launch_date: new Date(formData.launch_date).toISOString(),
+                launch_date: formData.launch_date,
                 event_type: formData.event_type,
-                event_date: validEventSlots.length > 0 ? new Date(validEventSlots[0].date).toISOString() : new Date().toISOString(),
-                event_times: validEventSlots.map(slot => slot.time),
                 event_slots: validEventSlots,
                 target_cities: formData.target_cities,
-                hotel_name: formData.event_type === 'in_person' ? formData.hotel_name : undefined,
-                hotel_address: formData.event_type === 'in_person' ? formData.hotel_address : undefined,
-                calendly_link: formData.event_type === 'in_person' ? formData.calendly_link : undefined
+                hotel_name: formData.hotel_name,
+                hotel_address: formData.hotel_address,
+                calendly_link: formData.calendly_link
             };
 
-            console.log('Creating campaign with data:', campaignData);
-            const response = await api.post('/api/campaigns', campaignData);
-            console.log('Campaign created response:', response.data);
-            
-            // Refresh the campaigns list to ensure we have the latest data
-            await fetchCampaigns();
-            
+            await api.post('/api/campaigns', campaignData);
             setShowCreateDialog(false);
-            
-            // Reset form
-            setFormData({
-                name: '',
-                owner: '',
-                owner_phone: '',
-                video_link: '',
-                event_link: '',
-                city: '',
-                state: '',
-                launch_date: '',
-                event_type: '',
-                event_slots: [{ date: '', time: '', calendly_link: '' }],
-                target_cities: '',
-                hotel_name: '',
-                hotel_address: '',
-                calendly_link: ''
-            });
-            
-            // Navigate to the new campaign
-            if (response.data && response.data.id) {
-                navigate(`/campaigns/${response.data.id}`);
-            }
-        } catch (err: any) {
-            console.error('Failed to create campaign:', err);
-            setError(err.response?.data?.detail || 'Failed to create campaign');
+            fetchCampaigns();
+        } catch (err) {
+            setError('Failed to create campaign');
         }
     };
 
@@ -285,9 +228,32 @@ const CampaignsPage = () => {
                                         <Box>
                                             <Flex align="center" justify="between" mb="2">
                                                 <Text size="2" color="gray">Progress</Text>
-                                                <Text size="2" weight="medium">
-                                                    {campaign.enriched_contacts}/{campaign.total_contacts} contacts
-                                                </Text>
+                                                <Flex align="center" gap="2">
+                                                    <Text size="2" weight="medium">
+                                                        {campaign.enriched_contacts}/{campaign.total_contacts}
+                                                    </Text>
+                                                    {campaign.status === 'enriching' ? (
+                                                        <Button size="1" variant="soft" onClick={async (e) => {
+                                                            e.stopPropagation();
+                                                            try {
+                                                                await api.post(`/api/campaigns/${campaign.id}/pause-enrichment`);
+                                                                fetchCampaigns();
+                                                            } catch (err) {
+                                                                console.error(err);
+                                                            }
+                                                        }}>Pause</Button>
+                                                    ) : (
+                                                        <Button size="1" variant="soft" onClick={async (e) => {
+                                                            e.stopPropagation();
+                                                            try {
+                                                                await api.post(`/api/campaigns/${campaign.id}/resume-enrichment`);
+                                                                fetchCampaigns();
+                                                            } catch (err) {
+                                                                console.error(err);
+                                                            }
+                                                        }}>Play</Button>
+                                                    )}
+                                                </Flex>
                                             </Flex>
                                             <Box style={{ 
                                                 width: '100%', 

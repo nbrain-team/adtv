@@ -1323,6 +1323,66 @@ async def get_enrichment_status(
         ]
     }
 
+@router.post("/{campaign_id}/pause-enrichment")
+async def pause_enrichment(
+    campaign_id: str,
+    current_user: User = Depends(auth.get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Pause enrichment: set campaign to 'paused' and reset 'processing' contacts to 'pending'"""
+    campaign = db.query(Campaign).filter(
+        Campaign.id == campaign_id,
+        Campaign.user_id == current_user.id
+    ).first()
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+
+    # Reset any contacts stuck in processing so we can safely resume later
+    db.query(CampaignContact).filter(
+        CampaignContact.campaign_id == campaign_id,
+        CampaignContact.enrichment_status == 'processing'
+    ).update({CampaignContact.enrichment_status: 'pending'}, synchronize_session=False)
+
+    campaign.status = 'paused'
+    db.commit()
+
+    return {"message": "Enrichment paused"}
+
+@router.post("/{campaign_id}/resume-enrichment")
+async def resume_enrichment(
+    campaign_id: str,
+    reset_processing: bool = True,
+    background_tasks: BackgroundTasks = BackgroundTasks(),
+    current_user: User = Depends(auth.get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Resume enrichment after interruption by resetting stalled contacts and restarting the job"""
+    # Restrict to campaign owner for write action
+    campaign = db.query(Campaign).filter(
+        Campaign.id == campaign_id,
+        Campaign.user_id == current_user.id
+    ).first()
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+
+    reset_count = 0
+    if reset_processing:
+        # Reset any contacts stuck in 'processing' back to 'pending'
+        reset_count = db.query(CampaignContact).filter(
+            CampaignContact.campaign_id == campaign_id,
+            CampaignContact.enrichment_status == 'processing'
+        ).update({CampaignContact.enrichment_status: 'pending'}, synchronize_session=False)
+        db.commit()
+
+    # Ensure campaign status reflects enrichment in progress
+    campaign.status = 'enriching'
+    db.commit()
+
+    # Kick off enrichment in background
+    background_tasks.add_task(enrich_campaign_contacts, campaign_id, current_user.id)
+
+    return {"message": "Enrichment resumed", "reset_contacts": reset_count}
+
 # Background tasks
 def enrich_campaign_contacts(campaign_id: str, user_id: str):
     """Background task to enrich campaign contacts"""
@@ -1458,12 +1518,15 @@ async def enrich_contacts_concurrently(contacts, campaign_id, enricher, db, Sess
                     return 0, 1
                 
                 # Check if campaign still exists (only check every 50 contacts)
-                if index % 50 == 0:
+                if index % 10 == 0 or index < 5:
                     campaign_check = contact_db.query(Campaign).filter(
                         Campaign.id == campaign_id
                     ).first()
                     if not campaign_check:
                         logger.warning(f"Campaign {campaign_id} no longer exists, stopping enrichment")
+                        return 0, 0
+                    if campaign_check.status == 'paused':
+                        logger.warning(f"Campaign {campaign_id} paused, stopping enrichment")
                         return 0, 0
                 
                 # Check if this contact has been cancelled
