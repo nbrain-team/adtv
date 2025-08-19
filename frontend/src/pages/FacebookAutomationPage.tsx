@@ -252,7 +252,7 @@ const FacebookAutomationPage = () => {
               <Card style={{ maxWidth: 600, width: '100%' }}>
                 <Box p="8" style={{ textAlign: 'center' }}>
                   <Heading size="6" mb="3">Welcome to Your Social Media Hub</Heading>
-                  <Text size="3" color="gray" mb="6">
+                  <Text size="3" color="gray" style={{ display: 'block', marginBottom: 16 }}>
                     Connect your Facebook pages to start automating your social media marketing
                   </Text>
                   <Button size="4" onClick={() => setShowConnectDialog(true)}>
@@ -300,6 +300,7 @@ const FacebookAutomationPage = () => {
         {/* Connect Dialog */}
         <Dialog.Root open={showConnectDialog} onOpenChange={setShowConnectDialog}>
           <Dialog.Content maxWidth="500px">
+            <Dialog.Title>Connect a Facebook Page</Dialog.Title>
             <FacebookConnectFlow onComplete={handleClientConnected} />
           </Dialog.Content>
         </Dialog.Root>

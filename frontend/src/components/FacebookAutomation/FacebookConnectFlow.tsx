@@ -23,29 +23,8 @@ const FacebookConnectFlow: React.FC<FacebookConnectFlowProps> = ({ onComplete })
 
       // If service token mode is enabled, we can call the backend to connect directly
       if (response.data.service_token_mode) {
-        // Connect using service token
-        const connectRes = await api.post('/api/facebook-automation/facebook/connect-with-token');
-        const clientId = connectRes.data?.id;
-        // Optionally create a starter campaign in draft for new connections
-        if (clientId) {
-          try {
-            await api.post(`/api/facebook-automation/campaigns/manual?client_id=${clientId}`, {
-              name: 'Starter Campaign',
-              objective: 'REACH',
-              creative: {
-                primary_text: 'Welcome to ADTV',
-                headline: 'Starter Campaign',
-                description: '',
-                call_to_action: 'LEARN_MORE',
-                link_url: window.location.origin
-              },
-              daily_budget: 50,
-              status: 'active'
-            });
-          } catch (e) {
-            console.warn('Starter campaign creation skipped:', e);
-          }
-        }
+        // Connect using service token; do not auto-create any campaigns here
+        await api.post('/api/facebook-automation/facebook/connect-with-token');
         onComplete();
         return;
       }
