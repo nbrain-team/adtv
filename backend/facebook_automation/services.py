@@ -111,6 +111,15 @@ class FacebookAutomationService:
                 facebook_page_id=page["id"]
             ).first()
             
+            # Ensure we have a page name; fetch if missing
+            page_name = page.get("name")
+            if not page_name:
+                try:
+                    info2 = await facebook_service.get_page_basic_info(page["id"], access_token)
+                    page_name = info2.get("name") or f"Page {page['id']}"
+                except Exception:
+                    page_name = f"Page {page['id']}"
+
             if not client:
                 # If page access token is not present and we used a system token, fetch it
                 page_access_token = page.get("access_token")
@@ -120,7 +129,7 @@ class FacebookAutomationService:
                     user_id=user_id,
                     facebook_user_id=page["id"],  # Using page ID as user ID for now
                     facebook_page_id=page["id"],
-                    page_name=page["name"],
+                    page_name=page_name,
                     page_access_token=page_access_token or page["access_token"],
                     ad_account_id=ad_account["id"] if ad_account else None,
                     token_expires_at=datetime.utcnow() + timedelta(seconds=expires_in)
@@ -139,7 +148,7 @@ class FacebookAutomationService:
             # Subscribe to webhooks
             await facebook_service.subscribe_page_to_webhook(
                 page["id"], 
-                page["access_token"]
+                page_access_token or page.get("access_token")
             )
             
             return client
