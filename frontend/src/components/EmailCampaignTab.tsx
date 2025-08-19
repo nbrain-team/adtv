@@ -86,9 +86,34 @@ export const EmailCampaignTab: React.FC<EmailCampaignTabProps> = ({
     const fetchEmailTemplates = async () => {
         try {
             const response = await api.get(`/api/campaigns/${campaignId}/email-templates`);
-            setEmailTemplates(response.data);
+            let templates = response.data as EmailTemplate[];
+            if (!templates || templates.length === 0) {
+                try {
+                    const globalRes = await api.get('/api/email-templates');
+                    const mapped = (globalRes.data || []).map((t: any) => ({
+                        id: t.id,
+                        name: t.name,
+                        subject: t.subject || t.goal || '',
+                        body: t.body || t.content || '',
+                        template_type: t.template_type || 'general'
+                    }));
+                    templates = mapped;
+                } catch (e) {}
+            }
+            setEmailTemplates(templates || []);
         } catch (err) {
             console.error('Failed to fetch email templates:', err);
+            try {
+                const globalRes = await api.get('/api/email-templates');
+                const mapped = (globalRes.data || []).map((t: any) => ({
+                    id: t.id,
+                    name: t.name,
+                    subject: t.subject || t.goal || '',
+                    body: t.body || t.content || '',
+                    template_type: t.template_type || 'general'
+                }));
+                setEmailTemplates(mapped);
+            } catch (e) {}
         }
     };
 

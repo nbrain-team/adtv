@@ -116,9 +116,40 @@ export const CreateCommunicationsTab: React.FC<CreateCommunicationsTabProps> = (
         try {
             // Add timestamp to prevent caching issues
             const response = await api.get(`/api/campaigns/${campaignId}/email-templates?t=${Date.now()}`);
-            setAvailableTemplates(response.data);
+            let templates = response.data as EmailTemplate[];
+            // Fallback to global templates if campaign has none
+            if (!templates || templates.length === 0) {
+                try {
+                    const globalRes = await api.get('/api/email-templates');
+                    const mapped = (globalRes.data || []).map((t: any) => ({
+                        id: t.id,
+                        name: t.name,
+                        subject: t.subject || t.goal || '',
+                        body: t.body || t.content || '',
+                        template_type: t.template_type || 'general'
+                    }));
+                    templates = mapped;
+                } catch (e) {
+                    // ignore, outer catch will log
+                }
+            }
+            setAvailableTemplates(templates || []);
         } catch (err) {
             console.error('Failed to fetch templates:', err);
+            // Try global templates as last resort
+            try {
+                const globalRes = await api.get('/api/email-templates');
+                const mapped = (globalRes.data || []).map((t: any) => ({
+                    id: t.id,
+                    name: t.name,
+                    subject: t.subject || t.goal || '',
+                    body: t.body || t.content || '',
+                    template_type: t.template_type || 'general'
+                }));
+                setAvailableTemplates(mapped);
+            } catch (e) {
+                // leave empty
+            }
         }
     };
 
