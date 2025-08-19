@@ -148,13 +148,13 @@ const FacebookAutomationPage = () => {
 
             <Flex align="center" gap="4">
               {/* View Toggles */}
-              <Flex gap="2" style={{ 
+              <Flex gap="4" style={{ 
                 background: 'var(--gray-3)', 
-                padding: 4,
-                borderRadius: 8 
+                padding: '8px 10px',
+                borderRadius: 12 
               }}>
                 <Button 
-                  size="2" 
+                  size="3" 
                   variant={activeView === 'calendar' ? 'solid' : 'ghost'}
                   onClick={() => setActiveView('calendar')}
                 >
@@ -162,28 +162,28 @@ const FacebookAutomationPage = () => {
                   Calendar
                 </Button>
                 <Button 
-                  size="2" 
+                  size="3" 
                   variant={activeView === 'posts' ? 'solid' : 'ghost'}
                   onClick={() => setActiveView('posts')}
                 >
                   Posts
                 </Button>
                 <Button 
-                  size="2" 
+                  size="3" 
                   variant={activeView === 'ads' ? 'solid' : 'ghost'}
                   onClick={() => setActiveView('ads')}
                 >
                   Ads
                 </Button>
                 <Button 
-                  size="2" 
+                  size="3" 
                   variant={activeView === 'analytics' ? 'solid' : 'ghost'}
                   onClick={() => setActiveView('analytics')}
                 >
                   Analytics
                 </Button>
                 <Button 
-                  size="2" 
+                  size="3" 
                   variant={activeView === 'settings' ? 'solid' : 'ghost'}
                   onClick={() => setActiveView('settings')}
                 >
