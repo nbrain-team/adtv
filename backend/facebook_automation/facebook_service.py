@@ -131,6 +131,24 @@ class FacebookService:
                 return None
             data = response.json()
             return data.get("access_token")
+
+    async def get_page_basic_info(self, page_id: str, access_token: Optional[str]) -> Dict[str, Any]:
+        """Fetch basic page info like name and access token"""
+        token = access_token or self.marketing_api_token
+        if not token:
+            return {}
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{self.BASE_URL}/{page_id}",
+                params={
+                    "access_token": token,
+                    "fields": "id,name,access_token"
+                }
+            )
+            if response.status_code != 200:
+                logger.warning(f"Failed to get page basic info: {response.text}")
+                return {}
+            return response.json()
     
     async def get_post_insights(
         self, 

@@ -79,8 +79,14 @@ class FacebookAutomationService:
                 access_token = token_data["access_token"]
                 expires_in = token_data.get("expires_in", 5184000)  # 60 days default
             
-            # Get user pages
-            pages = await facebook_service.get_user_pages(access_token)
+            # Get user pages (or fetch a specific page if override provided)
+            pages = []
+            if page_id_override:
+                info = await facebook_service.get_page_basic_info(page_id_override, access_token)
+                if info:
+                    pages = [{"id": info.get("id"), "name": info.get("name"), "access_token": info.get("access_token")}]
+            if not pages:
+                pages = await facebook_service.get_user_pages(access_token)
             if not pages:
                 raise ValueError("No Facebook pages found for this account")
             
