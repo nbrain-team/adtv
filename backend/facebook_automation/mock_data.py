@@ -253,7 +253,8 @@ def generate_mock_posts(client_id: str, page_name: str):
                 'comments_count': base_comments + random.randint(-2, 5),
                 'shares_count': base_shares + random.randint(-1, 3),
                 'reach': (base_likes + random.randint(100, 500)) * 3,
-                'status': random.choice(['REVIEWED', 'CONVERTED', 'CONVERTED', 'REVIEWED']),  # More converted posts
+                # Use lowercase statuses to match enum values in models.PostStatus
+                'status': random.choice(['reviewed', 'converted', 'converted', 'reviewed']),
                 'ai_quality_score': template['ai_score'][0] + random.randint(-5, 5), # Add some variation
                 'ai_suggestions': {
                     'improved_text': template['message'] + ' 🏡 Contact us today!',

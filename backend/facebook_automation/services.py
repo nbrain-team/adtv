@@ -24,7 +24,10 @@ class FacebookAutomationService:
         self,
         db: Session,
         user_id: str,
-        auth_code: str
+        auth_code: str,
+        *,
+        page_id_override: Optional[str] = None,
+        ad_account_id_override: Optional[str] = None
     ) -> models.FacebookClient:
         """Connect a Facebook account using OAuth code"""
         try:
@@ -84,10 +87,18 @@ class FacebookAutomationService:
             # Get ad accounts
             ad_accounts = await facebook_service.get_ad_accounts(access_token)
             
-            # For now, use the first page and ad account
-            # In production, let user select
-            page = pages[0]
-            ad_account = ad_accounts[0] if ad_accounts else None
+            # Choose page/ad account (allow overrides)
+            page = None
+            if page_id_override:
+                page = next((p for p in pages if p.get("id") == page_id_override), None)
+            page = page or (pages[0])
+
+            ad_account = None
+            if ad_account_id_override:
+                # Facebook API expects account id in the form act_<id> in some endpoints; accept both
+                wanted_ids = {ad_account_id_override, f"act_{ad_account_id_override}"}
+                ad_account = next((a for a in ad_accounts if a.get("id") in wanted_ids), None)
+            ad_account = ad_account or (ad_accounts[0] if ad_accounts else None)
             
             # Create or update Facebook client
             client = db.query(models.FacebookClient).filter_by(
@@ -113,6 +124,8 @@ class FacebookAutomationService:
                 client.page_access_token = page.get("access_token") or client.page_access_token
                 client.token_expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
                 client.is_active = True
+                if ad_account:
+                    client.ad_account_id = ad_account.get("id")
             
             db.commit()
             db.refresh(client)
@@ -127,6 +140,63 @@ class FacebookAutomationService:
             
         except Exception as e:
             logger.error(f"Failed to connect Facebook account: {e}")
+            db.rollback()
+            raise
+
+    async def create_manual_campaign(
+        self,
+        db: Session,
+        client_id: str,
+        user_id: str,
+        campaign_data: schemas.CampaignCreate
+    ) -> models.FacebookAdCampaign:
+        """Create an ad campaign without a source post (manual)."""
+        client = db.query(models.FacebookClient).filter_by(id=client_id).first()
+        if not client:
+            raise ValueError("Client not found")
+
+        try:
+            campaign = models.FacebookAdCampaign(
+                client_id=client.id,
+                source_post_id=None,
+                created_by=user_id,
+                name=campaign_data.name,
+                objective=campaign_data.objective,
+                primary_text=campaign_data.creative.primary_text,
+                headline=campaign_data.creative.headline,
+                description=campaign_data.creative.description,
+                call_to_action=campaign_data.creative.call_to_action,
+                link_url=campaign_data.creative.link_url,
+                creative_urls=[],
+                daily_budget=campaign_data.daily_budget or client.default_daily_budget,
+                start_date=campaign_data.start_date or datetime.utcnow(),
+                end_date=campaign_data.end_date or (
+                    datetime.utcnow() + timedelta(days=client.default_campaign_duration)
+                ),
+                targeting=campaign_data.targeting.dict() if campaign_data.targeting else {
+                    "geo_locations": {"countries": ["US"]},
+                    "age_min": 18,
+                    "age_max": 65
+                }
+            )
+
+            # Create on Facebook if not draft
+            if (campaign_data.status or "draft").lower() != "draft":
+                fb_campaign = await self._create_facebook_campaign(campaign, client)
+                campaign.facebook_campaign_id = fb_campaign["campaign_id"]
+                campaign.facebook_adset_id = fb_campaign["adset_id"]
+                campaign.facebook_ad_id = fb_campaign["ad_id"]
+                campaign.status = models.AdStatus.ACTIVE
+                campaign.launched_at = datetime.utcnow()
+            else:
+                campaign.status = models.AdStatus.DRAFT
+
+            db.add(campaign)
+            db.commit()
+            db.refresh(campaign)
+            return campaign
+        except Exception as e:
+            logger.error(f"Failed to create manual campaign: {e}")
             db.rollback()
             raise
     

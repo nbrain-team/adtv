@@ -1,6 +1,6 @@
 """
 Seed Facebook automation demo data with correct enum values for production
-Uses: PUBLISHED, APPROVED, DRAFT for posts and ACTIVE, PAUSED, COMPLETED for campaigns
+Uses: imported/reviewed/converted/skipped for posts and active/paused/completed/draft for campaigns
 """
 
 import os
@@ -68,16 +68,21 @@ def seed_facebook_demo(user_email: str = None):
         print("\n📝 Creating Facebook posts...")
         posts_created = 0
         
-        # Use only valid PostStatus values from production DB
-        valid_post_statuses = ["PUBLISHED", "APPROVED", "DRAFT"]
+        # Use only valid PostStatus values from models.PostStatus
+        valid_post_statuses = [
+            models.PostStatus.IMPORTED.value,
+            models.PostStatus.REVIEWED.value,
+            models.PostStatus.CONVERTED.value,
+            models.PostStatus.SKIPPED.value,
+        ]
         
         for client in clients_created:
             for i in range(15):
                 template = random.choice(MOCK_POSTS_TEMPLATES)
                 created_time = datetime.utcnow() - timedelta(days=random.randint(1, 30))
                 
-                # Pick status - mostly published/approved
-                status_weights = [0.5, 0.4, 0.1]  # PUBLISHED, APPROVED, DRAFT
+                # Bias toward reviewed/converted
+                status_weights = [0.2, 0.4, 0.35, 0.05]  # imported, reviewed, converted, skipped
                 status = random.choices(valid_post_statuses, weights=status_weights)[0]
                 
                 post = models.FacebookPost(
@@ -116,8 +121,13 @@ def seed_facebook_demo(user_email: str = None):
         print("\n🚀 Creating ad campaigns...")
         campaigns_created = 0
         
-        # Use only valid AdStatus values from production DB
-        valid_campaign_statuses = ["ACTIVE", "PAUSED", "COMPLETED", "DRAFT"]
+        # Use only valid AdStatus values from models.AdStatus
+        valid_campaign_statuses = [
+            models.AdStatus.ACTIVE.value,
+            models.AdStatus.PAUSED.value,
+            models.AdStatus.COMPLETED.value,
+            models.AdStatus.DRAFT.value,
+        ]
         
         for client in clients_created:
             for i in range(8):

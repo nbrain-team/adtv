@@ -104,6 +104,47 @@ async def connect_with_service_token(
             db, current_user.id, auth_code="service_token"
         )
         return schemas.FacebookClient.from_orm(client)
+@router.post("/facebook/manual-connect", response_model=schemas.FacebookClient)
+async def manual_connect(
+    page_id: str,
+    ad_account_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Connect a Facebook page/account using a pre-authorized Marketing API token.
+    Requires FACEBOOK_MARKETING_API_TOKEN to be set.
+    """
+    if not facebook_service.marketing_api_token:
+        raise HTTPException(status_code=400, detail="FACEBOOK_MARKETING_API_TOKEN not configured")
+    try:
+        client = await facebook_automation_service.connect_facebook_account(
+            db,
+            current_user.id,
+            auth_code="service_token",
+            page_id_override=page_id,
+            ad_account_id_override=ad_account_id
+        )
+        return schemas.FacebookClient.from_orm(client)
+    except Exception as e:
+        logger.error(f"Facebook manual connect failed: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/campaigns/manual", response_model=schemas.FacebookAdCampaign)
+async def create_campaign_manual(
+    client_id: str,
+    campaign_data: schemas.CampaignCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Create an ad campaign without selecting a post."""
+    try:
+        campaign = await facebook_automation_service.create_manual_campaign(
+            db, client_id, current_user.id, campaign_data
+        )
+        return schemas.FacebookAdCampaign.from_orm(campaign)
+    except Exception as e:
+        logger.error(f"Failed to create manual campaign: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Facebook token connect failed: {e}")
         raise HTTPException(status_code=400, detail=str(e))
