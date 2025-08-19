@@ -40,9 +40,9 @@ class CampaignCreate(BaseModel):
     state: Optional[str] = None
     launch_date: datetime
     event_type: str  # 'virtual' or 'in_person'
-    event_date: datetime  # Keep for backward compatibility
-    event_times: Optional[List[str]] = []  # Keep for backward compatibility
-    event_slots: Optional[List[EventSlot]] = []  # New structure
+    event_date: Optional[datetime] = None  # Optional; fallback to launch_date
+    event_times: Optional[List[str]] = None  # Backward compatibility
+    event_slots: Optional[List[EventSlot]] = None  # New structure
     target_cities: Optional[str] = None  # Locations to scrape
     hotel_name: Optional[str] = None
     hotel_address: Optional[str] = None
@@ -242,8 +242,12 @@ async def create_campaign(
     """Create a new campaign"""
     # Convert event_slots to dict format for JSON storage
     campaign_dict = campaign_data.dict()
-    if 'event_slots' in campaign_dict and campaign_dict['event_slots']:
+    if campaign_dict.get('event_slots'):
         campaign_dict['event_slots'] = [slot.dict() if hasattr(slot, 'dict') else slot for slot in campaign_dict['event_slots']]
+    
+    # Ensure event_date present to satisfy DB constraints; fallback to launch_date
+    if not campaign_dict.get('event_date'):
+        campaign_dict['event_date'] = campaign_dict.get('launch_date')
     
     campaign = Campaign(
         user_id=current_user.id,
@@ -460,10 +464,8 @@ async def delete_campaign(
 ):
     """Delete a campaign and stop all background tasks"""
     try:
-        campaign = db.query(Campaign).filter(
-            Campaign.id == campaign_id,
-            Campaign.user_id == current_user.id
-        ).first()
+        # Allow any authenticated user to delete
+        campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
         
         if not campaign:
             raise HTTPException(status_code=404, detail="Campaign not found")
@@ -1330,10 +1332,8 @@ async def pause_enrichment(
     db: Session = Depends(get_db)
 ):
     """Pause enrichment: set campaign to 'paused' and reset 'processing' contacts to 'pending'"""
-    campaign = db.query(Campaign).filter(
-        Campaign.id == campaign_id,
-        Campaign.user_id == current_user.id
-    ).first()
+    # Allow any authenticated user to pause
+    campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
 
@@ -1357,11 +1357,8 @@ async def resume_enrichment(
     db: Session = Depends(get_db)
 ):
     """Resume enrichment after interruption by resetting stalled contacts and restarting the job"""
-    # Restrict to campaign owner for write action
-    campaign = db.query(Campaign).filter(
-        Campaign.id == campaign_id,
-        Campaign.user_id == current_user.id
-    ).first()
+    # Allow any authenticated user to resume
+    campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
 
