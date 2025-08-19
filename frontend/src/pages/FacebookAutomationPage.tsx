@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Box, Flex, Text, Heading, Card, Button, Badge, Dialog, Select } from '@radix-ui/themes';
 import { PlusIcon, CalendarIcon } from '@radix-ui/react-icons';
 import { MainLayout } from '../components/MainLayout';
+import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 // import { useAuth } from '../context/AuthContext';
 import FacebookConnectFlow from '../components/FacebookAutomation/FacebookConnectFlow';
@@ -26,7 +27,7 @@ interface FacebookClient {
 
 const FacebookAutomationPage = () => {
   const navigate = useNavigate();
-  // const { userProfile } = useAuth(); // reserved for future permissions gating
+  const { isAuthenticated, isLoading } = useAuth();
   const [clients, setClients] = useState<FacebookClient[]>([]);
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -39,8 +40,10 @@ const FacebookAutomationPage = () => {
   });
 
   useEffect(() => {
-    fetchClients();
-  }, []);
+    if (!isLoading && isAuthenticated) {
+      fetchClients();
+    }
+  }, [isLoading, isAuthenticated]);
 
   const fetchClients = async () => {
     try {
@@ -89,8 +92,12 @@ const FacebookAutomationPage = () => {
       
       // Auto-select first (and only) client if none selected
       if (clientsData.length > 0 && !selectedClient) setSelectedClient(clientsData[0].id);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to fetch clients:', error);
+      if (error?.response?.status === 401) {
+        navigate('/login');
+        return;
+      }
       setClients([]);
     } finally {
       setLoading(false);
@@ -106,7 +113,7 @@ const FacebookAutomationPage = () => {
     return clients.find(c => c.id === selectedClient);
   };
 
-  if (loading) {
+  if (loading || isLoading) {
     return (
       <MainLayout onNewChat={() => navigate('/home')}>
         <Box style={{ 
