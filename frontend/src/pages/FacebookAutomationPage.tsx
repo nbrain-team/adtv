@@ -42,7 +42,10 @@ const FacebookAutomationPage = () => {
 
   const fetchClients = async () => {
     try {
-      const response = await api.get('/api/facebook-automation/clients');
+      const ONLY_PAGE_ID = (import.meta as any).env?.VITE_ONLY_FACEBOOK_PAGE_ID as string | undefined;
+      const response = await api.get('/api/facebook-automation/clients', {
+        params: ONLY_PAGE_ID ? { page_id: ONLY_PAGE_ID } : {}
+      });
       const clientsData = response.data;
       
       if (!Array.isArray(clientsData)) {

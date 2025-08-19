@@ -160,6 +160,7 @@ async def create_campaign_manual(
 @router.get("/clients", response_model=List[schemas.FacebookClient])
 async def get_clients(
     is_active: Optional[bool] = None,
+    page_id: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
@@ -168,6 +169,8 @@ async def get_clients(
     
     if is_active is not None:
         query = query.filter_by(is_active=is_active)
+    if page_id:
+        query = query.filter(models.FacebookClient.facebook_page_id == page_id)
     
     clients = query.order_by(models.FacebookClient.created_at.desc()).all()
     
