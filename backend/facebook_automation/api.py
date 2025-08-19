@@ -104,6 +104,9 @@ async def connect_with_service_token(
             db, current_user.id, auth_code="service_token"
         )
         return schemas.FacebookClient.from_orm(client)
+    except Exception as e:
+        logger.error(f"Facebook token connect failed: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
 @router.post("/facebook/manual-connect", response_model=schemas.FacebookClient)
 async def manual_connect(
     page_id: str,
@@ -144,9 +147,6 @@ async def create_campaign_manual(
         return schemas.FacebookAdCampaign.from_orm(campaign)
     except Exception as e:
         logger.error(f"Failed to create manual campaign: {e}")
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        logger.error(f"Facebook token connect failed: {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
 
