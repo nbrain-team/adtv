@@ -283,8 +283,30 @@ async def get_posts(
         query = query.filter(models.FacebookPost.status == status)
     
     query = query.order_by(models.FacebookPost.created_time.desc())
-    
-    return query.offset(skip).limit(limit).all()
+
+    posts = query.offset(skip).limit(limit).all()
+    # Normalize any legacy uppercase statuses to enum-compatible values to avoid 500s
+    def normalize_post_status(value: str) -> models.PostStatus:
+        mapping = {
+            "IMPORTED": models.PostStatus.IMPORTED,
+            "REVIEWED": models.PostStatus.REVIEWED,
+            "CONVERTED": models.PostStatus.CONVERTED,
+            "SKIPPED": models.PostStatus.SKIPPED,
+            "PUBLISHED": models.PostStatus.REVIEWED,
+            "APPROVED": models.PostStatus.REVIEWED,
+            "DRAFT": models.PostStatus.IMPORTED,
+        }
+        if isinstance(value, str):
+            return mapping.get(value.upper(), models.PostStatus.IMPORTED)
+        return value or models.PostStatus.IMPORTED
+
+    for p in posts:
+        if isinstance(p.status, str):
+            try:
+                p.status = normalize_post_status(p.status)
+            except Exception:
+                p.status = models.PostStatus.IMPORTED
+    return posts
 
 
 @router.get("/posts/{post_id}", response_model=schemas.FacebookPost)
@@ -379,7 +401,25 @@ async def get_campaigns(
     query = query.order_by(models.FacebookAdCampaign.created_at.desc())
     
     campaigns = query.offset(skip).limit(limit).all()
-    
+    # Normalize any legacy uppercase statuses
+    def normalize_ad_status(value: str) -> models.AdStatus:
+        mapping = {
+            "ACTIVE": models.AdStatus.ACTIVE,
+            "PAUSED": models.AdStatus.PAUSED,
+            "COMPLETED": models.AdStatus.COMPLETED,
+            "DRAFT": models.AdStatus.DRAFT,
+        }
+        if isinstance(value, str):
+            return mapping.get(value.upper(), models.AdStatus.DRAFT)
+        return value or models.AdStatus.DRAFT
+
+    for c in campaigns:
+        if isinstance(c.status, str):
+            try:
+                c.status = normalize_ad_status(c.status)
+            except Exception:
+                c.status = models.AdStatus.DRAFT
+
     # Don't auto-create mock data - return actual DB data
     return campaigns
 
