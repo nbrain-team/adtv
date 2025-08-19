@@ -195,7 +195,20 @@ async def get_email_templates(
             created_by=template.created_by or "system",
             is_system=template.is_system
         ))
-    
+
+    # Also include built-in system templates if not already present
+    for tpl in SYSTEM_TEMPLATES.values():
+        templates.append(EmailTemplateResponse(
+            id=tpl["id"],
+            name=tpl["name"],
+            content=tpl["content"],
+            goal=tpl["goal"],
+            created_at=datetime.now(),
+            updated_at=datetime.now(),
+            created_by="system",
+            is_system=True
+        ))
+
     return templates
 
 @router.post("/", response_model=EmailTemplateResponse)

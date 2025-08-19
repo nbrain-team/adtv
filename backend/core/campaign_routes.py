@@ -1213,9 +1213,9 @@ async def get_campaign_analytics(
     db: Session = Depends(get_db)
 ):
     """Get campaign analytics"""
+    # Visible to all users
     campaign = db.query(Campaign).filter(
-        Campaign.id == campaign_id,
-        Campaign.user_id == current_user.id
+        Campaign.id == campaign_id
     ).first()
     
     if not campaign:
