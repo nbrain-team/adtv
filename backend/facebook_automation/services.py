@@ -120,23 +120,27 @@ class FacebookAutomationService:
                 except Exception:
                     page_name = f"Page {page['id']}"
 
-            if not client:
-                # If page access token is not present and we used a system token, fetch it
-                page_access_token = page.get("access_token")
-                if not page_access_token and facebook_service.marketing_api_token:
+            # Ensure we have a page access token available for both creation and webhook subscription
+            page_access_token = page.get("access_token")
+            if not page_access_token and facebook_service.marketing_api_token:
+                try:
                     page_access_token = await facebook_service.get_page_access_token(page["id"], access_token)
+                except Exception:
+                    page_access_token = None
+
+            if not client:
                 client = models.FacebookClient(
                     user_id=user_id,
                     facebook_user_id=page["id"],  # Using page ID as user ID for now
                     facebook_page_id=page["id"],
                     page_name=page_name,
-                    page_access_token=page_access_token or page["access_token"],
+                    page_access_token=page_access_token or page.get("access_token"),
                     ad_account_id=ad_account["id"] if ad_account else None,
                     token_expires_at=datetime.utcnow() + timedelta(seconds=expires_in)
                 )
                 db.add(client)
             else:
-                client.page_access_token = page.get("access_token") or client.page_access_token
+                client.page_access_token = page_access_token or page.get("access_token") or client.page_access_token
                 client.token_expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
                 client.is_active = True
                 if ad_account:
@@ -146,10 +150,13 @@ class FacebookAutomationService:
             db.refresh(client)
             
             # Subscribe to webhooks
-            await facebook_service.subscribe_page_to_webhook(
-                page["id"], 
-                page_access_token or page.get("access_token")
-            )
+            # Final fallback: use client's stored token
+            token_for_webhook = page_access_token or page.get("access_token") or client.page_access_token
+            if token_for_webhook:
+                await facebook_service.subscribe_page_to_webhook(
+                    page["id"], 
+                    token_for_webhook
+                )
             
             return client
             
