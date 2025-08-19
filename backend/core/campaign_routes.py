@@ -840,9 +840,9 @@ async def reimport_enriched_contacts(
     db: Session = Depends(get_db)
 ):
     """Re-import enriched contacts, matching by ID and updating specified fields"""
+    # Visible to all users
     campaign = db.query(Campaign).filter(
-        Campaign.id == campaign_id,
-        Campaign.user_id == current_user.id
+        Campaign.id == campaign_id
     ).first()
     
     if not campaign:
@@ -1118,9 +1118,9 @@ async def bulk_update_contacts(
     db: Session = Depends(get_db)
 ):
     """Bulk update contacts (exclude/include)"""
+    # Visible to all users
     campaign = db.query(Campaign).filter(
-        Campaign.id == campaign_id,
-        Campaign.user_id == current_user.id
+        Campaign.id == campaign_id
     ).first()
     
     if not campaign:
@@ -1148,9 +1148,9 @@ async def update_contact(
     db: Session = Depends(get_db)
 ):
     """Update a single contact"""
+    # Visible to all users
     campaign = db.query(Campaign).filter(
-        Campaign.id == campaign_id,
-        Campaign.user_id == current_user.id
+        Campaign.id == campaign_id
     ).first()
     
     if not campaign:
@@ -1184,9 +1184,9 @@ async def generate_emails(
     db: Session = Depends(get_db)
 ):
     """Generate personalized emails for all contacts"""
+    # Visible to all users
     campaign = db.query(Campaign).filter(
-        Campaign.id == campaign_id,
-        Campaign.user_id == current_user.id
+        Campaign.id == campaign_id
     ).first()
     
     if not campaign:
