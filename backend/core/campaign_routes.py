@@ -1351,8 +1351,8 @@ async def pause_enrichment(
 @router.post("/{campaign_id}/resume-enrichment")
 async def resume_enrichment(
     campaign_id: str,
-    reset_processing: bool = True,
     background_tasks: BackgroundTasks,
+    reset_processing: bool = True,
     current_user: User = Depends(auth.get_current_active_user),
     db: Session = Depends(get_db)
 ):
