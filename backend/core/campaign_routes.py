@@ -542,7 +542,7 @@ async def upload_contacts(
         csv_data = io.StringIO(contents.decode('utf-8'))
         reader = csv.DictReader(csv_data)
         
-        # Map possible column names to our fields
+        # Map possible column names to our fields (prefer explicit city/state when present)
         column_mappings = {
             'name': ['Name', 'name', 'full_name', 'Full Name', 'Contact Name'],
             'first_name': ['first_name', 'firstname', 'first', 'fname', 'First Name'],
@@ -551,7 +551,9 @@ async def upload_contacts(
             'company': ['company', 'company_name', 'organization', 'Company', 'Company Name'],
             'title': ['title', 'job_title', 'position', 'Title', 'Job Title', 'Position'],
             'phone': ['phone', 'phone_number', 'telephone', 'Phone', 'Phone Number', 'cell', 'Cell Phone'],
-            'neighborhood': ['neighborhood', 'neighborhood_1', 'Neighborhood 1', 'Neighborhood', 'area', 'district']
+            # Use either explicit city or legacy neighborhood fields
+            'city': ['city', 'City', 'town', 'Town', 'neighborhood', 'neighborhood_1', 'Neighborhood 1', 'Neighborhood', 'area', 'district'],
+            'state': ['state', 'State', 'province', 'Province', 'region', 'Region']
         }
         
         # Log CSV headers for debugging
@@ -576,41 +578,36 @@ async def upload_contacts(
                 contact_data['first_name'] = name_parts[0] if name_parts else ''
                 contact_data['last_name'] = name_parts[1] if len(name_parts) > 1 else ''
             
-            # Clean up neighborhood data - remove state abbreviation if present
-            if contact_data['neighborhood']:
-                # Handle format like "Madison AL" -> "Madison"
-                neighborhood_parts = contact_data['neighborhood'].strip().rsplit(' ', 1)
-                if len(neighborhood_parts) == 2 and len(neighborhood_parts[1]) == 2 and neighborhood_parts[1].isupper():
-                    # Looks like "Neighborhood ST" format
-                    contact_data['neighborhood'] = neighborhood_parts[0]
-                    contact_data['state'] = neighborhood_parts[1]  # Store state for enrichment
-                    # Create geocoded address for Google Maps
-                    contact_data['geocoded_address'] = f"{neighborhood_parts[0]}, {neighborhood_parts[1]}, USA"
+            # Normalize city/state inputs without forcing defaults
+            # Back-compat: if legacy 'neighborhood' was mapped into 'city', keep using it as city
+            raw_city = (contact_data.get('city') or '').strip()
+            raw_state = (contact_data.get('state') or '').strip()
+
+            parsed_city = raw_city
+            parsed_state = raw_state
+
+            if raw_city:
+                # Handle patterns like "City, ST" or "City ST" or "City, ST, USA"
+                tmp = raw_city.replace(' USA', '').replace(', USA', '').strip()
+                if ',' in tmp and (not raw_state):
+                    parts = [p.strip() for p in tmp.split(',') if p.strip()]
+                    if len(parts) >= 2:
+                        parsed_city = parts[0]
+                        # Use the second token as state if it looks like 2-letter code or full name
+                        if len(parts[1]) == 2:
+                            parsed_state = parts[1].upper()
+                        else:
+                            parsed_state = parts[1]
                 else:
-                    contact_data['state'] = ''
-                    # Try to determine state and format address
-                    neighborhood = contact_data['neighborhood'].strip()
-                    # Check if it's an Alabama city (default assumption based on your data)
-                    alabama_cities = [
-                        'Madison', 'Huntsville', 'Birmingham', 'Montgomery', 'Mobile',
-                        'Tuscaloosa', 'Auburn', 'Decatur', 'Florence', 'Dothan',
-                        'Hoover', 'Vestavia Hills', 'Prattville', 'Opelika', 'Enterprise',
-                        'Northport', 'Anniston', 'Phenix City', 'Moontown', 'Monrovia',
-                        'Research Park', 'Weatherly Heights', 'Meridianville', 'New Market', 'Ryland'
-                    ]
-                    
-                    # Clean up common variations
-                    clean_neighborhood = neighborhood.replace(', Huntsville', '').replace(', Alabama', '').strip()
-                    
-                    if any(city.lower() in clean_neighborhood.lower() for city in alabama_cities):
-                        contact_data['state'] = 'AL'
-                        contact_data['geocoded_address'] = f"{clean_neighborhood}, AL, USA"
-                    else:
-                        # Default to Alabama if no state specified
-                        contact_data['state'] = 'AL'
-                        contact_data['geocoded_address'] = f"{neighborhood}, AL, USA"
-            else:
-                contact_data['geocoded_address'] = ''
+                    # Check for trailing 2-letter state without comma
+                    tokens = tmp.rsplit(' ', 1)
+                    if len(tokens) == 2 and len(tokens[1]) == 2 and tokens[1].isalpha() and not raw_state:
+                        parsed_city = tokens[0]
+                        parsed_state = tokens[1].upper()
+
+            contact_data['city'] = parsed_city
+            contact_data['state'] = parsed_state
+            contact_data['geocoded_address'] = f"{parsed_city}, {parsed_state}, USA" if parsed_city and parsed_state else ''
             
             # Skip rows where all key fields are empty (name or company required)
             if not any([contact_data['first_name'], contact_data['last_name'], contact_data['company']]):
@@ -630,7 +627,7 @@ async def upload_contacts(
                 company=contact_data['company'],
                 title=contact_data['title'],
                 phone=contact_data['phone'],  # Can be empty
-                neighborhood=contact_data['neighborhood'],
+                neighborhood=contact_data.get('city', ''),
                 state=contact_data.get('state', ''),  # Save state properly
                 geocoded_address=contact_data.get('geocoded_address', '')  # Save geocoded address
             )
