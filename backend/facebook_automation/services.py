@@ -240,9 +240,11 @@ class FacebookAutomationService:
         if not client:
             raise ValueError("Client not found")
         
-        # Default to last sync or 7 days ago
-        if not since:
-            since = client.last_sync or datetime.utcnow() - timedelta(days=7)
+        # Default: on first sync fetch recent posts without 'since' constraint to avoid missing older posts
+        if not since and not client.last_sync:
+            since = None
+        elif not since and client.last_sync:
+            since = client.last_sync
         
         # Check if using mock data
         use_mock_data = not facebook_service.app_id or not facebook_service.app_secret

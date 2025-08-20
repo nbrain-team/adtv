@@ -100,7 +100,10 @@ class FacebookService:
         }
         
         if since:
-            params["since"] = int(since.timestamp())
+            try:
+                params["since"] = int(since.timestamp())
+            except Exception:
+                pass
         
         async with httpx.AsyncClient() as client:
             response = await client.get(
@@ -109,6 +112,7 @@ class FacebookService:
             )
             
             if response.status_code != 200:
+                # Include detailed body for diagnostics
                 raise FacebookAPIError(f"Failed to get posts: {response.text}")
                 
             data = response.json()
