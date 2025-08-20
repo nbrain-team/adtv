@@ -72,7 +72,7 @@ class FacebookClient(BaseModel):
 
 class ManualConnectRequest(BaseModel):
     page_id: str
-    ad_account_id: str
+    ad_account_id: Optional[str] = None
     page_name: Optional[str] = None
 
 

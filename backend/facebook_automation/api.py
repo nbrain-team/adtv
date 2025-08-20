@@ -127,7 +127,7 @@ async def manual_connect(
             current_user.id,
             auth_code="service_token",
             page_id_override=body.page_id,
-            ad_account_id_override=body.ad_account_id
+            ad_account_id_override=body.ad_account_id or None
         )
         # If page_name provided, persist/update it
         if body.page_name and getattr(client, "page_name", None) != body.page_name:
