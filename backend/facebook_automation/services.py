@@ -70,14 +70,10 @@ class FacebookAutomationService:
                 return client
             
             # Original implementation for real Facebook API
-            # If we have a marketing API token, use it; otherwise exchange code
-            if facebook_service.marketing_api_token:
-                access_token = facebook_service.marketing_api_token
-                expires_in = 5184000
-            else:
-                token_data = await facebook_service.exchange_token(auth_code)
-                access_token = token_data["access_token"]
-                expires_in = token_data.get("expires_in", 5184000)  # 60 days default
+            # OAuth path: exchange the code for a user access token
+            token_data = await facebook_service.exchange_token(auth_code)
+            access_token = token_data["access_token"]
+            expires_in = token_data.get("expires_in", 5184000)  # 60 days default
             
             # Get user pages (or fetch a specific page if override provided)
             pages = []

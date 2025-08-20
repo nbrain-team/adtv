@@ -16,32 +16,16 @@ const FacebookConnectFlow: React.FC<FacebookConnectFlowProps> = ({ onComplete })
       // Get the redirect URI based on current location
       const redirectUri = `${window.location.origin}/facebook-callback`;
       
-      // Prefer manual-connect when env IDs are present
-      const ONLY_PAGE_ID = (import.meta as any).env?.VITE_ONLY_FACEBOOK_PAGE_ID as string | undefined;
-      const ONLY_AD_ACCOUNT_ID = (import.meta as any).env?.VITE_ONLY_FACEBOOK_AD_ACCOUNT_ID as string | undefined;
-      if (ONLY_PAGE_ID && ONLY_AD_ACCOUNT_ID) {
-        await api.post('/api/facebook-automation/facebook/manual-connect', {
-          page_id: ONLY_PAGE_ID,
-          ad_account_id: ONLY_AD_ACCOUNT_ID
-        });
-        onComplete();
-        return;
-      }
-
-      // Fallback to backend-provided auth flow
+      // Always use OAuth for client connect flow
       const response = await api.get('/api/facebook-automation/facebook/auth', {
-        params: { redirect_uri: redirectUri }
+        params: { redirect_uri: redirectUri, prefer_oauth: true }
       });
 
-      // If service token mode is enabled, we can call the backend to connect directly
-      if (response.data.service_token_mode) {
-        // Connect using service token; do not auto-create any campaigns here
-        await api.post('/api/facebook-automation/facebook/connect-with-token');
-        onComplete();
+      if (response.data.auth_url) {
+        window.location.href = response.data.auth_url;
         return;
       }
-      // Redirect to OAuth or mock URL
-      window.location.href = response.data.auth_url;
+      throw new Error('Unable to initiate OAuth');
     } catch (error) {
       console.error('Failed to initiate Facebook auth:', error);
       setLoading(false);

@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 @router.get("/facebook/auth")
 async def facebook_auth(
     redirect_uri: str,
+    prefer_oauth: bool = True,
     current_user: User = Depends(get_current_active_user)
 ):
     """Initiate Facebook OAuth flow"""
@@ -32,13 +33,7 @@ async def facebook_auth(
     #     raise HTTPException(status_code=403, detail="Facebook automation not enabled for user")
     
     app_id = facebook_service.app_id
-    # If a Marketing API token is configured, we can skip OAuth for service accounts
-    if facebook_service.marketing_api_token:
-        return {
-            "auth_url": None,
-            "mock_mode": False,
-            "service_token_mode": True
-        }
+    # Always prefer OAuth for client connect flow
     if not app_id:
         # Return mock auth URL for testing
         logger.info("Facebook app not configured - using mock mode")
@@ -65,7 +60,7 @@ async def facebook_auth(
     }
     
     auth_url = f"https://www.facebook.com/v18.0/dialog/oauth?{urlencode(params)}"
-    return {"auth_url": auth_url}
+    return {"auth_url": auth_url, "service_token_mode": False}
 
 
 @router.post("/facebook/callback")
