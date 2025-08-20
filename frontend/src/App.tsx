@@ -20,6 +20,7 @@ import ContactEnricherPage from './pages/ContactEnricherPage';
 import { AgreementSigningPage } from './pages/AgreementSigningPage';
 import FacebookAutomationPage from './pages/FacebookAutomationPage';
 import FacebookCallbackPage from './pages/FacebookCallbackPage';
+import { PrivacyPage, TermsPage, DataDeletionPage } from './pages/LegalPage';
 import CustomerServicePage from './pages/CustomerServicePage';
 
 // Define the structure for a message
@@ -106,6 +107,10 @@ function App() {
             <Route path="/agreement/:agreementId" element={<AgreementSigningPage />} />
             <Route path="/facebook-automation" element={<FacebookAutomationPage />} />
             <Route path="/facebook-callback" element={<FacebookCallbackPage />} />
+            {/* Public legal pages for Facebook App requirements */}
+            <Route path="/privacy" element={<PrivacyPage />} />
+            <Route path="/terms" element={<TermsPage />} />
+            <Route path="/data-deletion" element={<DataDeletionPage />} />
           </Routes>
         </Router>
       </QueryClientProvider>
