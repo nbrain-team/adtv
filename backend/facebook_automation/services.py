@@ -280,11 +280,15 @@ class FacebookAutomationService:
                 if fb_post.get("full_picture"):
                     media_urls.append(fb_post["full_picture"])
                 
-                # Get post insights if available
-                insights = await facebook_service.get_post_insights(
-                    fb_post["id"],
-                    client.page_access_token
-                )
+                # Optionally fetch insights; ignore failures per post
+                insights = {}
+                try:
+                    insights = await facebook_service.get_post_insights(
+                        fb_post["id"],
+                        client.page_access_token
+                    )
+                except Exception:
+                    insights = {}
                 
                 # Create post record
                 post = models.FacebookPost(
@@ -298,9 +302,9 @@ class FacebookAutomationService:
                     post_type=fb_post.get("type", "status"),
                     media_urls=media_urls,
                     thumbnail_url=media_urls[0] if media_urls else None,
-                    likes_count=fb_post.get("reactions", {}).get("summary", {}).get("total_count", 0),
-                    comments_count=fb_post.get("comments", {}).get("summary", {}).get("total_count", 0),
-                    shares_count=fb_post.get("shares", {}).get("count", 0),
+                    likes_count=0,
+                    comments_count=0,
+                    shares_count=0,
                     reach=insights.get("post_impressions", 0)
                 )
                 

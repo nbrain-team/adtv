@@ -94,7 +94,8 @@ class FacebookService:
         """Get posts from a Facebook page"""
         params = {
             "access_token": access_token or self.marketing_api_token,
-            "fields": "id,message,created_time,type,full_picture,permalink_url,shares,reactions.summary(true),comments.summary(true)",
+            # Request only supported, non-deprecated fields. Engagement metrics will be fetched via insights.
+            "fields": "id,message,created_time,full_picture,permalink_url",
             "limit": limit
         }
         
