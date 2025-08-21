@@ -131,51 +131,33 @@ class GoogleSERPService:
         return results
     
     def _build_search_queries(self, name: str, company: str, city: str, state: str, website: str) -> List[str]:
-        """Build optimized search queries"""
-        queries = []
-        
-        # Only use the two specific query patterns requested
-        if name:
-            # Email query with real estate keywords: "Name" "@" Real estate or Realtor City State
-            if city and state:
-                queries.append(f'"{name}" "@" Real estate or Realtor {city}, {state}')
-            elif city:
-                queries.append(f'"{name}" "@" Real estate or Realtor {city}')
-            
-            # Fallback email query without real estate keywords (for non-real estate contacts)
-            if city and state and company:
-                queries.append(f'"{name}" "@" {city} {state} {company}')
-            elif city and state:
-                queries.append(f'"{name}" "@" {city} {state}')
-            elif city and company:
-                queries.append(f'"{name}" "@" {city} {company}')
-            elif city:
-                queries.append(f'"{name}" "@" {city}')
-            else:
-                queries.append(f'"{name}" "@"')
-            
-            # Phone query with real estate keywords
-            if city and state:
-                queries.append(f'"{name}" "cell" OR "mobile" OR "phone" Real estate or Realtor {city} {state}')
-            elif city:
-                queries.append(f'"{name}" "cell" OR "mobile" OR "phone" Real estate or Realtor {city}')
-            
-            # Fallback phone query without real estate keywords
-            if city and state and company:
-                queries.append(f'"{name}" "cell" OR "mobile" OR "phone" {city} {state} {company}')
-            elif city and state:
-                queries.append(f'"{name}" "cell" OR "mobile" OR "phone" {city} {state}')
-            elif city and company:
-                queries.append(f'"{name}" "cell" OR "mobile" OR "phone" {city} {company}')
-            elif city:
-                queries.append(f'"{name}" "cell" OR "mobile" OR "phone" {city}')
-            else:
-                queries.append(f'"{name}" "cell" OR "mobile" OR "phone"')
-        
-        # Log the queries being built (temporary for debugging)
-        logger.info(f"Building search queries for: name='{name}', city='{city}', state='{state}', company='{company}'")
+        """Build minimal search queries per spec (2 email + 2 phone)."""
+        queries: List[str] = []
+        if not name:
+            return queries
+
+        has_city_state = bool(city and state)
+
+        # Email queries
+        if has_city_state and company:
+            # “Full Name” Company Name "email" “@” City, State
+            queries.append(f'"{name}" {company} "email" "@" {city}, {state}')
+        if has_city_state:
+            # “Full Name” "email" “@” City, State
+            queries.append(f'"{name}" "email" "@" {city}, {state}')
+
+        # Phone queries
+        if has_city_state:
+            # “Name” “cell” OR “mobile” OR “phone” City State
+            queries.append(f'"{name}" "cell" OR "mobile" OR "phone" {city} {state}')
+        if city and company:
+            # “Name” “cell” OR “mobile” OR “phone” City Company
+            queries.append(f'"{name}" "cell" OR "mobile" OR "phone" {city} {company}')
+
+        logger.info(
+            f"Building search queries for: name='{name}', city='{city}', state='{state}', company='{company}'"
+        )
         logger.info(f"Generated queries: {queries}")
-        
         return queries
     
     def _is_valid_email(self, email: str, name: str) -> bool:
