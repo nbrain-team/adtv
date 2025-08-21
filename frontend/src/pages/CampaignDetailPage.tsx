@@ -1845,94 +1845,55 @@ const CampaignDetailPage = () => {
                                                                 <Box>
                                                                     <Flex justify="between" align="center" mb="3">
                                                                         <Heading size="3">Contact Details</Heading>
-                                                                        <Button 
-                                                                            size="2" 
-                                                                            variant="soft"
-                                                                            onClick={() => {
-                                                                                setEditingContactData(contact);
-                                                                                setIsEditingContact(true);
-                                                                            }}
-                                                                        >
+                                                                        <Button size="2" variant="soft" onClick={() => { setEditingContactData(contact); setIsEditingContact(true); }}>
                                                                             <Pencil1Icon />
                                                                             Edit Contact
                                                                         </Button>
                                                                     </Flex>
-                                                                    
-                                                                    <Box style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
-                                                                        {/* Basic Info */}
-                                                                        <Box>
-                                                                            <Text size="2" weight="bold" color="gray">Basic Information</Text>
-                                                                            <Box mt="2">
-                                                                                <Text size="1" color="gray">First Name</Text>
-                                                                                <Text size="2">{contact.first_name || '-'}</Text>
-                                                                            </Box>
-                                                                            <Box mt="2">
-                                                                                <Text size="1" color="gray">Last Name</Text>
-                                                                                <Text size="2">{contact.last_name || '-'}</Text>
-                                                                            </Box>
-                                                                            <Box mt="2">
-                                                                                <Text size="1" color="gray">Email</Text>
-                                                                                <Text size="2">{contact.email || '-'}</Text>
-                                                                            </Box>
-                                                                            <Box mt="2">
-                                                                                <Text size="1" color="gray">Phone</Text>
-                                                                                <Text size="2">{contact.phone || '-'}</Text>
-                                                                            </Box>
-                                                                        </Box>
-                                                                        
-                                                                        {/* Original Data */}
-                                                                        <Box>
-                                                                            <Text size="2" weight="bold" color="gray">Original Data</Text>
-                                                                            <Box mt="2">
-                                                                                <Text size="1" color="gray">Company</Text>
-                                                                                <Text size="2">{contact.company || '-'}</Text>
-                                                                            </Box>
-                                                                            <Box mt="2">
-                                                                                <Text size="1" color="gray">Title</Text>
-                                                                                <Text size="2">{contact.title || '-'}</Text>
-                                                                            </Box>
-                                                                            <Box mt="2">
-                                                                                <Text size="1" color="gray">Neighborhood</Text>
-                                                                                <Text size="2">{contact.neighborhood || '-'}</Text>
-                                                                            </Box>
-                                                                        </Box>
-                                                                        
-                                                                        {/* Enriched Data */}
-                                                                        <Box>
-                                                                            <Text size="2" weight="bold" color="gray">Enriched Data</Text>
-                                                                            <Box mt="2">
-                                                                                <Text size="1" color="gray">Enriched Company</Text>
-                                                                                <Text size="2">{contact.enriched_company || '-'}</Text>
-                                                                            </Box>
-                                                                            <Box mt="2">
-                                                                                <Text size="1" color="gray">Enriched Title</Text>
-                                                                                <Text size="2">{contact.enriched_title || '-'}</Text>
-                                                                            </Box>
-                                                                            <Box mt="2">
-                                                                                <Text size="1" color="gray">Enriched Phone</Text>
-                                                                                <Text size="2">{contact.enriched_phone || '-'}</Text>
-                                                                            </Box>
-                                                                            <Box mt="2">
-                                                                                <Text size="1" color="gray">LinkedIn</Text>
-                                                                                <Text size="2">{contact.enriched_linkedin || '-'}</Text>
-                                                                            </Box>
-                                                                            <Box mt="2">
-                                                                                <Text size="1" color="gray">Website</Text>
-                                                                                <Text size="2">{contact.enriched_website || '-'}</Text>
-                                                                            </Box>
-                                                                            <Box mt="2">
-                                                                                <Text size="1" color="gray">Industry</Text>
-                                                                                <Text size="2">{contact.enriched_industry || '-'}</Text>
-                                                                            </Box>
-                                                                            <Box mt="2">
-                                                                                <Text size="1" color="gray">Company Size</Text>
-                                                                                <Text size="2">{contact.enriched_company_size || '-'}</Text>
-                                                                            </Box>
-                                                                            <Box mt="2">
-                                                                                <Text size="1" color="gray">Location</Text>
-                                                                                <Text size="2">{contact.enriched_location || '-'}</Text>
-                                                                            </Box>
-                                                                        </Box>
+                                                                    <Box style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem' }}>
+                                                                        {[
+                                                                            { key: 'timestamp', label: 'Timestamp' },
+                                                                            { key: 'url', label: 'Homes.com Profile', fallback: 'profile_url' },
+                                                                            { key: 'city', label: 'City', fallback: 'neighborhood' },
+                                                                            { key: 'state', label: 'State' },
+                                                                            { key: 'name', label: 'Name', build: () => `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || '-' },
+                                                                            { key: 'company', label: 'Company' },
+                                                                            { key: 'closed_sales', label: 'Closed Sales' },
+                                                                            { key: 'total_value', label: 'Total Value' },
+                                                                            { key: 'price_range', label: 'Price Range' },
+                                                                            { key: 'agent_website', label: 'Agent Website', fallback: 'enriched_website' },
+                                                                            { key: 'facebook_profile', label: 'Facebook Profile' },
+                                                                            { key: 'col_1yr_seller_total_deals', label: '1y Seller Sales', fallback: 'seller_deals_total_deals' },
+                                                                            { key: 'col_1yr_seller_total_value', label: '1y Seller Total', fallback: 'seller_deals_total_value' },
+                                                                            { key: 'col_1yr_seller_price_range', label: '1y Seller Range' },
+                                                                            { key: 'col_1y_buyer_total_deals', label: '1y Buyer Sales', fallback: 'buyer_deals_total_deals' },
+                                                                            { key: 'col_1y_buyer_total_value', label: '1y Buyer Total', fallback: 'buyer_deals_total_value' },
+                                                                            { key: 'col_1y_buyer_price_range', label: '1y Buyer Range' },
+                                                                            { key: 'col_1y_buyer_avg_sale_price', label: '1y Avg Price', fallback: 'buyer_deals_avg_price' },
+                                                                            { key: 'neighborhood_1', label: 'Neighborhood 1', fallback: 'neighborhood' },
+                                                                            { key: 'neighborhood_2', label: 'Neighborhood 2' },
+                                                                            { key: 'neighborhood_3', label: 'Neighborhood 3' },
+                                                                            { key: 'neighborhood_4', label: 'Neighborhood 4' },
+                                                                            { key: 'neighborhood_5', label: 'Neighborhood 5' },
+                                                                            { key: 'neighborhood_6', label: 'Neighborhood 6' },
+                                                                            { key: 'error', label: 'N/A' },
+                                                                        ].map((f, idx) => {
+                                                                            let value: any = undefined;
+                                                                            if (typeof (f as any).build === 'function') {
+                                                                                value = (f as any).build();
+                                                                            } else if ((contact as any)[(f as any).key] !== undefined) {
+                                                                                value = (contact as any)[(f as any).key];
+                                                                            } else if ((f as any).fallback && (contact as any)[(f as any).fallback] !== undefined) {
+                                                                                value = (contact as any)[(f as any).fallback];
+                                                                            }
+                                                                            if (value === undefined || value === null || value === '') value = '-';
+                                                                            return (
+                                                                                <Box key={idx} style={{ display: 'flex', gap: 6 }}>
+                                                                                    <Text size="2" weight="bold">{(f as any).label}:</Text>
+                                                                                    <Text size="2">{String(value)}</Text>
+                                                                                </Box>
+                                                                            );
+                                                                        })}
                                                                     </Box>
                                                                 </Box>
                                                             </Table.Cell>
