@@ -23,6 +23,58 @@ from .email_service import email_service
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
+# Helper filters for generic emails and mobile-preferred phones
+GENERIC_EMAIL_PREFIXES = (
+    'info', 'contact', 'team', 'sales', 'email', 'support', 'admin', 'office', 'hello'
+)
+
+def _is_generic_email(email: str) -> bool:
+    if not email:
+        return False
+    try:
+        local = email.split('@')[0].lower().strip()
+        local = local.split('+')[0]
+        # Direct match on common prefixes or dotted variants like 'info.team'
+        for prefix in GENERIC_EMAIL_PREFIXES:
+            if local == prefix or local.startswith(prefix + '.') or local.endswith('.' + prefix):
+                return True
+        return False
+    except Exception:
+        return False
+
+def _filter_generic_email(email: str) -> str:
+    value = (email or '').strip()
+    if not value:
+        return ''
+    return '' if _is_generic_email(value) else value
+
+def _prefer_mobile_phone(phones: List[str]) -> Optional[str]:
+    """Prefer mobile numbers when multiple are available."""
+    try:
+        import phonenumbers
+        from phonenumbers import PhoneNumberType as PNT
+    except Exception:
+        # Fallback: return the first number if library is unavailable
+        return phones[0] if phones else None
+    best_mobile = None
+    best_other = None
+    for raw in phones or []:
+        try:
+            parsed = phonenumbers.parse(raw, "US")
+            if not phonenumbers.is_valid_number(parsed):
+                continue
+            number_type = phonenumbers.number_type(parsed)
+            formatted = phonenumbers.format_number(parsed, phonenumbers.PhoneNumberFormat.NATIONAL)
+            if number_type in (PNT.MOBILE, PNT.FIXED_LINE_OR_MOBILE):
+                if not best_mobile:
+                    best_mobile = formatted
+            else:
+                if not best_other:
+                    best_other = formatted
+        except Exception:
+            continue
+    return best_mobile or best_other or (phones[0] if phones else None)
+
 # Pydantic models
 class EventSlot(BaseModel):
     date: str  # Date string
@@ -623,7 +675,7 @@ async def upload_contacts(
                 campaign_id=campaign_id,
                 first_name=contact_data['first_name'],
                 last_name=contact_data['last_name'],
-                email=contact_data['email'],  # Can be empty
+                email=_filter_generic_email(contact_data['email']),  # Filter generic inboxes
                 company=contact_data['company'],
                 title=contact_data['title'],
                 phone=contact_data['phone'],  # Can be empty
@@ -1559,24 +1611,23 @@ async def enrich_contacts_concurrently(contacts, campaign_id, enricher, db, Sess
                     if 'google' in results:
                         google_data = results['google']
                         
-                        # Extract best email
+                        # Extract best email (skip generic inboxes)
                         best_email = None
                         best_email_confidence = 0
                         for email_data in google_data.get('emails', []):
-                            if email_data['confidence'] > best_email_confidence:
-                                best_email = email_data['email']
-                                best_email_confidence = email_data['confidence']
+                            email_value = email_data.get('email')
+                            if not email_value or _is_generic_email(email_value):
+                                continue
+                            if email_data.get('confidence', 0) > best_email_confidence:
+                                best_email = email_value
+                                best_email_confidence = email_data.get('confidence', 0)
                         
                         if best_email and not fresh_contact.email:
                             fresh_contact.email = best_email
                         
-                        # Extract best phone
-                        best_phone = None
-                        best_phone_confidence = 0
-                        for phone_data in google_data.get('phones', []):
-                            if phone_data.get('confidence', 0) > best_phone_confidence:
-                                best_phone = phone_data['phone']
-                                best_phone_confidence = phone_data.get('confidence', 0)
+                        # Extract best phone (prefer mobile if multiple)
+                        phone_candidates = [p.get('phone') for p in google_data.get('phones', []) if p.get('phone')]
+                        best_phone = _prefer_mobile_phone(phone_candidates)
                         
                         if best_phone:
                             fresh_contact.enriched_phone = best_phone
@@ -1591,13 +1642,15 @@ async def enrich_contacts_concurrently(contacts, campaign_id, enricher, db, Sess
                     if 'website' in results:
                         website_data = results['website']
                         
-                        website_emails = website_data.get('emails', [])
+                        website_emails = [e for e in website_data.get('emails', []) if not _is_generic_email(e)]
                         if website_emails and not fresh_contact.email:
                             fresh_contact.email = website_emails[0]
                         
                         website_phones = website_data.get('phones', [])
                         if website_phones and not fresh_contact.enriched_phone:
-                            fresh_contact.enriched_phone = website_phones[0]
+                            best_site_phone = _prefer_mobile_phone(website_phones)
+                            if best_site_phone:
+                                fresh_contact.enriched_phone = best_site_phone
                         
                         fresh_contact.enriched_company = website_data.get('company_name') or fresh_contact.company
                         fresh_contact.enriched_location = website_data.get('location') or fresh_contact.enriched_location
@@ -1607,7 +1660,7 @@ async def enrich_contacts_concurrently(contacts, campaign_id, enricher, db, Sess
                     # Process Facebook results
                     if 'facebook' in results:
                         facebook_data = results['facebook']
-                        fb_emails = facebook_data.get('emails', [])
+                        fb_emails = [e for e in facebook_data.get('emails', []) if not _is_generic_email(e)]
                         if fb_emails and not fresh_contact.email:
                             fresh_contact.email = fb_emails[0]
                         

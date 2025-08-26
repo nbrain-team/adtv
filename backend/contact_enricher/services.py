@@ -25,6 +25,9 @@ class GoogleSERPService:
         self.api_key = api_key
         self.base_url = "https://google.serper.dev/search"
         self.email_pattern = re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b')
+        self.generic_email_prefixes = (
+            'info', 'contact', 'team', 'sales', 'email', 'support', 'admin', 'office', 'hello'
+        )
         # Enhanced phone pattern to catch more formats
         self.phone_patterns = [
             re.compile(r'(\+?1?\s*\(?[0-9]{3}\)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4})'),  # Standard US
@@ -89,10 +92,40 @@ class GoogleSERPService:
                     for phone in phones:
                         formatted_phone = self._format_phone(phone)
                         if formatted_phone:
+                            # Determine type and adjust confidence
+                            phone_conf = 0.8
+                            phone_type_str = 'unknown'
+                            try:
+                                parsed = phonenumbers.parse(formatted_phone, "US")
+                                ptype = phonenumbers.number_type(parsed)
+                                # Bias toward mobile numbers
+                                if ptype in (phonenumbers.PhoneNumberType.MOBILE, phonenumbers.PhoneNumberType.FIXED_LINE_OR_MOBILE):
+                                    phone_conf += 0.15
+                                    phone_type_str = 'mobile'
+                                elif ptype == phonenumbers.PhoneNumberType.FIXED_LINE:
+                                    phone_type_str = 'fixed_line'
+                                # Basic heuristics to penalize office-style numbers
+                                national = phonenumbers.format_number(parsed, phonenumbers.PhoneNumberFormat.NATIONAL)
+                                digits = re.sub(r'\D', '', national)
+                                if len(digits) >= 10:
+                                    area = digits[:3]
+                                    last4 = digits[-4:]
+                                    if area in {'800','888','877','866','855','844','833','822'}:
+                                        phone_conf -= 0.25
+                                    if last4 in {'0000','1000','2000','3000','4000','5000'}:
+                                        phone_conf -= 0.1
+                                text_ctx = (snippet + ' ' + title).lower()
+                                if any(token in text_ctx for token in ['cell', 'mobile', 'text me']):
+                                    phone_conf += 0.1
+                                if any(token in text_ctx for token in ['office', 'main line', 'switchboard']):
+                                    phone_conf -= 0.1
+                            except Exception:
+                                pass
                             results['phones'].append({
                                 'phone': formatted_phone,
                                 'source': link,
-                                'confidence': 0.8
+                                'confidence': max(0.0, min(1.0, phone_conf)),
+                                'type': phone_type_str
                             })
                     
                     results['sources'].append(link)
@@ -114,10 +147,37 @@ class GoogleSERPService:
                     for phone in phones:
                         formatted_phone = self._format_phone(phone)
                         if formatted_phone:
+                            phone_conf = 0.7
+                            phone_type_str = 'unknown'
+                            try:
+                                parsed = phonenumbers.parse(formatted_phone, "US")
+                                ptype = phonenumbers.number_type(parsed)
+                                if ptype in (phonenumbers.PhoneNumberType.MOBILE, phonenumbers.PhoneNumberType.FIXED_LINE_OR_MOBILE):
+                                    phone_conf += 0.15
+                                    phone_type_str = 'mobile'
+                                elif ptype == phonenumbers.PhoneNumberType.FIXED_LINE:
+                                    phone_type_str = 'fixed_line'
+                                national = phonenumbers.format_number(parsed, phonenumbers.PhoneNumberFormat.NATIONAL)
+                                digits = re.sub(r'\D', '', national)
+                                if len(digits) >= 10:
+                                    area = digits[:3]
+                                    last4 = digits[-4:]
+                                    if area in {'800','888','877','866','855','844','833','822'}:
+                                        phone_conf -= 0.25
+                                    if last4 in {'0000','1000','2000','3000','4000','5000'}:
+                                        phone_conf -= 0.1
+                                text_ctx = snippet.lower()
+                                if any(token in text_ctx for token in ['cell', 'mobile', 'text me']):
+                                    phone_conf += 0.1
+                                if any(token in text_ctx for token in ['office', 'main line', 'switchboard']):
+                                    phone_conf -= 0.1
+                            except Exception:
+                                pass
                             results['phones'].append({
                                 'phone': formatted_phone,
                                 'source': 'People Also Ask',
-                                'confidence': 0.7
+                                'confidence': max(0.0, min(1.0, phone_conf)),
+                                'type': phone_type_str
                             })
                 
             except Exception as e:
@@ -165,14 +225,19 @@ class GoogleSERPService:
         email_lower = email.lower()
         name_parts = name.lower().split()
         
-        # Avoid generic emails
-        generic_patterns = ['info@', 'contact@', 'admin@', 'support@', 'noreply@', 'sales@', 'office@']
-        if any(pattern in email_lower for pattern in generic_patterns):
-            # Check if the name appears even in generic emails (like john.smith@info.company.com)
-            for part in name_parts:
-                if len(part) > 2 and part in email_lower:
-                    return True
-            return False
+        # Avoid generic emails by local-part
+        try:
+            local_part = email_lower.split('@')[0]
+            local_part = local_part.split('+')[0]
+            for prefix in self.generic_email_prefixes:
+                if local_part == prefix or local_part.startswith(prefix + '.') or local_part.endswith('.' + prefix):
+                    # Allow through only if name appears in the address strongly
+                    for part in name_parts:
+                        if len(part) > 2 and part in email_lower:
+                            return True
+                    return False
+        except Exception:
+            pass
         
         # Accept email if it contains any part of the name
         for part in name_parts:
