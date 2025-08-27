@@ -7,6 +7,7 @@ from .podio_client import (
     list_app_items_basic,
     get_item_by_app_item_id,
     search_app,
+    get_item,
 )
 from . import auth
 import os, json
@@ -76,6 +77,37 @@ async def list_clients(
                     })
                     # Continue to next app after exact match
                     continue
+                except Exception:
+                    pass
+
+            # If text query, prefer exact title match via search endpoint first
+            if q and not str(q).strip().isdigit():
+                try:
+                    sr = search_app(app_id_int, at, str(q).strip(), limit=20, offset=0)
+                    exact = []
+                    partial = []
+                    for r in (sr.get("results") or []):
+                        ref = r.get("ref") or {}
+                        if ref.get("type") != "item":
+                            continue
+                        iid = ref.get("id")
+                        if not iid:
+                            continue
+                        det = get_item(iid, at)
+                        rec = {
+                            "id": det.get("item_id"),
+                            "title": det.get("title"),
+                            "client_id": det.get("app_item_id_formatted") or det.get("item_id"),
+                            "app_id": app_id_int,
+                            "app_name": app_display_name,
+                        }
+                        if str(det.get("title") or "").strip().lower() == str(q).strip().lower():
+                            exact.append(rec)
+                        else:
+                            partial.append(rec)
+                    if exact or partial:
+                        items.extend(exact + partial)
+                        continue
                 except Exception:
                     pass
 
