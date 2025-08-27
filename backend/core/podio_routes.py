@@ -5,6 +5,8 @@ from .podio_client import (
     ping_all_from_env,
     get_access_token_for_app,
     list_app_items_basic,
+    get_item_by_app_item_id,
+    search_app,
 )
 from . import auth
 import os, json
@@ -61,6 +63,22 @@ async def list_clients(
         app_display_name = app_id_to_name.get(app_id_int) or str(app_id_int)
         try:
             at = get_access_token_for_app(app_id_int, app_token)
+            # If q is numeric, try exact app_item_id first
+            if q and str(q).strip().isdigit():
+                try:
+                    itm = get_item_by_app_item_id(app_id_int, at, int(str(q).strip()))
+                    items.append({
+                        "id": itm.get("item_id"),
+                        "title": itm.get("title") or str(q),
+                        "client_id": itm.get("app_item_id_formatted") or str(q),
+                        "app_id": app_id_int,
+                        "app_name": app_display_name,
+                    })
+                    # Continue to next app after exact match
+                    continue
+                except Exception:
+                    pass
+
             # When searching, paginate until we collect enough matches
             max_pages = 5
             page_size = 200
@@ -74,6 +92,29 @@ async def list_clients(
                     listing = list_app_items_basic(app_id_int, at, limit=page_size, offset=offset)
                 arr = listing.get("items", []) or []
                 if not arr:
+                    # As a fallback, try the search endpoint for text queries
+                    if q and not str(q).strip().isdigit():
+                        try:
+                            sr = search_app(app_id_int, at, str(q).strip(), limit=20, offset=0)
+                            for r in (sr.get("results") or []):
+                                ref = r.get("ref") or {}
+                                if ref.get("type") != "item":
+                                    continue
+                                iid = ref.get("id")
+                                if not iid:
+                                    continue
+                                # Fetch details to get title and client_id
+                                det = get_item(iid, at)
+                                items.append({
+                                    "id": det.get("item_id"),
+                                    "title": det.get("title"),
+                                    "client_id": det.get("app_item_id_formatted") or det.get("item_id"),
+                                    "app_id": app_id_int,
+                                    "app_name": app_display_name,
+                                })
+                            break
+                        except Exception:
+                            break
                     break
                 for it in arr:
                     item_id = it.get("item_id")

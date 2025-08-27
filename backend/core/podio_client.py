@@ -116,3 +116,20 @@ def get_item_comments(item_id: int | str, access_token: str, *, limit: int = 50)
     return resp.json()
 
 
+def get_item_by_app_item_id(app_id: int | str, access_token: str, app_item_id: int | str) -> Dict[str, Any]:
+    """Fetch an item by its app-scoped item id (client_id)."""
+    url = f"{PODIO_BASE_URL}/app/{app_id}/item/{app_item_id}"
+    resp = requests.get(url, headers=_get_headers(access_token), timeout=30)
+    resp.raise_for_status()
+    return resp.json()
+
+
+def search_app(app_id: int | str, access_token: str, query: str, *, limit: int = 50, offset: int = 0) -> Dict[str, Any]:
+    """Use Podio's app search endpoint for full-text lookups."""
+    url = f"{PODIO_BASE_URL}/search/app/{app_id}/"
+    params = {"query": query, "limit": limit, "offset": offset}
+    resp = requests.get(url, headers=_get_headers(access_token), params=params, timeout=30)
+    resp.raise_for_status()
+    return resp.json()
+
+
