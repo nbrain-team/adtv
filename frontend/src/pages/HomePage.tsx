@@ -63,7 +63,8 @@ const HomePage = ({ messages, setMessages }: HomePageProps) => {
                     query: query,
                     history: messages,
                     use_mcp: true,
-                    include_sources: ["pinecone", "customer_service", "podio"],
+                    // Bypass general Podio unless a specific client is selected
+                    include_sources: ["pinecone", "customer_service"],
                     podio_client_item_id: selectedClientItemId,
                     podio_app_id: selectedClientAppId
                 }),
