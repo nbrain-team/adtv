@@ -1,4 +1,5 @@
 import os
+import re
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.schema import HumanMessage, AIMessage, SystemMessage
 from typing import AsyncGenerator, List, Dict
@@ -28,7 +29,8 @@ ADTV_BRAND_PERSONA = """
 3.  **Be Human:** NEVER mention that you are an AI, a language model, or a machine. Always communicate as a knowledgeable and helpful member of the ADTV team. Your responses should be conversational, warm, and engaging.
 4.  **Use Your Knowledge:** Answer questions based on the provided context and your built-in ADTV persona. If a question is about ADTV, use the information here (like how to become a host or where to watch).
 5.  **Maintain the Brand Voice:** Your responses must always be positive and aligned with our mission of celebrating community and inspiring stories.
-6.  **Answer from Context:** If the user asks a question that can be answered from the <context> provided below, you MUST use it. Synthesize the information from the context to provide a comprehensive answer. Do not rely on your own knowledge for these questions. If the answer is not in the context, say, "I couldn't find specific information about that in our documents, but I can tell you..." and then provide a general answer based on your ADTV persona if appropriate.
+6.  **Answer from Context (No Disclaimers):** If the user asks a question that can be answered from the <context> provided below, you MUST use it and synthesize a clear, comprehensive answer. If something is not explicitly in the context, answer concisely with what is known and relevant, without mentioning that information is missing. Do NOT use phrases like "I couldn't find", "While the specific", or similar disclaimers. Start directly with the answer.
+7.  **Start With the Answer:** Do not preface with meta commentary about documents or availability of information. Begin with the most relevant facts, then elaborate.
 ---
 """
 
@@ -42,7 +44,7 @@ async def stream_answer(query: str, matches: list, history: List[Dict[str, str]]
         model="gemini-1.5-pro",
         google_api_key=os.environ["GEMINI_API_KEY"],
         max_output_tokens=8192,
-        temperature=0.7
+        temperature=0.3
     )
 
     context_str = ""
@@ -67,7 +69,14 @@ async def stream_answer(query: str, matches: list, history: List[Dict[str, str]]
     # Combine persona and context into a single system message for the Gemini API.
     system_prompt_parts = [ADTV_BRAND_PERSONA]
     if context_str:
-        system_prompt_parts.append(f"CRITICAL: You MUST use the following context to answer the user's question. If the answer is not here, do your best to answer based on the user's question and your persona. **Under no circumstances should you state that you could not find the information in the documents.**\n\n<context>\n{context_str}\n</context>")
+        system_prompt_parts.append(
+            (
+                "CRITICAL: You MUST use the following context to answer the user's question. "
+                "Begin directly with the answer (no preambles). Do not state that information is missing. "
+                "Avoid hedging or disclaimers.\n\n<context>\n"
+                f"{context_str}\n</context>"
+            )
+        )
     
     final_system_prompt = "\n\n".join(system_prompt_parts)
     messages = [SystemMessage(content=final_system_prompt)]
@@ -86,11 +95,42 @@ async def stream_answer(query: str, matches: list, history: List[Dict[str, str]]
     
     logger.info("Streaming response from LLM...")
     chunks_received = 0
+    first_chunk_sent = False
+
+    def _strip_hedge_prefix(text: str) -> str:
+        """Remove leading disclaimer/hedging phrases before the first sentence."""
+        if not text:
+            return text
+        lowered = text.lstrip().lower()
+        prefixes = [
+            "i couldn't find",
+            "i could not find",
+            "while the specific",
+            "i don't have",
+            "i do not have",
+            "i wasn't able to",
+            "i was not able to",
+            "the documents do not",
+            "the context doesn't",
+            "the context does not",
+        ]
+        if any(lowered.startswith(p) for p in prefixes):
+            # Remove up to the first sentence terminator
+            match = re.search(r"[\.!?]\s+", text)
+            if match:
+                return text[match.end():].lstrip()
+            return ""  # if no terminator, drop it
+        return text
     try:
         async for chunk in llm.astream(messages):
             if chunk.content:
                 chunks_received += 1
-                yield chunk.content
+                content = chunk.content
+                if not first_chunk_sent:
+                    content = _strip_hedge_prefix(content)
+                    first_chunk_sent = True
+                if content:
+                    yield content
         
         if chunks_received == 0:
             logger.warning("LLM stream finished but no content was received in any chunk.")

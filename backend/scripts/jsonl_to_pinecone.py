@@ -2,13 +2,18 @@ import os
 import sys
 import json
 import gzip
+import time
 from typing import Iterator, Dict, Any
 from pathlib import Path
 
 # Load .env BEFORE importing core modules that read env at import time
 from dotenv import load_dotenv
 _repo_root = Path(__file__).resolve().parents[2]
+# Primary: .env; Fallback: env.local if needed
 load_dotenv(_repo_root / ".env")
+# If GEMINI_API_KEY still not present, try env.local
+if not os.getenv("GEMINI_API_KEY"):
+    load_dotenv(_repo_root / "env.local")
 
 from core import pinecone_manager
 
@@ -71,7 +76,21 @@ def upsert_jsonl_gz(path: str):
         texts = chunk_text(text, max_chars=3000, overlap=200)
         if not texts:
             continue
-        pinecone_manager.upsert_chunks(texts, meta)
+        # Robust retry with exponential backoff to survive transient network/API errors
+        attempt = 0
+        while True:
+            try:
+                pinecone_manager.upsert_chunks(texts, meta)
+                break
+            except Exception as e:
+                attempt += 1
+                if attempt >= 5:
+                    print(f"ERROR: Failed to upsert record #{idx} after {attempt} attempts: {e}", file=sys.stderr)
+                    # Continue with next record instead of aborting the whole run
+                    break
+                backoff = [1, 3, 6, 12, 24][attempt - 1]
+                print(f"WARN: Upsert failed (attempt {attempt}) - {e}. Retrying in {backoff}s...", file=sys.stderr)
+                time.sleep(backoff)
         count += len(texts)
         if count % 200 == 0:
             print(f"Upserted {count} chunks...")
