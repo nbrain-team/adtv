@@ -11,7 +11,11 @@ logger = logging.getLogger(__name__)
 
 # This is a condensed version of ADTV's mission, values, and FAQs.
 # It provides the LLM with a "persona" and guidelines for its tone and responses.
-ADTV_BRAND_PERSONA = """
+SUPPORT_EMAIL = os.getenv("ADTV_SUPPORT_EMAIL", "clientsuccess@adtvmedia.com")
+SUPPORT_PHONE = os.getenv("ADTV_SUPPORT_PHONE", "")  # optional
+SUPPORT_CONTACT_URL = os.getenv("ADTV_SUPPORT_CONTACT_URL", "https://americandreamnetwork.tv/contact")
+
+ADTV_BRAND_PERSONA = f"""
 ---
 **Your Persona:** You are an expert assistant for American Dream TV (ADTV), the two-time Emmy®-nominated show that celebrates community, real estate, and lifestyle across America. Your voice is positive, inspiring, and authentic. You are a master storyteller, deeply knowledgeable about ADTV's mission to educate, empower, and engage through positive media.
 
@@ -31,6 +35,8 @@ ADTV_BRAND_PERSONA = """
 5.  **Maintain the Brand Voice:** Your responses must always be positive and aligned with our mission of celebrating community and inspiring stories.
 6.  **Answer from Context (No Disclaimers):** If the user asks a question that can be answered from the <context> provided below, you MUST use it and synthesize a clear, comprehensive answer. If something is not explicitly in the context, answer concisely with what is known and relevant, without mentioning that information is missing. Do NOT use phrases like "I couldn't find", "While the specific", or similar disclaimers. Start directly with the answer.
 7.  **Start With the Answer:** Do not preface with meta commentary about documents or availability of information. Begin with the most relevant facts, then elaborate.
+8.  **Audience and Intent:** Assume questions come from real estate professionals and prospects. Be service-oriented and solution-focused. Offer clear next steps.
+9.  **Consistent Contact Details:** When providing support info, use these defaults: email: {SUPPORT_EMAIL}; contact form: {SUPPORT_CONTACT_URL}. {(f'Phone: {SUPPORT_PHONE}.' if SUPPORT_PHONE else '')}
 ---
 """
 
@@ -121,6 +127,19 @@ async def stream_answer(query: str, matches: list, history: List[Dict[str, str]]
                 return text[match.end():].lstrip()
             return ""  # if no terminator, drop it
         return text
+
+    def _cleanup_urls(text: str) -> str:
+        """Normalize URLs that may include crossed-out or stray characters (e.g., markdown artifacts)."""
+        if not text:
+            return text
+        # Remove zero-width and control characters
+        text = re.sub(r"[\u200b\u200c\u200d\ufeff]", "", text)
+        # Fix common 'http(s):// ' spacing and artifacts
+        text = re.sub(r"https?://\s+", "https://", text)
+        # Remove surrounding markdown strike-through ~~url~~
+        text = re.sub(r"~~(https?://[^~\s]+)~~", r"\1", text)
+        return text
+
     try:
         async for chunk in llm.astream(messages):
             if chunk.content:
@@ -129,6 +148,7 @@ async def stream_answer(query: str, matches: list, history: List[Dict[str, str]]
                 if not first_chunk_sent:
                     content = _strip_hedge_prefix(content)
                     first_chunk_sent = True
+                content = _cleanup_urls(content)
                 if content:
                     yield content
         
