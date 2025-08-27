@@ -83,7 +83,7 @@ def get_access_token_for_app(app_id: int | str, app_token: str) -> str:
     return _post_oauth_token_app(app_id, app_token)
 
 
-def list_app_items_basic(app_id: int | str, access_token: str, *, limit: int = 200, offset: int = 0) -> Dict[str, Any]:
+def list_app_items_basic(app_id: int | str, access_token: str, *, limit: int = 200, offset: int = 0, query: Optional[str] = None) -> Dict[str, Any]:
     """Return items for an app using Podio filter API. Returns raw JSON."""
     url = f"{PODIO_BASE_URL}/item/app/{app_id}/filter/"
     payload = {
@@ -93,6 +93,9 @@ def list_app_items_basic(app_id: int | str, access_token: str, *, limit: int = 2
         "sort_by": "created_on",
         "sort_desc": True,
     }
+    # Podio supports "query" inside the filter payload for fulltext search on title/content
+    if query:
+        payload["query"] = str(query)
     resp = requests.post(url, headers={**_get_headers(access_token), "Content-Type": "application/json"}, json=payload, timeout=30)
     resp.raise_for_status()
     return resp.json()
