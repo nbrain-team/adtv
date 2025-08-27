@@ -61,17 +61,25 @@ async def list_clients(
         app_display_name = app_id_to_name.get(app_id_int) or str(app_id_int)
         try:
             at = get_access_token_for_app(app_id_int, app_token)
-            listing = list_app_items_basic(app_id_int, at, limit=200, offset=0, query=q)
+            try:
+                listing = list_app_items_basic(app_id_int, at, limit=200, offset=0, query=q)
+            except TypeError:
+                listing = list_app_items_basic(app_id_int, at, limit=200, offset=0)
             for it in listing.get("items", []):
                 item_id = it.get("item_id")
                 title = it.get("title") or (it.get("app_item_id_formatted") or str(item_id))
-                items.append({
+                rec = {
                     "id": item_id,
                     "title": title,
                     "client_id": it.get("app_item_id_formatted") or item_id,
                     "app_id": app_id_int,
                     "app_name": app_display_name,
-                })
+                }
+                if q:
+                    qt = str(q).lower()
+                    if qt not in str(title).lower() and qt not in str(rec["client_id"]).lower():
+                        continue
+                items.append(rec)
         except Exception as e:
             # Continue collecting others, but include a note entry indicating failure
             items.append({
