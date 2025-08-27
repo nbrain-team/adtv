@@ -34,6 +34,7 @@ from core.campaign_routes import router as campaign_routes
 from core.agreements import router as agreements_router
 from facebook_automation.api import router as facebook_automation_router
 from core.customer_service_routes import router as customer_service_router
+from core.podio_routes import router as podio_router
 
 
 load_dotenv()
@@ -393,6 +394,7 @@ app.include_router(campaign_routes, prefix="/api/campaigns", tags=["campaigns"])
 app.include_router(agreements_router, prefix="/api/agreements", tags=["agreements"])
 app.include_router(facebook_automation_router, prefix="/api/facebook-automation", tags=["facebook-automation"])
 app.include_router(customer_service_router, prefix="/api/customer-service", tags=["customer-service"])
+app.include_router(podio_router)
 
 # Mount uploads directory for static file serving
 import os
