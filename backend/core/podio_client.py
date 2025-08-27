@@ -6,10 +6,12 @@ import requests
 
 
 PODIO_BASE_URL = os.getenv("PODIO_BASE_URL", "https://api.podio.com")
+PODIO_OAUTH_BASE_URL = os.getenv("PODIO_OAUTH_BASE_URL", "https://podio.com")
 
 
 def _post_oauth_token_app(app_id: int | str, app_token: str) -> str:
-    url = f"{PODIO_BASE_URL}/oauth/token"
+    # OAuth token exchange must use podio.com (not api.podio.com)
+    url = f"{PODIO_OAUTH_BASE_URL}/oauth/token"
     data = {
         "grant_type": "app",
         "app_id": str(app_id),
