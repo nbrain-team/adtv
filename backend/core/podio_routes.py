@@ -57,6 +57,9 @@ async def list_clients(
                 continue
 
     items: List[Dict[str, Any]] = []
+    q_norm = (q or "").strip()
+    q_lower = q_norm.lower()
+    has_space = (" " in q_lower)
     for app_id_str, app_token in tokens.items():
         app_id_int = int(app_id_str)
         if app_ids_to_query and app_id_int not in app_ids_to_query:
@@ -148,6 +151,7 @@ async def list_clients(
                         except Exception:
                             break
                     break
+                deep_checked = 0
                 for it in arr:
                     item_id = it.get("item_id")
                     title = it.get("title") or (it.get("app_item_id_formatted") or str(item_id))
@@ -158,10 +162,35 @@ async def list_clients(
                         "app_id": app_id_int,
                         "app_name": app_display_name,
                     }
-                    if q:
-                        qt = str(q).lower()
-                        if qt not in str(title).lower() and qt not in str(rec["client_id"]).lower():
-                            continue
+                    if q_norm:
+                        # Fast filter on title/client_id
+                        if q_lower not in str(title).lower() and q_lower not in str(rec["client_id"]).lower():
+                            # Deep check: First Name + Last Name fields if query looks like a full name
+                            if has_space and deep_checked < 100:
+                                try:
+                                    det = get_item(item_id, at)
+                                    first = last = ""
+                                    for f in (det.get("fields") or []):
+                                        label = str(f.get("label") or "").strip().lower()
+                                        if label in ("first name", "last name"):
+                                            vals = f.get("values") or []
+                                            if vals:
+                                                v0 = vals[0].get("value")
+                                                if isinstance(v0, str):
+                                                    if label == "first name":
+                                                        first = v0
+                                                    else:
+                                                        last = v0
+                                    full_name = (first + " " + last).strip().lower()
+                                    if full_name and (full_name == q_lower or all(tok in full_name for tok in q_lower.split())):
+                                        # Use detailed title
+                                        rec["title"] = det.get("title") or rec["title"]
+                                    else:
+                                        deep_checked += 1
+                                        continue
+                                except Exception:
+                                    deep_checked += 1
+                                    continue
                     items.append(rec)
                     collected += 1
                     if q and collected >= 20:
