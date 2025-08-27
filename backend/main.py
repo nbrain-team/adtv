@@ -75,6 +75,7 @@ class ChatRequest(BaseModel):
     use_mcp: bool = True
     include_sources: Optional[List[str]] = None  # e.g., ["pinecone", "customer_service", "podio"]
     podio_client_item_id: Optional[int] = None
+    podio_app_id: Optional[int] = None
 
 class UserCreate(BaseModel):
     email: EmailStr
@@ -683,6 +684,7 @@ async def chat_stream(req: ChatRequest, current_user: User = Depends(auth.get_cu
                     matches = mcp_orchestrator.retrieve_context_for_client(
                         query=req.query,
                         podio_item_id=req.podio_client_item_id,
+                        podio_app_id=req.podio_app_id,
                         top_k=5,
                         include_sources=req.include_sources,
                     )

@@ -1,4 +1,5 @@
 import os
+import json
 from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
 
@@ -141,6 +142,7 @@ def retrieve_context_for_client(
     query: str,
     *,
     podio_item_id: Optional[int] = None,
+    podio_app_id: Optional[int] = None,
     top_k: int = 5,
     include_sources: Optional[List[str]] = None,
 ) -> List[Dict[str, Any]]:
@@ -155,15 +157,19 @@ def retrieve_context_for_client(
         try:
             raw_tokens = os.getenv("PODIO_APP_TOKENS_JSON", "{}")
             tokens = json.loads(raw_tokens)
-            # Heuristic: iterate tokens to find a valid access token for the item lookups
+            # Prefer the provided app_id to obtain the correct app-scoped token
             access_token = None
-            for app_id_str, app_token in tokens.items():
-                try:
-                    access_token = podio_client.get_access_token_for_app(int(app_id_str), app_token)
-                    if access_token:
-                        break
-                except Exception:
-                    continue
+            if podio_app_id and str(podio_app_id) in tokens:
+                access_token = podio_client.get_access_token_for_app(int(podio_app_id), tokens[str(podio_app_id)])
+            else:
+                # Fallback: iterate over all app tokens to find one that can fetch the item
+                for app_id_str, app_token in tokens.items():
+                    try:
+                        access_token = podio_client.get_access_token_for_app(int(app_id_str), app_token)
+                        if access_token:
+                            break
+                    except Exception:
+                        continue
             if access_token:
                 item = podio_client.get_item(podio_item_id, access_token)
                 fields_text = json.dumps(item.get("fields", []))

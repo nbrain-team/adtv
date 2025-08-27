@@ -25,6 +25,7 @@ interface HomePageProps {
 const HomePage = ({ messages, setMessages }: HomePageProps) => {
     const [isLoading, setIsLoading] = useState(false);
     const [selectedClientItemId, setSelectedClientItemId] = useState<number | null>(null);
+    const [selectedClientAppId, setSelectedClientAppId] = useState<number | null>(null);
     const { logout } = useAuth();
     const navigate = useNavigate();
 
@@ -63,7 +64,8 @@ const HomePage = ({ messages, setMessages }: HomePageProps) => {
                     history: messages,
                     use_mcp: true,
                     include_sources: ["pinecone", "customer_service", "podio"],
-                    podio_client_item_id: selectedClientItemId
+                    podio_client_item_id: selectedClientItemId,
+                    podio_app_id: selectedClientAppId
                 }),
             });
 
@@ -174,7 +176,7 @@ const HomePage = ({ messages, setMessages }: HomePageProps) => {
                     <CommandCenter 
                         onSend={handleSendMessage} 
                         isLoading={isLoading}
-                        leftSlot={<ClientSelector value={selectedClientItemId} onChange={setSelectedClientItemId} />}
+                        leftSlot={<ClientSelector value={selectedClientItemId} onChange={(itemId, appId) => { setSelectedClientItemId(itemId); setSelectedClientAppId(appId ?? null); }} />}
                     />
                 </Box>
                 <style>{STYLES}</style>

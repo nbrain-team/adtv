@@ -12,7 +12,7 @@ export interface ClientItem {
 
 interface ClientSelectorProps {
   value: number | null;
-  onChange: (itemId: number | null) => void;
+  onChange: (itemId: number | null, appId?: number | null) => void;
 }
 
 export const ClientSelector: React.FC<ClientSelectorProps> = ({ value, onChange }) => {
@@ -55,7 +55,7 @@ export const ClientSelector: React.FC<ClientSelectorProps> = ({ value, onChange 
         onBlur={() => setTimeout(() => setOpen(false), 150)}
       />
       {open && (
-        <Box style={{ position: 'absolute', top: '42px', left: 0, right: 0, maxHeight: '260px', overflowY: 'auto', background: 'white', border: '1px solid var(--gray-5)', borderRadius: '8px', zIndex: 20 }}>
+        <Box style={{ position: 'absolute', bottom: '42px', left: 0, right: 0, maxHeight: '260px', overflowY: 'auto', background: 'white', border: '1px solid var(--gray-5)', borderRadius: '8px', zIndex: 20 }}>
           {loading ? (
             <Flex align="center" justify="center" style={{ padding: '12px' }}>
               <Spinner />
@@ -68,7 +68,7 @@ export const ClientSelector: React.FC<ClientSelectorProps> = ({ value, onChange 
                 <div
                   key={`${item.app_id}-${item.id ?? item.title}`}
                   onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => { onChange(item.id); setQuery(''); setOpen(false); }}
+                  onClick={() => { onChange(item.id, item.app_id); setQuery(''); setOpen(false); }}
                   style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid var(--gray-3)' }}
                 >
                   <div style={{ fontWeight: 600 }}>{item.title}</div>
