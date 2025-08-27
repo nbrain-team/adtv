@@ -19,6 +19,7 @@ from datetime import datetime
 from fastapi.concurrency import run_in_threadpool
 
 from core import pinecone_manager, llm_handler, processor, auth, generator_handler
+from core import mcp as mcp_orchestrator
 from core.database import Base, get_db, engine, User, ChatSession, SessionLocal, TemplateAgent
 from realtor_importer.api import router as realtor_importer_router
 from core.data_lake_routes import router as data_lake_router
@@ -70,6 +71,8 @@ class ChatRequest(BaseModel):
     file_names: Optional[List[str]] = None
     doc_type: Optional[str] = None
     prioritize_recent: bool = False
+    use_mcp: bool = True
+    include_sources: Optional[List[str]] = None  # e.g., ["pinecone", "customer_service", "podio"]
 
 class UserCreate(BaseModel):
     email: EmailStr
@@ -671,14 +674,26 @@ async def chat_stream(req: ChatRequest, current_user: User = Depends(auth.get_cu
         chat_id = str(uuid.uuid4()) # Generate a single ID for the entire conversation
 
         try:
-            # First, query the index to get relevant documents
-            matches = pinecone_manager.query_index(
-                req.query,
-                top_k=5,
-                file_names=req.file_names,
-                doc_type=req.doc_type,
-                prioritize_recent=req.prioritize_recent
-            )
+            # First, retrieve context via MCP orchestrator (aggregates Pinecone, emails, Podio mirror)
+            if req.use_mcp:
+                matches = mcp_orchestrator.retrieve_context(
+                    query=req.query,
+                    file_names=req.file_names,
+                    doc_type=req.doc_type,
+                    prioritize_recent=req.prioritize_recent,
+                    top_k=5,
+                    include_sources=req.include_sources,
+                    user_id=current_user.id,
+                )
+            else:
+                # Backward-compatible: direct Pinecone query
+                matches = pinecone_manager.query_index(
+                    req.query,
+                    top_k=5,
+                    file_names=req.file_names,
+                    doc_type=req.doc_type,
+                    prioritize_recent=req.prioritize_recent
+                )
             source_documents = [{"source": m.get('metadata', {}).get('source')} for m in matches]
 
             # Now, stream the answer from the LLM with context
