@@ -171,7 +171,11 @@ const HomePage = ({ messages, setMessages }: HomePageProps) => {
                     borderTop: '1px solid var(--gray-4)', 
                     backgroundColor: 'white'
                 }}>
-                    <CommandCenter onSend={handleSendMessage} isLoading={isLoading} />
+                    <CommandCenter 
+                        onSend={handleSendMessage} 
+                        isLoading={isLoading}
+                        leftSlot={<ClientSelector value={selectedClientItemId} onChange={setSelectedClientItemId} />}
+                    />
                 </Box>
                 <style>{STYLES}</style>
             </Flex>
