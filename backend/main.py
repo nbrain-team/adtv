@@ -723,7 +723,24 @@ async def chat_stream(req: ChatRequest, current_user: User = Depends(auth.get_cu
                     {"text": full_response, "sender": "ai", "sources": [s['source'] for s in source_documents if s['source']]}
                 ]
                 
-                pydantic_messages = [ChatMessage(**msg) for msg in history_messages]
+                # Normalize history to match ChatMessage schema (sources must be List[str])
+                normalized: list[dict] = []
+                for m in history_messages:
+                    text = str(m.get("text", ""))
+                    sender = str(m.get("sender", ""))
+                    sources_raw = m.get("sources")
+                    sources_list: list[str] | None = None
+                    if isinstance(sources_raw, list):
+                        tmp: list[str] = []
+                        for s in sources_raw:
+                            if isinstance(s, str):
+                                tmp.append(s)
+                            elif isinstance(s, dict) and "source" in s and isinstance(s["source"], str):
+                                tmp.append(s["source"])
+                        sources_list = tmp if tmp else None
+                    normalized.append({"text": text, "sender": sender, "sources": sources_list})
+
+                pydantic_messages = [ChatMessage(**msg) for msg in normalized]
                 # Use the same chat_id generated at the start of the stream
                 history_to_save = ChatHistory(chat_id=uuid.UUID(chat_id), messages=pydantic_messages)
 
