@@ -20,7 +20,12 @@ async def ping_all(current_user=Depends(auth.get_current_active_user)):
 
 
 @router.get("/clients", response_model=Dict[str, Any])
-async def list_clients(current_user=Depends(auth.get_current_active_user)):
+async def list_clients(
+    current_user=Depends(auth.get_current_active_user),
+    q: str | None = None,
+    app_name: str | None = "Clients",
+    app_id: int | None = None,
+):
     """Return a flattened list of client items (id, title, app_id, app_name) across configured apps."""
     raw = os.getenv("PODIO_APP_TOKENS_JSON", "{}")
     apps_raw = os.getenv("PODIO_APPS_JSON", "[]")
@@ -33,29 +38,47 @@ async def list_clients(current_user=Depends(auth.get_current_active_user)):
     # Map app_id -> name
     app_id_to_name = {int(a.get("app_id")): a.get("name") for a in apps if a.get("app_id")}
 
+    # Determine which apps to query: default to Clients app only
+    app_ids_to_query: List[int] = []
+    if app_id:
+        app_ids_to_query = [int(app_id)]
+    else:
+        # Filter by provided app_name (default "Clients")
+        for a in apps:
+            try:
+                if app_name and str(a.get("name")).lower() != str(app_name).lower():
+                    continue
+                if a.get("app_id"):
+                    app_ids_to_query.append(int(a.get("app_id")))
+            except Exception:
+                continue
+
     items: List[Dict[str, Any]] = []
     for app_id_str, app_token in tokens.items():
-        app_id = int(app_id_str)
-        app_name = app_id_to_name.get(app_id) or str(app_id)
+        app_id_int = int(app_id_str)
+        if app_ids_to_query and app_id_int not in app_ids_to_query:
+            continue
+        app_display_name = app_id_to_name.get(app_id_int) or str(app_id_int)
         try:
-            at = get_access_token_for_app(app_id, app_token)
-            listing = list_app_items_basic(app_id, at, limit=200, offset=0)
+            at = get_access_token_for_app(app_id_int, app_token)
+            listing = list_app_items_basic(app_id_int, at, limit=200, offset=0, query=q)
             for it in listing.get("items", []):
                 item_id = it.get("item_id")
                 title = it.get("title") or (it.get("app_item_id_formatted") or str(item_id))
                 items.append({
                     "id": item_id,
                     "title": title,
-                    "app_id": app_id,
-                    "app_name": app_name,
+                    "client_id": it.get("app_item_id_formatted") or item_id,
+                    "app_id": app_id_int,
+                    "app_name": app_display_name,
                 })
         except Exception as e:
             # Continue collecting others, but include a note entry indicating failure
             items.append({
                 "id": None,
-                "title": f"[Error listing {app_name}] {e}",
-                "app_id": app_id,
-                "app_name": app_name,
+                "title": f"[Error listing {app_display_name}] {e}",
+                "app_id": app_id_int,
+                "app_name": app_display_name,
                 "error": True,
             })
 

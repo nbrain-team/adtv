@@ -4,6 +4,7 @@ import { Box, TextField, Flex, Spinner, Text } from '@radix-ui/themes';
 export interface ClientItem {
   id: number | null;
   title: string;
+  client_id?: string | number;
   app_id: number;
   app_name: string;
   error?: boolean;
@@ -25,7 +26,8 @@ export const ClientSelector: React.FC<ClientSelectorProps> = ({ value, onChange 
       setLoading(true);
       try {
         const token = localStorage.getItem('token');
-        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/podio/clients?token=${token}`, {
+        const search = query ? `&q=${encodeURIComponent(query)}` : '';
+        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/podio/clients?token=${token}&app_name=Clients${search}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await res.json();
@@ -37,13 +39,9 @@ export const ClientSelector: React.FC<ClientSelectorProps> = ({ value, onChange 
       }
     };
     fetchClients();
-  }, []);
+  }, [query]);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return items.slice(0, 20);
-    return items.filter(i => (i.title || '').toLowerCase().includes(q) || (i.app_name || '').toLowerCase().includes(q)).slice(0, 20);
-  }, [items, query]);
+  const filtered = useMemo(() => items.slice(0, 20), [items]);
 
   const selected = items.find(i => i.id === value) || null;
 
@@ -74,7 +72,7 @@ export const ClientSelector: React.FC<ClientSelectorProps> = ({ value, onChange 
                   style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid var(--gray-3)' }}
                 >
                   <div style={{ fontWeight: 600 }}>{item.title}</div>
-                  <div style={{ fontSize: '12px', color: 'var(--gray-10)' }}>{item.app_name} · Item {item.id ?? 'N/A'}</div>
+                  <div style={{ fontSize: '12px', color: 'var(--gray-10)' }}>{item.app_name} · Client ID {item.client_id ?? item.id ?? 'N/A'}</div>
                 </div>
               ))
             )

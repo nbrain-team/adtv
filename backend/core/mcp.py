@@ -171,7 +171,7 @@ def retrieve_context_for_client(
                 matches.append(_as_match(fields_text, f"PodioItem:{title}"))
                 comments = podio_client.get_item_comments(podio_item_id, access_token)
                 for c in comments.get("comments", [])[:top_k]:
-                    text = (c.get("value", {}) or {}).get("value") or c.get("rich_value") or ""
+                    text = (c.get("value", {}) or {}).get("value") or c.get("rich_value") or c.get("plain_value") or ""
                     if text:
                         matches.append(_as_match(text, f"PodioComment:{title}"))
         except Exception:
