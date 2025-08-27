@@ -1,5 +1,6 @@
 import { Box, Flex, Text, ScrollArea, IconButton, Heading } from '@radix-ui/themes';
 import { CommandCenter } from '../components/CommandCenter';
+import { ClientSelector } from '../components/ClientSelector';
 import { useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import ReactMarkdown from 'react-markdown';
@@ -23,6 +24,7 @@ interface HomePageProps {
 
 const HomePage = ({ messages, setMessages }: HomePageProps) => {
     const [isLoading, setIsLoading] = useState(false);
+    const [selectedClientItemId, setSelectedClientItemId] = useState<number | null>(null);
     const { logout } = useAuth();
     const navigate = useNavigate();
 
@@ -58,7 +60,10 @@ const HomePage = ({ messages, setMessages }: HomePageProps) => {
                 },
                 body: JSON.stringify({
                     query: query,
-                    history: messages
+                    history: messages,
+                    use_mcp: true,
+                    include_sources: ["pinecone", "customer_service", "podio"],
+                    podio_client_item_id: selectedClientItemId
                 }),
             });
 
@@ -116,10 +121,17 @@ const HomePage = ({ messages, setMessages }: HomePageProps) => {
         <MainLayout onNewChat={handleNewChat}>
             <Flex direction="column" style={{ height: '100vh', backgroundColor: 'var(--gray-1)' }}>
                 <Box style={{ padding: '1.5rem 2rem', borderBottom: '1px solid var(--gray-4)', backgroundColor: 'white' }}>
-                    <Heading size="7" style={{ color: 'var(--gray-12)' }}>AI Chat</Heading>
-                    <Text as="p" size="3" style={{ color: 'var(--gray-10)', marginTop: '0.25rem' }}>
-                        Ask questions and get answers from your internal knowledge base, powered by AI.
-                    </Text>
+                    <Flex align="center" justify="between">
+                        <div>
+                            <Heading size="7" style={{ color: 'var(--gray-12)' }}>AI Chat</Heading>
+                            <Text as="p" size="3" style={{ color: 'var(--gray-10)', marginTop: '0.25rem' }}>
+                                Ask questions and get answers from your internal knowledge base, powered by AI.
+                            </Text>
+                        </div>
+                        <div>
+                            <ClientSelector value={selectedClientItemId} onChange={setSelectedClientItemId} />
+                        </div>
+                    </Flex>
                 </Box>
 
                 <ScrollArea style={{ flex: 1, padding: '1rem', width: '100%' }}>
