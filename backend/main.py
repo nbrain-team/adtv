@@ -74,6 +74,7 @@ class ChatRequest(BaseModel):
     prioritize_recent: bool = False
     use_mcp: bool = True
     include_sources: Optional[List[str]] = None  # e.g., ["pinecone", "customer_service", "podio"]
+    podio_client_item_id: Optional[int] = None
 
 class UserCreate(BaseModel):
     email: EmailStr
@@ -678,15 +679,23 @@ async def chat_stream(req: ChatRequest, current_user: User = Depends(auth.get_cu
         try:
             # First, retrieve context via MCP orchestrator (aggregates Pinecone, emails, Podio mirror)
             if req.use_mcp:
-                matches = mcp_orchestrator.retrieve_context(
-                    query=req.query,
-                    file_names=req.file_names,
-                    doc_type=req.doc_type,
-                    prioritize_recent=req.prioritize_recent,
-                    top_k=5,
-                    include_sources=req.include_sources,
-                    user_id=current_user.id,
-                )
+                if req.podio_client_item_id:
+                    matches = mcp_orchestrator.retrieve_context_for_client(
+                        query=req.query,
+                        podio_item_id=req.podio_client_item_id,
+                        top_k=5,
+                        include_sources=req.include_sources,
+                    )
+                else:
+                    matches = mcp_orchestrator.retrieve_context(
+                        query=req.query,
+                        file_names=req.file_names,
+                        doc_type=req.doc_type,
+                        prioritize_recent=req.prioritize_recent,
+                        top_k=5,
+                        include_sources=req.include_sources,
+                        user_id=current_user.id,
+                    )
             else:
                 # Backward-compatible: direct Pinecone query
                 matches = pinecone_manager.query_index(

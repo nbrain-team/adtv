@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from . import pinecone_manager
 from .database import SessionLocal, CustomerServiceCommunication
+from . import podio_client
 
 
 def _as_match(text: str, source: str, extra_meta: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
@@ -133,6 +134,51 @@ def retrieve_context(
             # Fail-closed: if DB connector fails, continue with other sources
             pass
 
+    return matches
+
+
+def retrieve_context_for_client(
+    query: str,
+    *,
+    podio_item_id: Optional[int] = None,
+    top_k: int = 5,
+    include_sources: Optional[List[str]] = None,
+) -> List[Dict[str, Any]]:
+    """
+    Retrieve context with a hard bias toward a specific Podio item (client) by pulling
+    its item fields and recent comments, then append general matches as needed.
+    """
+    matches: List[Dict[str, Any]] = []
+
+    # Pull Podio item details/comments if provided and env is configured
+    if podio_item_id:
+        try:
+            raw_tokens = os.getenv("PODIO_APP_TOKENS_JSON", "{}")
+            tokens = json.loads(raw_tokens)
+            # Heuristic: iterate tokens to find a valid access token for the item lookups
+            access_token = None
+            for app_id_str, app_token in tokens.items():
+                try:
+                    access_token = podio_client.get_access_token_for_app(int(app_id_str), app_token)
+                    if access_token:
+                        break
+                except Exception:
+                    continue
+            if access_token:
+                item = podio_client.get_item(podio_item_id, access_token)
+                fields_text = json.dumps(item.get("fields", []))
+                title = item.get("title") or f"Podio Item {podio_item_id}"
+                matches.append(_as_match(fields_text, f"PodioItem:{title}"))
+                comments = podio_client.get_item_comments(podio_item_id, access_token)
+                for c in comments.get("comments", [])[:top_k]:
+                    text = (c.get("value", {}) or {}).get("value") or c.get("rich_value") or ""
+                    if text:
+                        matches.append(_as_match(text, f"PodioComment:{title}"))
+        except Exception:
+            pass
+
+    # Fallback/additional general retrieval
+    matches.extend(retrieve_context(query, include_sources=include_sources, top_k=top_k))
     return matches
 
 
