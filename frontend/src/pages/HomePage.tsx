@@ -130,9 +130,6 @@ const HomePage = ({ messages, setMessages }: HomePageProps) => {
                                 Ask questions and get answers from your internal knowledge base, powered by AI.
                             </Text>
                         </div>
-                        <div>
-                            <ClientSelector value={selectedClientItemId} onChange={setSelectedClientItemId} />
-                        </div>
                     </Flex>
                 </Box>
 
